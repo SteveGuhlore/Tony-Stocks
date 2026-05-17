@@ -1,0 +1,38 @@
+mode: swing
+
+weights:
+  trend_weight: 0.22
+  momentum_weight: 0.28
+  volume_weight: 0.18
+  risk_weight: 0.14
+  setup_quality_weight: 0.18
+
+thresholds:
+  min_avg_volume: 500000
+  min_dollar_volume: 5000000
+  max_volatility_20d: 0.08
+  min_volatility_20d: 0.006
+  max_atr_pct: 0.08
+  min_atr_pct: 0.012
+  extended_from_sma20_pct: 0.08
+  near_high_lookback: 60
+  breakout_lookback: 20
+  near_high_pct: 0.06
+  pullback_to_sma20_pct: 0.035
+  min_risk_reward: 1.5
+  minimum_risk_reward: 1.5
+  dead_return_20d_abs: 0.015
+  suggested_stop_atr_multiple: 1.5
+  suggested_target_r_multiple: 2.0
+  stop_atr_multiplier: 1.5
+  target_atr_multiplier: 3.0
+  invalid_trade_plan_score_cap: 40
+  etf_score_penalty: 8
+  mega_cap_score_penalty: 5
+
+role_score_adjustments:
+  benchmark: -15
+  reference: -10
+  primary_candidate: 4
+  speculative_candidate: -2
+  excluded_by_default: -25

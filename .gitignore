@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.pytest_tmp/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.venv/
+venv/
+.env
+*.env
+
+# Data/logs/reports
+logs/*.log
+data/*.db
+data/cache/*
+data/raw/*
+data/processed/*
+outputs/*
+reports/*
+!data/.gitkeep
+!data/cache/.gitkeep
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!logs/.gitkeep
+!outputs/.gitkeep
+!reports/.gitkeep
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Agent scratch
+.ai_runs/
+agent_scratch/

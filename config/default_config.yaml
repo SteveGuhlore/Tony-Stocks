@@ -1,0 +1,62 @@
+provider: demo_generated
+database_path: data/trading_bot.db
+outputs_dir: outputs
+cache_dir: data/cache
+log_dir: logs
+lookback_days: 120
+timeframe: daily
+max_symbols: 100
+min_price: 5
+max_price: 500
+min_avg_volume: 300000
+min_dollar_volume: 2000000
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: config/universe_swing_research_config.yaml
+
+candidate_snapshots:
+  enabled: true
+  min_score: 60
+  include_roles:
+    - primary_candidate
+    - speculative_candidate
+  include_categories:
+    - Breakout Watch
+    - Pullback Watch
+    - Momentum Continuation
+    - Base Building
+    - Speculative Watchlist
+  exclude_categories:
+    - Weak / Avoid
+    - Overextended / Wait
+    - Insufficient Data
+    - ETF / Benchmark Reference
+  include_benchmarks: false
+  include_references: false
+  allow_invalid_trade_plans: false
+  dedupe_minutes: 60
+
+snapshot_followup:
+  same_bar_target_stop_policy: conservative_stop_first
+  expire_after_trading_days: 20
+
+demo_snapshot_seed:
+  enabled: true
+  count: 12
+  days_back_start: 25
+  dedupe: true
+  note_prefix: "Demo seeded snapshot"
+
+scheduled_watch:
+  enabled: true
+  interval_minutes: 15
+  run_snapshot_update_after_scan: true
+  max_cycles:
+  market_hours_only: false
+  start_time: "09:35"
+  end_time: "16:10"
+  timezone: "America/New_York"
+  write_heartbeat_log: true
+  stop_file: "data/STOP_WATCH_MODE"

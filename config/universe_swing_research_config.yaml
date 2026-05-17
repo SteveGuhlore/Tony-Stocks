@@ -1,0 +1,246 @@
+# Static demo/research universe for swing/day-trade scanner development.
+# Market-cap and style tags are approximate placeholders until real provider
+# metadata/fundamentals are wired in. Do not treat these tags as live facts.
+symbols:
+  - symbol: SPY
+    name: S&P 500 ETF
+    tags: [etf, benchmark]
+    sector: market
+    universe_role: benchmark
+    demo_profile: benchmark_index
+    notes: Market context reference only.
+  - symbol: QQQ
+    name: Nasdaq 100 ETF
+    tags: [etf, benchmark, tech]
+    sector: market
+    universe_role: benchmark
+    demo_profile: benchmark_index
+    notes: Growth/tech market context reference only.
+  - symbol: AAPL
+    name: Apple
+    tags: [mega_cap, tech]
+    sector: technology
+    universe_role: reference
+    demo_profile: steady_mega_cap_trend
+    notes: Mega-cap reference, not primary swing candidate.
+  - symbol: MSFT
+    name: Microsoft
+    tags: [mega_cap, software]
+    sector: technology
+    universe_role: reference
+    demo_profile: steady_mega_cap_trend
+  - symbol: NVDA
+    name: Nvidia
+    tags: [mega_cap, high_beta, tech]
+    sector: technology
+    universe_role: reference
+    demo_profile: momentum_continuation
+
+  - symbol: PLTR
+    name: Palantir
+    tags: [mid_cap, high_beta, software, growth, breakout_candidate, watchlist]
+    sector: technology
+    industry: software
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: SOFI
+    name: SoFi
+    tags: [mid_cap, high_beta, fintech, growth, recent_momentum_candidate, speculative]
+    sector: financials
+    industry: fintech
+    universe_role: speculative_candidate
+    demo_profile: momentum_continuation
+  - symbol: ROKU
+    name: Roku
+    tags: [mid_cap, high_beta, consumer, growth, pullback_candidate]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: AFRM
+    name: Affirm
+    tags: [mid_cap, high_beta, fintech, growth, speculative, breakout_candidate]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: clean_breakout
+  - symbol: UPST
+    name: Upstart
+    tags: [small_cap, high_beta, fintech, speculative, recent_momentum_candidate]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: AI
+    name: C3.ai
+    tags: [small_cap, high_beta, software, speculative, breakout_candidate]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: clean_breakout
+  - symbol: PATH
+    name: UiPath
+    tags: [mid_cap, software, growth, base_building]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: IONQ
+    name: IonQ
+    tags: [small_cap, high_beta, speculative, growth, recent_momentum_candidate]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: overextended_runner
+  - symbol: RUN
+    name: Sunrun
+    tags: [small_cap, high_beta, energy, speculative, avoid_if_illiquid]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: FSLY
+    name: Fastly
+    tags: [small_cap, software, high_beta, speculative, avoid_if_illiquid]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: low_volume_chop
+  - symbol: CHPT
+    name: ChargePoint
+    tags: [small_cap, high_beta, consumer, speculative, avoid_if_illiquid]
+    sector: industrial
+    universe_role: speculative_candidate
+    demo_profile: weak_downtrend
+  - symbol: RIVN
+    name: Rivian
+    tags: [mid_cap, high_beta, consumer, growth, pullback_candidate]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: LCID
+    name: Lucid
+    tags: [small_cap, high_beta, consumer, speculative]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: weak_downtrend
+  - symbol: HOOD
+    name: Robinhood
+    tags: [mid_cap, fintech, high_beta, recent_momentum_candidate]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: MARA
+    name: Marathon Digital
+    tags: [mid_cap, high_beta, speculative, recent_momentum_candidate]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: RIOT
+    name: Riot Platforms
+    tags: [small_cap, high_beta, speculative, recent_momentum_candidate]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: overextended_runner
+  - symbol: HIMS
+    name: Hims & Hers
+    tags: [mid_cap, healthcare, growth, breakout_candidate]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: RXRX
+    name: Recursion
+    tags: [small_cap, biotech, high_beta, speculative, watchlist]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: gap_risk_placeholder
+  - symbol: BEAM
+    name: Beam Therapeutics
+    tags: [small_cap, biotech, speculative, avoid_if_illiquid]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: low_volume_chop
+  - symbol: CRSP
+    name: CRISPR Therapeutics
+    tags: [mid_cap, biotech, high_beta, pullback_candidate]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: ENVX
+    name: Enovix
+    tags: [small_cap, industrial, high_beta, speculative, breakout_candidate]
+    sector: industrial
+    universe_role: speculative_candidate
+    demo_profile: clean_breakout
+  - symbol: STEM
+    name: Stem
+    tags: [small_cap, energy, speculative, avoid_if_illiquid]
+    sector: energy
+    universe_role: excluded_by_default
+    demo_profile: weak_downtrend
+  - symbol: CAVA
+    name: Cava
+    tags: [mid_cap, consumer, growth, recent_momentum_candidate]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: CELH
+    name: Celsius
+    tags: [mid_cap, consumer, high_beta, pullback_candidate]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: ELF
+    name: e.l.f. Beauty
+    tags: [mid_cap, consumer, growth, breakout_candidate]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: DUOL
+    name: Duolingo
+    tags: [mid_cap, software, growth, recent_momentum_candidate]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: BILL
+    name: BILL
+    tags: [mid_cap, software, fintech, pullback_candidate]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: U
+    name: Unity
+    tags: [small_cap, software, high_beta, speculative]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: failed_breakout
+  - symbol: WOLF
+    name: Wolfspeed
+    tags: [small_cap, industrial, high_beta, speculative, avoid_if_illiquid]
+    sector: industrial
+    universe_role: speculative_candidate
+    demo_profile: weak_downtrend
+  - symbol: TOST
+    name: Toast
+    tags: [mid_cap, software, fintech, base_building]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: GTLB
+    name: GitLab
+    tags: [mid_cap, software, growth, breakout_candidate]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: NET
+    name: Cloudflare
+    tags: [mid_cap, software, growth, recent_momentum_candidate]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: ENPH
+    name: Enphase
+    tags: [mid_cap, energy, high_beta, pullback_candidate]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+csv_path:
+filters:
+  min_price: 3
+  max_price: 500
+  min_avg_volume: 300000
+  exclude_otc: true
+  exclude_missing_data: true
+  max_universe_size: 100

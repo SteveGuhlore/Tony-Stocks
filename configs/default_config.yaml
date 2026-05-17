@@ -1,0 +1,23 @@
+project:
+  mode: research
+
+risk:
+  starting_cash: 10000
+  max_position_fraction: 0.10
+  max_risk_per_trade_fraction: 0.02
+  max_drawdown_fraction: 0.15
+  allow_shorting: false
+  allow_margin: false
+  live_trading_enabled: false
+
+backtest:
+  default_ticker: SPY
+  default_period: 1y
+  starting_cash: 10000
+  fee_per_trade: 0.00
+  slippage_fraction: 0.0005
+
+strategy:
+  name: moving_average_crossover
+  fast_window: 20
+  slow_window: 50

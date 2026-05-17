@@ -1,0 +1,59 @@
+symbols:
+  - symbol: SPY
+    tags: [etf, benchmark]
+  - symbol: QQQ
+    tags: [etf, benchmark, tech]
+  - symbol: AAPL
+    tags: [mega_cap, tech]
+  - symbol: MSFT
+    tags: [mega_cap, tech]
+  - symbol: NVDA
+    tags: [mega_cap, tech]
+  - symbol: AMZN
+    tags: [mega_cap, tech]
+  - symbol: META
+    tags: [mega_cap, tech]
+  - symbol: GOOGL
+    tags: [mega_cap, tech]
+  - symbol: TSLA
+    tags: [mega_cap, tech]
+  - symbol: AMD
+    tags: [tech, watchlist]
+  - symbol: NFLX
+    tags: [mega_cap, tech]
+  - symbol: AVGO
+    tags: [mega_cap, tech]
+  - symbol: COST
+    tags: [mega_cap, watchlist]
+  - symbol: JPM
+    tags: [mega_cap, finance]
+  - symbol: XOM
+    tags: [mega_cap, energy]
+  - symbol: UNH
+    tags: [mega_cap, healthcare]
+  - symbol: HD
+    tags: [mega_cap]
+  - symbol: V
+    tags: [mega_cap, finance]
+  - symbol: MA
+    tags: [mega_cap, finance]
+  - symbol: CRM
+    tags: [mega_cap, tech]
+  - symbol: ORCL
+    tags: [mega_cap, tech]
+  - symbol: ADBE
+    tags: [mega_cap, tech]
+  - symbol: INTC
+    tags: [tech, watchlist]
+  - symbol: BA
+    tags: [watchlist]
+  - symbol: DIS
+    tags: [watchlist]
+csv_path:
+filters:
+  min_price: 5
+  max_price: 500
+  min_avg_volume: 500000
+  exclude_otc: true
+  exclude_missing_data: true
+  max_universe_size: 100
