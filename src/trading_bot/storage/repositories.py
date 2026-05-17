@@ -172,6 +172,92 @@ class ScannerRepository:
             rows = conn.execute("SELECT * FROM paper_trades ORDER BY id DESC").fetchall()
         return pd.DataFrame([dict(row) for row in rows])
 
+    def create_tony_event(
+        self,
+        event_type: str,
+        severity: str,
+        title: str,
+        message: str,
+        payload: dict[str, Any] | None = None,
+        source: str = "tony_stocks",
+        symbol: str | None = None,
+        notes: str | None = None,
+    ) -> int:
+        """Create one internal Tony Stocks event."""
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO tony_events (
+                    created_at, event_type, severity, symbol, title, message,
+                    payload_json, source, acknowledged, dismissed, notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+                """,
+                (
+                    utc_now_iso(),
+                    event_type,
+                    severity,
+                    symbol.upper() if symbol else None,
+                    title,
+                    message,
+                    json.dumps(payload or {}, default=str),
+                    source,
+                    notes,
+                ),
+            )
+            return int(cursor.lastrowid)
+
+    def list_tony_events(
+        self,
+        limit: int = 50,
+        severity: str | None = None,
+        event_type: str | None = None,
+        symbol: str | None = None,
+        unacknowledged: bool = False,
+    ) -> pd.DataFrame:
+        """List recent Tony Stocks events with optional filters."""
+        where: list[str] = []
+        params: list[Any] = []
+        if severity:
+            where.append("severity = ?")
+            params.append(severity)
+        if event_type:
+            where.append("event_type = ?")
+            params.append(event_type)
+        if symbol:
+            where.append("symbol = ?")
+            params.append(symbol.upper())
+        if unacknowledged:
+            where.append("acknowledged = 0")
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        params.append(limit)
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM tony_events
+                {clause}
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return pd.DataFrame([dict(row) for row in rows])
+
+    def count_tony_events(self, severity: str | None = None, event_type: str | None = None) -> int:
+        """Count Tony Stocks events with optional filters."""
+        where: list[str] = []
+        params: list[Any] = []
+        if severity:
+            where.append("severity = ?")
+            params.append(severity)
+        if event_type:
+            where.append("event_type = ?")
+            params.append(event_type)
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        with connect(self.database_path) as conn:
+            row = conn.execute(f"SELECT COUNT(*) AS count FROM tony_events {clause}", params).fetchone()
+            return int(row["count"])
+
     def create_candidate_snapshots(
         self,
         scan_run_id: int,

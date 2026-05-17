@@ -41,6 +41,7 @@ class ScannerSettings:
     snapshot_followup: dict[str, Any] | None = None
     demo_snapshot_seed: dict[str, Any] | None = None
     scheduled_watch: dict[str, Any] | None = None
+    tony_stocks: dict[str, Any] | None = None
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

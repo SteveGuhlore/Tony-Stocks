@@ -130,6 +130,21 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_watch_mode.ps1
 
 To stop: press Ctrl+C in the PowerShell window, or create `data/STOP_WATCH_MODE`.
 
+## Tony Stocks event smoke test
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m trading_bot.cli tony-events --config config/default_config.yaml --limit 20
+```
+
+Expected:
+
+- no crash,
+- recent Tony watcher/analyst events print,
+- events are internal database records only,
+- no external messages are sent,
+- no paper trades or orders are created.
+
 ## Dashboard smoke test
 
 ```powershell
@@ -155,6 +170,7 @@ Expected:
 - Snapshot follow-up updates must not create paper trades, broker orders, or live orders.
 - Seeded demo snapshots are for dashboard/outcome tracker testing only and are not evidence of real market edge.
 - Scheduled Watch Mode is scanning/snapshot collection only. It does not place paper trades or live trades.
+- Tony Stocks is currently a watcher/analyst event layer only. It does not paper trade, execute broker orders, place live trades, or use an LLM for trade decisions.
 
 ## Agent handoff checks
 

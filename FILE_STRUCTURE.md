@@ -86,6 +86,9 @@ TradingBotAgentProject/
         __init__.py
         followup.py
         seeding.py
+      tony/
+        __init__.py
+        events.py
       storage/
         __init__.py
         database.py

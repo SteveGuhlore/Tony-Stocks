@@ -427,6 +427,65 @@ def render_candidate_snapshots(repo: ScannerRepository) -> None:
         st.write("Candidate Summary", row["candidate_summary"])
 
 
+def render_tony_stocks(repo: ScannerRepository) -> None:
+    st.subheader("Tony Stocks")
+    settings = load_scanner_settings()
+    tony_config = settings.tony_stocks or {}
+    st.info("Tony Stocks is currently watcher/analyst only. No paper trades, broker orders, or live trades are placed.")
+    events = repo.list_tony_events(limit=500)
+    status_cols = st.columns(5)
+    status_cols[0].metric("Tony Mode", str(tony_config.get("mode", "watcher")))
+    latest_scan = _latest_event_time(events, "scan_completed")
+    latest_watch = _latest_event_time(events, "watch_cycle_completed")
+    status_cols[1].metric("Latest Scan Event", latest_scan or "None")
+    status_cols[2].metric("Latest Watch Event", latest_watch or "None")
+    status_cols[3].metric("Warnings", repo.count_tony_events(severity="warning"))
+    status_cols[4].metric("High-Score Events", repo.count_tony_events(event_type="high_score_candidate"))
+    if events.empty:
+        st.info("No Tony Stocks events yet. Run a scan, snapshot update, or watch cycle.")
+        return
+
+    filter_cols = st.columns(4)
+    severity = filter_cols[0].selectbox("Severity", ["All"] + sorted(events["severity"].dropna().unique().tolist()))
+    event_type = filter_cols[1].selectbox("Event Type", ["All"] + sorted(events["event_type"].dropna().unique().tolist()))
+    symbols = ["All"] + sorted(events["symbol"].dropna().unique().tolist())
+    symbol = filter_cols[2].selectbox("Symbol", symbols)
+    unacknowledged = filter_cols[3].checkbox("Unacknowledged only", value=False)
+
+    filtered = events.copy()
+    if severity != "All":
+        filtered = filtered[filtered["severity"] == severity]
+    if event_type != "All":
+        filtered = filtered[filtered["event_type"] == event_type]
+    if symbol != "All":
+        filtered = filtered[filtered["symbol"] == symbol]
+    if unacknowledged:
+        filtered = filtered[filtered["acknowledged"].fillna(0).astype(int).eq(0)]
+
+    st.dataframe(_tony_event_columns(filtered.head(100)), width="stretch", hide_index=True)
+    if filtered.empty:
+        st.info("No Tony events match the current filters.")
+        return
+    selected_id = st.selectbox("Selected Tony Event", filtered["id"].tolist())
+    if selected_id:
+        row = filtered[filtered["id"] == selected_id].iloc[0]
+        st.write(
+            {
+                "created_at": row["created_at"],
+                "event_type": row["event_type"],
+                "severity": row["severity"],
+                "symbol": row["symbol"],
+                "source": row["source"],
+                "acknowledged": bool(row["acknowledged"]),
+                "dismissed": bool(row["dismissed"]),
+                "notes": row.get("notes", ""),
+            }
+        )
+        st.write("Title", row["title"])
+        st.write("Message", row["message"])
+        st.json(json.loads(row["payload_json"] or "{}"))
+
+
 def _ranked_columns(results: pd.DataFrame) -> pd.DataFrame:
     columns = [
         "symbol",
@@ -542,11 +601,36 @@ def _count_outcome(outcome_counts: pd.DataFrame, labels: list[str]) -> int:
     return int(outcome_counts[outcome_counts["outcome_label"].isin(labels)]["count"].sum())
 
 
+def _latest_event_time(events: pd.DataFrame, event_type: str) -> str | None:
+    if events.empty:
+        return None
+    rows = events[events["event_type"] == event_type]
+    if rows.empty:
+        return None
+    return str(rows.iloc[0]["created_at"])
+
+
+def _tony_event_columns(events: pd.DataFrame) -> pd.DataFrame:
+    columns = ["created_at", "severity", "event_type", "symbol", "title", "message", "acknowledged", "dismissed"]
+    return events[[column for column in columns if column in events.columns]].rename(
+        columns={
+            "created_at": "Created",
+            "severity": "Severity",
+            "event_type": "Event Type",
+            "symbol": "Symbol",
+            "title": "Title",
+            "message": "Message",
+            "acknowledged": "Acknowledged",
+            "dismissed": "Dismissed",
+        }
+    )
+
+
 def main() -> None:
     repo = repository()
     results = latest_results(repo)
     st.title("Trading Bot Scanner")
-    tabs = st.tabs(["Overview", "Ranked Stocks", "Stock Detail", "Candidate Snapshots", "Manual Picks", "Paper Journal", "Performance"])
+    tabs = st.tabs(["Overview", "Ranked Stocks", "Stock Detail", "Candidate Snapshots", "Tony Stocks", "Manual Picks", "Paper Journal", "Performance"])
     with tabs[0]:
         render_overview(repo, results)
     with tabs[1]:
@@ -556,10 +640,12 @@ def main() -> None:
     with tabs[3]:
         render_candidate_snapshots(repo)
     with tabs[4]:
-        render_manual_picks(repo, results)
+        render_tony_stocks(repo)
     with tabs[5]:
-        render_paper_journal(repo)
+        render_manual_picks(repo, results)
     with tabs[6]:
+        render_paper_journal(repo)
+    with tabs[7]:
         render_performance(repo)
 
 

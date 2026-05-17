@@ -123,6 +123,21 @@ CREATE TABLE IF NOT EXISTS candidate_snapshots (
     notes TEXT,
     FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
 );
+
+CREATE TABLE IF NOT EXISTS tony_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    symbol TEXT,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    source TEXT NOT NULL,
+    acknowledged INTEGER NOT NULL DEFAULT 0,
+    dismissed INTEGER NOT NULL DEFAULT 0,
+    notes TEXT
+);
 """
 
 

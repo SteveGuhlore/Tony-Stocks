@@ -4,7 +4,7 @@ _Last updated: 2026-05-17_
 
 ## Phase 1 - V1/V2 scanner, scorer, and dashboard
 
-Status: V1 scaffold, V2 swing scoring, V3 mid/small-cap universe role pass, candidate snapshot foundation, trade-plan validation, V4 snapshot follow-up update command, V4.5 demo outcome seeder, and V5 scheduled watch mode tested locally.
+Status: V1 scaffold, V2 swing scoring, V3 mid/small-cap universe role pass, candidate snapshot foundation, trade-plan validation, V4 snapshot follow-up update command, V4.5 demo outcome seeder, V5 scheduled watch mode, and V6 Tony Stocks internal event layer tested locally.
 
 Goals:
 
@@ -22,7 +22,7 @@ Goals:
 Exit criteria:
 
 - `python -m compileall src` passes. Done.
-- `pytest` passes. Done with 43 tests.
+- `pytest` passes. Done with 45 tests.
 - Scanner runs with demo data and writes SQLite/CSV output. Done.
 - Snapshot command saves eligible candidate snapshots. Done.
 - Dashboard opens and reads latest scan. Startup verified.
@@ -45,6 +45,26 @@ Exit criteria:
 - Dashboard can compare setup categories by follow-up result. Initial outcome summary/filter added.
 - Demo seeded historical snapshots exist for dashboard/outcome testing only. Done; they are not evidence of real market edge.
 - Scheduled Watch Mode can collect snapshots during the day. Done; it is scanning/snapshot collection only and does not place paper or live trades.
+- Tony Stocks can create internal watcher/analyst events for scans, snapshot updates, high-score candidates, and watch cycles. Done; it does not send external notifications or trade.
+
+## Phase 1C - Tony Stocks watcher/analyst layer
+
+Status: Initial internal event log implemented and tested locally.
+
+Goals:
+
+- Give the scanner a deterministic internal watcher persona.
+- Create structured events for dashboard review and future notifications.
+- Keep Tony as watcher/analyst only until paper-trade rules are explicit and tested.
+- Avoid LLM-based trade decisions.
+
+Exit criteria:
+
+- Tony event table exists. Done.
+- Scan/update/watch flows create events. Done.
+- Dashboard can display Tony events. Done.
+- CLI can print recent Tony events. Done.
+- Tony does not create paper trades or live trades. Done.
 
 ## Phase 2 - Real API providers
 

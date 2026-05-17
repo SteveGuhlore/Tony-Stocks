@@ -60,3 +60,22 @@ scheduled_watch:
   timezone: "America/New_York"
   write_heartbeat_log: true
   stop_file: "data/STOP_WATCH_MODE"
+
+tony_stocks:
+  enabled: true
+  agent_name: "Tony Stocks"
+  mode: "watcher"
+  create_events_for:
+    - scan_started
+    - scan_completed
+    - snapshots_created
+    - snapshots_updated
+    - high_score_candidate
+    - invalid_trade_plan_blocked
+    - outcome_updated
+    - warning_summary
+    - watch_cycle_completed
+    - system_warning
+  high_score_threshold: 85
+  include_seeded_demo_events: false
+  max_events_per_cycle: 20

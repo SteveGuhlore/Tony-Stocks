@@ -66,6 +66,54 @@ def test_candidate_snapshot_table_exists(tmp_path):
     assert {"symbol", "snapshot_time", "total_score", "entry_triggered", "result_5d", "outcome_label", "trade_plan_valid"}.issubset(columns)
 
 
+def test_tony_event_table_exists(tmp_path):
+    db = tmp_path / "scanner.db"
+    ScannerRepository(db)
+    with connect(db) as conn:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(tony_events)").fetchall()}
+    assert {
+        "created_at",
+        "event_type",
+        "severity",
+        "symbol",
+        "title",
+        "message",
+        "payload_json",
+        "acknowledged",
+        "dismissed",
+    }.issubset(columns)
+
+
+def test_create_and_list_tony_events_with_filters(tmp_path):
+    db = tmp_path / "scanner.db"
+    repo = ScannerRepository(db)
+    repo.create_tony_event(
+        event_type="high_score_candidate",
+        severity="watch",
+        symbol="PLTR",
+        title="Tony Stocks: PLTR high-score candidate",
+        message="PLTR entered Breakout Watch with score 92.",
+        payload={"score": 92},
+    )
+    repo.create_tony_event(
+        event_type="warning_summary",
+        severity="warning",
+        title="Tony Stocks: Scan warnings",
+        message="Warnings require review.",
+        payload={"warnings_count": 3},
+    )
+
+    latest = repo.list_tony_events(limit=10)
+    assert len(latest) == 2
+    warnings = repo.list_tony_events(limit=10, severity="warning")
+    assert len(warnings) == 1
+    assert warnings.iloc[0]["event_type"] == "warning_summary"
+    symbol_events = repo.list_tony_events(limit=10, symbol="PLTR")
+    assert len(symbol_events) == 1
+    assert symbol_events.iloc[0]["severity"] == "watch"
+    assert repo.count_tony_events(event_type="high_score_candidate") == 1
+
+
 def test_create_and_list_candidate_snapshots(tmp_path):
     db = tmp_path / "scanner.db"
     repo = ScannerRepository(db)

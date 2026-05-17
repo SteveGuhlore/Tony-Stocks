@@ -143,6 +143,8 @@ candidate_snapshots:
     assert snapshots.iloc[0]["symbol"] == "PLTR"
     assert snapshots.iloc[0]["entry_triggered"] == 0
     assert snapshots.iloc[0]["trade_plan_valid"] == 1
+    tony_events = ScannerRepository(database_path).list_tony_events(limit=20)
+    assert {"scan_started", "scan_completed", "snapshots_created"} & set(tony_events["event_type"])
 
     run_update_snapshots(Namespace(config=str(config_path), limit=50))
     updated = ScannerRepository(database_path).latest_candidate_snapshots()
@@ -377,6 +379,14 @@ scheduled_watch:
   timezone: "America/New_York"
   write_heartbeat_log: true
   stop_file: {stop_file.as_posix()}
+tony_stocks:
+  enabled: true
+  agent_name: "Tony Stocks"
+  mode: "watcher"
+  create_events_for: [scan_started, scan_completed, snapshots_created, snapshots_updated, high_score_candidate, outcome_updated, warning_summary, watch_cycle_completed]
+  high_score_threshold: 60
+  include_seeded_demo_events: false
+  max_events_per_cycle: 20
 """,
         encoding="utf-8",
     )
@@ -397,6 +407,11 @@ scheduled_watch:
     assert snapshots.iloc[0]["symbol"] == "PLTR"
     assert snapshots.iloc[0]["last_checked_at"]
     assert repo.paper_trades().empty
+    events = repo.list_tony_events(limit=50)
+    event_types = set(events["event_type"])
+    assert "scan_completed" in event_types
+    assert "watch_cycle_completed" in event_types
+    assert "high_score_candidate" in event_types
 
 
 def test_watch_mode_stops_before_cycle_when_stop_file_exists(tmp_path: Path):

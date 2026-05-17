@@ -23,6 +23,7 @@ from trading_bot.snapshots.seeding import build_demo_seed_snapshots
 from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
 from trading_bot.settings import load_scanner_settings
+from trading_bot.tony import TonyStocksService
 
 
 LOGGER = logging.getLogger(__name__)
@@ -60,6 +61,14 @@ def build_parser() -> argparse.ArgumentParser:
     watch.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     watch.add_argument("--max-cycles", type=int, default=None, help="Stop after this many cycles. Useful for tests.")
     watch.add_argument("--once", action="store_true", help="Run one watch cycle and exit.")
+
+    tony_events = subparsers.add_parser("tony-events", help="Print recent Tony Stocks events.")
+    tony_events.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    tony_events.add_argument("--limit", type=int, default=20, help="Maximum events to print.")
+    tony_events.add_argument("--unacknowledged", action="store_true", help="Only show unacknowledged events.")
+    tony_events.add_argument("--severity", default=None, help="Optional severity filter: info, watch, warning, critical.")
+    tony_events.add_argument("--event-type", default=None, help="Optional event type filter.")
+    tony_events.add_argument("--symbol", default=None, help="Optional symbol filter.")
     return parser
 
 
@@ -117,6 +126,9 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     scoring_config = load_scoring_config(settings.scoring_config_path)
     engine = ScoreEngine(scoring_config)
     repo = ScannerRepository(settings.database_path)
+    tony = TonyStocksService(repo, settings.tony_stocks)
+    tony.start_cycle()
+    tony.record_scan_started(symbols_loaded=len(symbols), provider=provider.name)
 
     market_data: dict[str, object] = {}
     spy_data = None
@@ -203,7 +215,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             f"close={result.latest_close:8.2f} entry={result.suggested_entry:8.2f} "
             f"stop={result.suggested_stop:8.2f} target={result.suggested_target_1:8.2f}{warning_text}"
         )
-    return {
+    summary = {
         "scan_run_id": scan_run_id,
         "provider": provider.name,
         "symbols_loaded": len(symbols),
@@ -212,6 +224,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         "snapshots_created": len(snapshot_ids),
         "warnings_count": sum(len(result.warnings) for result in results),
     }
+    tony.record_scan_completed(summary, results=results, snapshot_ids=snapshot_ids)
+    return summary
 
 
 def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
@@ -226,6 +240,8 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     }
     provider = build_market_data_provider(settings.provider, settings.cache_dir, profiles_by_symbol=profiles_by_symbol)
     repo = ScannerRepository(settings.database_path)
+    tony = TonyStocksService(repo, settings.tony_stocks)
+    tony.start_cycle()
     snapshots = repo.list_open_candidate_snapshots(limit=args.limit)
     followup_config = settings.snapshot_followup or {}
     same_bar_policy = str(followup_config.get("same_bar_target_stop_policy", "conservative_stop_first"))
@@ -277,7 +293,7 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Insufficient future data: {insufficient_count}")
     print(f"Still open: {still_open_count}")
     print(f"Top outcomes: {top_outcomes or 'none'}")
-    return {
+    summary = {
         "provider": provider.name,
         "checked": checked,
         "updated": updated,
@@ -288,6 +304,8 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
         "still_open": still_open_count,
         "outcomes": outcomes,
     }
+    tony.record_snapshot_update(summary)
+    return summary
 
 
 def run_seed_demo_snapshots(args: argparse.Namespace) -> None:
@@ -355,6 +373,8 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     """
     settings = load_scanner_settings(args.config)
     configure_logging(settings.log_dir)
+    repo = ScannerRepository(settings.database_path)
+    tony = TonyStocksService(repo, settings.tony_stocks)
     watch_config = settings.scheduled_watch or {}
     if not watch_config.get("enabled", True):
         print("Scheduled Watch Mode is disabled in config.")
@@ -402,6 +422,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 continue
 
             cycle_number = cycles_completed + 1
+            tony.start_cycle()
             cycle_started = datetime.now(ZoneInfo(timezone_name))
             print(f"\nWatch cycle {cycle_number} started at {cycle_started.isoformat()}")
             scan_summary = run_scan(SimpleNamespace(config=args.config, symbols="", save_snapshots=True))
@@ -433,6 +454,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
             )
             if cycle_summary["next_run_time"]:
                 print(f"Next run: {cycle_summary['next_run_time']}")
+            tony.record_watch_cycle_completed(cycle_summary)
 
             if max_cycles is not None and cycles_completed >= max_cycles:
                 stopped_by = "max_cycles"
@@ -448,6 +470,32 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Scheduled Watch Mode stopped. cycles_completed={cycles_completed} stopped_by={stopped_by}")
     LOGGER.info("Scheduled Watch Mode stopped. cycles_completed=%s stopped_by=%s", cycles_completed, stopped_by)
     return {"cycles_completed": cycles_completed, "stopped_by": stopped_by, "cycle_summaries": summaries}
+
+
+def run_tony_events(args: argparse.Namespace) -> None:
+    """Print recent Tony Stocks internal events."""
+    settings = load_scanner_settings(args.config)
+    repo = ScannerRepository(settings.database_path)
+    tony = TonyStocksService(repo, settings.tony_stocks)
+    events = tony.latest_events(
+        limit=args.limit,
+        severity=args.severity,
+        event_type=args.event_type,
+        symbol=args.symbol,
+        unacknowledged=args.unacknowledged,
+    )
+    print("Tony Stocks events")
+    print("Watcher/analyst only: no paper trades, broker orders, or live trades are placed.")
+    if events.empty:
+        print("No Tony events found.")
+        return
+    for row in events.to_dict("records"):
+        raw_symbol = row.get("symbol")
+        symbol = f" {raw_symbol}" if raw_symbol not in (None, "") and str(raw_symbol).lower() != "nan" else ""
+        print(
+            f"{row['created_at']} [{row['severity']}] {row['event_type']}{symbol} - "
+            f"{row['title']}: {row['message']}"
+        )
 
 
 def main() -> None:
@@ -466,6 +514,8 @@ def main() -> None:
         run_seed_demo_snapshots(args)
     elif args.command == "watch":
         run_watch(args)
+    elif args.command == "tony-events":
+        run_tony_events(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 

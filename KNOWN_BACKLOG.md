@@ -9,6 +9,7 @@ _Last updated: 2026-05-17_
 - Review snapshot follow-up outcome labels after future bars exist.
 - Review seeded demo outcome rows in the dashboard. These are testing fixtures only and are not evidence of real market edge.
 - Run Scheduled Watch Mode during a supervised demo session and review snapshot volume/dedupe behavior.
+- Review Tony Stocks event volume and wording after a supervised watch-mode session.
 - Initialize git and make an initial commit after checks pass.
 
 ## V1/V2 follow-ups
@@ -26,6 +27,8 @@ _Last updated: 2026-05-17_
 - Add a cleanup/archive command for old demo seeded snapshots if local fixture data gets noisy.
 - Add persisted watch-mode heartbeat/status history if the dashboard needs a true process-health panel.
 - Add market calendar/holiday awareness for watch-mode market-hours checks.
+- Add Tony event acknowledgement/dismiss actions in the dashboard.
+- Add external Tony notifications later through explicit opt-in channels.
 
 ## Future provider/data work
 
@@ -51,6 +54,7 @@ _Last updated: 2026-05-17_
 - Risk dashboard.
 - Alerting.
 - Emergency stop verification.
+- Tony paper-trader mode only after explicit paper-entry rules and tests exist.
 
 ## Do not do yet
 
