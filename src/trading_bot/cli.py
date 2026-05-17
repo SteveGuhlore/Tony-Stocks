@@ -10,6 +10,9 @@ from types import SimpleNamespace
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import pandas as pd
+
+from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance
@@ -69,6 +72,19 @@ def build_parser() -> argparse.ArgumentParser:
     tony_events.add_argument("--severity", default=None, help="Optional severity filter: info, watch, warning, critical.")
     tony_events.add_argument("--event-type", default=None, help="Optional event type filter.")
     tony_events.add_argument("--symbol", default=None, help="Optional symbol filter.")
+
+    outcome_analytics = subparsers.add_parser("outcome-analytics", help="Print candidate snapshot outcome analytics.")
+    outcome_analytics.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    outcome_analytics.add_argument("--include-seeded", action="store_true", help="Include demo seeded fixture rows.")
+    outcome_analytics.add_argument("--days", type=int, default=None, help="Only include snapshots from the last N days.")
+    outcome_analytics.add_argument(
+        "--group-by",
+        action="append",
+        choices=["setup_category", "score_bucket", "universe_role", "outcome_label", "warning_type", "tag"],
+        default=None,
+        help="Grouping to print. Can be repeated.",
+    )
+    outcome_analytics.add_argument("--min-score", type=float, default=None, help="Optional minimum snapshot score.")
     return parser
 
 
@@ -498,6 +514,57 @@ def run_tony_events(args: argparse.Namespace) -> None:
         )
 
 
+def run_outcome_analytics(args: argparse.Namespace) -> None:
+    """Print research analytics for candidate snapshot outcomes."""
+    settings = load_scanner_settings(args.config)
+    repo = ScannerRepository(settings.database_path)
+    snapshots = repo.list_snapshots_for_analytics(
+        include_seeded_demo=args.include_seeded,
+        days=args.days,
+        min_score=args.min_score,
+    )
+    analytics = OutcomeAnalytics(snapshots, include_seeded_demo=args.include_seeded)
+    prepared = analytics.prepared()
+    groups = args.group_by or ["setup_category", "score_bucket", "universe_role", "outcome_label", "warning_type"]
+
+    print("Outcome analytics")
+    print("Research only: analytics evaluate scanner output; they do not create trades or prove an edge.")
+    print(f"Seeded demo rows included: {bool(args.include_seeded)}")
+    if args.include_seeded:
+        print("Includes seeded demo fixtures; not evidence of real market edge.")
+    else:
+        print("Seeded demo fixture rows are excluded by default.")
+    print(f"Snapshots reviewed: {len(prepared)}")
+
+    printed_tables: dict[str, pd.DataFrame] = {}
+    for group in groups:
+        if group == "warning_type":
+            table = analytics.warning_type_summary()
+        elif group == "tag":
+            table = analytics.tag_summary()
+        else:
+            table = analytics.grouped_by(group)
+        printed_tables[group] = table
+        print(f"\nBy {group}:")
+        _print_dataframe(table)
+
+    outcome_counts = analytics.outcome_counts()
+    print("\nOutcome counts:")
+    _print_dataframe(outcome_counts)
+
+    best_group = _best_target_hit_group(printed_tables.get("setup_category"))
+    tony = TonyStocksService(repo, settings.tony_stocks)
+    tony.start_cycle()
+    tony.record_outcome_analytics(
+        {
+            "snapshot_count": len(prepared),
+            "include_seeded_demo": bool(args.include_seeded),
+            "groups": groups,
+            "best_group": best_group,
+        }
+    )
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -516,6 +583,8 @@ def main() -> None:
         run_watch(args)
     elif args.command == "tony-events":
         run_tony_events(args)
+    elif args.command == "outcome-analytics":
+        run_outcome_analytics(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 
@@ -575,6 +644,23 @@ def _sleep_until_next_cycle(interval_seconds: int, stop_file: Path) -> bool:
         time.sleep(sleep_for)
         remaining -= sleep_for
     return not stop_file.exists()
+
+
+def _print_dataframe(data: pd.DataFrame) -> None:
+    if data.empty:
+        print("No rows.")
+        return
+    print(data.to_string(index=False))
+
+
+def _best_target_hit_group(table: pd.DataFrame | None) -> str:
+    if table is None or table.empty or "target_hit_rate" not in table.columns:
+        return "none"
+    sorted_table = table.sort_values(["target_hit_rate", "total_snapshots"], ascending=[False, False])
+    row = sorted_table.iloc[0]
+    if float(row.get("target_hit_rate", 0) or 0) <= 0:
+        return "none"
+    return str(row.iloc[0])
 
 
 if __name__ == "__main__":

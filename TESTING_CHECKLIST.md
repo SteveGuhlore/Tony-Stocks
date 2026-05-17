@@ -145,6 +145,22 @@ Expected:
 - no external messages are sent,
 - no paper trades or orders are created.
 
+## Outcome analytics smoke test
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m trading_bot.cli outcome-analytics --config config/default_config.yaml
+python -m trading_bot.cli outcome-analytics --config config/default_config.yaml --include-seeded
+```
+
+Expected:
+
+- no crash,
+- seeded demo fixture rows are excluded by default,
+- `--include-seeded` mode clearly labels seeded fixture results as not evidence of real market edge,
+- grouped setup category, score bucket, universe role, outcome label, and warning summaries print,
+- no paper trades or orders are created.
+
 ## Dashboard smoke test
 
 ```powershell
@@ -171,6 +187,7 @@ Expected:
 - Seeded demo snapshots are for dashboard/outcome tracker testing only and are not evidence of real market edge.
 - Scheduled Watch Mode is scanning/snapshot collection only. It does not place paper trades or live trades.
 - Tony Stocks is currently a watcher/analyst event layer only. It does not paper trade, execute broker orders, place live trades, or use an LLM for trade decisions.
+- Outcome analytics are for model evaluation and research. Seeded demo fixture results are excluded by default and are not proof of strategy quality.
 
 ## Agent handoff checks
 

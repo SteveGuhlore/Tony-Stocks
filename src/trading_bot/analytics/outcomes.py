@@ -1,0 +1,201 @@
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from typing import Any
+
+import pandas as pd
+
+
+TARGET_OUTCOMES = {"target_hit", "target_before_stop"}
+STOP_OUTCOMES = {"stop_hit", "stop_before_target"}
+FAILURE_OUTCOMES = {"stop_hit", "stop_before_target", "failed_setup"}
+PARTIAL_OUTCOMES = {"partial_move"}
+NO_TRIGGER_OUTCOMES = {"entry_not_triggered", "expired_no_trigger"}
+INSUFFICIENT_OUTCOMES = {"insufficient_future_data"}
+RETURN_COLUMNS = ["result_eod", "result_3d", "result_5d", "result_10d", "result_20d"]
+
+
+@dataclass(frozen=True)
+class OutcomeAnalytics:
+    """Calculate research summaries from candidate snapshots."""
+
+    snapshots: pd.DataFrame
+    include_seeded_demo: bool = False
+
+    def prepared(self) -> pd.DataFrame:
+        """Return normalized snapshots with seeded fixtures filtered as configured."""
+        data = self.snapshots.copy()
+        if data.empty:
+            return data
+        for column in ("notes", "tags_json", "warnings_json", "outcome_label"):
+            if column not in data.columns:
+                data[column] = "" if column != "tags_json" and column != "warnings_json" else "[]"
+        data["is_seeded_demo"] = data.apply(_is_seeded_demo_row, axis=1)
+        if not self.include_seeded_demo:
+            data = data[~data["is_seeded_demo"]].copy()
+        data["score_bucket"] = data["total_score"].apply(score_bucket)
+        data["outcome_label"] = data["outcome_label"].fillna("unreviewed")
+        data["entry_triggered"] = data["entry_triggered"].fillna(0).astype(int)
+        for column in RETURN_COLUMNS + ["total_score"]:
+            if column in data.columns:
+                data[column] = pd.to_numeric(data[column], errors="coerce")
+        return data
+
+    def grouped_by(self, column: str) -> pd.DataFrame:
+        """Summarize outcome performance by a dataframe column."""
+        data = self.prepared()
+        if data.empty or column not in data.columns:
+            return _empty_summary(column)
+        rows = []
+        for group_value, group in data.groupby(column, dropna=False):
+            rows.append(_summary_row(column, group_value, group))
+        result = pd.DataFrame(rows)
+        return result.sort_values(["total_snapshots", column], ascending=[False, True]).reset_index(drop=True)
+
+    def warning_type_summary(self) -> pd.DataFrame:
+        """Summarize outcomes by parsed warning text."""
+        data = self.prepared()
+        if data.empty:
+            return _empty_summary("warning_type")
+        rows: list[dict[str, Any]] = []
+        for _, snapshot in data.iterrows():
+            warnings = _safe_json_list(snapshot.get("warnings_json"))
+            if not warnings:
+                warnings = ["No warning"]
+            for warning in warnings:
+                item = snapshot.to_dict()
+                item["warning_type"] = warning
+                rows.append(item)
+        expanded = pd.DataFrame(rows)
+        if expanded.empty:
+            return _empty_summary("warning_type")
+        summary_rows = [
+            _summary_row("warning_type", warning, group)
+            for warning, group in expanded.groupby("warning_type", dropna=False)
+        ]
+        return pd.DataFrame(summary_rows).sort_values(["total_snapshots", "warning_type"], ascending=[False, True]).reset_index(drop=True)
+
+    def tag_summary(self) -> pd.DataFrame:
+        """Summarize outcomes by parsed symbol tag."""
+        data = self.prepared()
+        if data.empty:
+            return _empty_summary("tag")
+        rows: list[dict[str, Any]] = []
+        for _, snapshot in data.iterrows():
+            tags = _safe_json_list(snapshot.get("tags_json"))
+            for tag in tags or ["untagged"]:
+                item = snapshot.to_dict()
+                item["tag"] = tag
+                rows.append(item)
+        expanded = pd.DataFrame(rows)
+        if expanded.empty:
+            return _empty_summary("tag")
+        summary_rows = [
+            _summary_row("tag", tag, group)
+            for tag, group in expanded.groupby("tag", dropna=False)
+        ]
+        return pd.DataFrame(summary_rows).sort_values(["total_snapshots", "tag"], ascending=[False, True]).reset_index(drop=True)
+
+    def outcome_counts(self) -> pd.DataFrame:
+        """Count outcome labels after seeded-demo filtering."""
+        data = self.prepared()
+        if data.empty:
+            return pd.DataFrame(columns=["outcome_label", "count"])
+        return (
+            data["outcome_label"]
+            .fillna("unreviewed")
+            .value_counts()
+            .rename_axis("outcome_label")
+            .reset_index(name="count")
+        )
+
+
+def score_bucket(score: float | int | None) -> str:
+    """Assign a 0-100 score into research buckets."""
+    value = float(score or 0)
+    if value >= 90:
+        return "90-100"
+    if value >= 80:
+        return "80-89"
+    if value >= 70:
+        return "70-79"
+    if value >= 60:
+        return "60-69"
+    return "below 60"
+
+
+def _summary_row(group_column: str, group_value: Any, group: pd.DataFrame) -> dict[str, Any]:
+    outcomes = group["outcome_label"].fillna("unreviewed")
+    enough_data = group[~outcomes.isin(INSUFFICIENT_OUTCOMES | {"unreviewed"})]
+    enough_count = len(enough_data)
+    target_count = int(outcomes.isin(TARGET_OUTCOMES).sum())
+    failure_count = int(outcomes.isin(FAILURE_OUTCOMES).sum())
+    row = {
+        group_column: str(group_value),
+        "total_snapshots": int(len(group)),
+        "entry_triggered_count": int(group["entry_triggered"].fillna(0).astype(int).sum()),
+        "target_hit_count": target_count,
+        "stop_hit_count": int(outcomes.isin(STOP_OUTCOMES).sum()),
+        "partial_move_count": int(outcomes.isin(PARTIAL_OUTCOMES).sum()),
+        "failed_setup_count": int((outcomes == "failed_setup").sum()),
+        "entry_not_triggered_count": int(outcomes.isin(NO_TRIGGER_OUTCOMES).sum()),
+        "insufficient_future_data_count": int(outcomes.isin(INSUFFICIENT_OUTCOMES).sum()),
+        "average_score": _mean_or_none(group.get("total_score")),
+        "target_hit_rate": round(target_count / enough_count, 4) if enough_count else 0.0,
+        "failure_rate": round(failure_count / enough_count, 4) if enough_count else 0.0,
+    }
+    for column in RETURN_COLUMNS:
+        row[f"average_{column}"] = _mean_or_none(group.get(column))
+    return row
+
+
+def _empty_summary(group_column: str) -> pd.DataFrame:
+    columns = [
+        group_column,
+        "total_snapshots",
+        "entry_triggered_count",
+        "target_hit_count",
+        "stop_hit_count",
+        "partial_move_count",
+        "failed_setup_count",
+        "entry_not_triggered_count",
+        "insufficient_future_data_count",
+        "average_score",
+        "target_hit_rate",
+        "failure_rate",
+    ] + [f"average_{column}" for column in RETURN_COLUMNS]
+    return pd.DataFrame(columns=columns)
+
+
+def _mean_or_none(series: pd.Series | None) -> float | None:
+    if series is None:
+        return None
+    numeric = pd.to_numeric(series, errors="coerce").dropna()
+    if numeric.empty:
+        return None
+    return round(float(numeric.mean()), 6)
+
+
+def _is_seeded_demo_row(row: pd.Series) -> bool:
+    notes = str(row.get("notes") or "").lower()
+    category = str(row.get("setup_category") or "").lower()
+    tags = {str(tag).lower() for tag in _safe_json_list(row.get("tags_json"))}
+    return (
+        "demo seeded snapshot" in notes
+        or "seeded demo snapshot" in notes
+        or category == "demo outcome fixture"
+        or bool({"demo_seeded", "outcome_fixture"} & tags)
+    )
+
+
+def _safe_json_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if value in (None, ""):
+        return []
+    try:
+        parsed = json.loads(str(value))
+    except (TypeError, json.JSONDecodeError):
+        return []
+    return parsed if isinstance(parsed, list) else []

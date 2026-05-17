@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from trading_bot.cli import run_scan, run_seed_demo_snapshots, run_update_snapshots, run_watch
+from trading_bot.cli import run_outcome_analytics, run_scan, run_seed_demo_snapshots, run_update_snapshots, run_watch
 from trading_bot.settings import load_scanner_settings
 
 
@@ -467,3 +467,51 @@ scheduled_watch:
 
     assert summary["cycles_completed"] == 0
     assert summary["stopped_by"] == "stop_file"
+
+
+def test_outcome_analytics_cli_prints_summary(tmp_path: Path, capsys):
+    database_path = tmp_path / "scanner.db"
+    config_path = tmp_path / "default_config.yaml"
+    config_path.write_text(
+        f"""
+provider: demo_generated
+database_path: {database_path.as_posix()}
+outputs_dir: {(tmp_path / "outputs").as_posix()}
+cache_dir: {(tmp_path / "cache").as_posix()}
+log_dir: {(tmp_path / "logs").as_posix()}
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: config/universe_swing_research_config.yaml
+tony_stocks:
+  enabled: true
+  create_events_for: [outcome_analytics_updated]
+  max_events_per_cycle: 5
+""",
+        encoding="utf-8",
+    )
+    from tests.test_database import sample_scored_stock
+    from trading_bot.storage.repositories import ScannerRepository
+
+    repo = ScannerRepository(database_path)
+    run_id = repo.create_scan_run(1, "demo_generated", {})
+    ids = repo.create_candidate_snapshots(
+        run_id,
+        [sample_scored_stock("PLTR")],
+        {"enabled": True, "min_score": 0, "include_roles": ["primary_candidate"], "include_categories": ["Breakout Watch"]},
+    )
+    repo.update_candidate_snapshot_followup(ids[0], outcome_label="target_hit", entry_triggered=1)
+
+    run_outcome_analytics(Namespace(config=str(config_path), include_seeded=False, days=None, group_by=["setup_category"], min_score=None))
+    output = capsys.readouterr().out
+
+    assert "Outcome analytics" in output
+    assert "Seeded demo fixture rows are excluded by default." in output
+    assert "Breakout Watch" in output
+    assert repo.count_tony_events(event_type="outcome_analytics_updated") == 1

@@ -10,6 +10,7 @@ _Last updated: 2026-05-17_
 - Review seeded demo outcome rows in the dashboard. These are testing fixtures only and are not evidence of real market edge.
 - Run Scheduled Watch Mode during a supervised demo session and review snapshot volume/dedupe behavior.
 - Review Tony Stocks event volume and wording after a supervised watch-mode session.
+- Review Outcome Analytics after collecting several non-seeded watch-mode sessions.
 - Initialize git and make an initial commit after checks pass.
 
 ## V1/V2 follow-ups
@@ -23,12 +24,13 @@ _Last updated: 2026-05-17_
 - Add real sector/market-cap metadata once provider/fundamentals support exists.
 - Add snapshot dedupe tuning if multiple same-hour scans should be retained.
 - Add dashboard styling/filters for explicitly viewing invalid trade plans without mixing them into primary opportunities.
-- Add a richer outcome analytics view by setup category, role, and score bucket.
+- Add exports and deeper drilldowns for outcome analytics if the dashboard view is not enough.
 - Add a cleanup/archive command for old demo seeded snapshots if local fixture data gets noisy.
 - Add persisted watch-mode heartbeat/status history if the dashboard needs a true process-health panel.
 - Add market calendar/holiday awareness for watch-mode market-hours checks.
 - Add Tony event acknowledgement/dismiss actions in the dashboard.
 - Add external Tony notifications later through explicit opt-in channels.
+- Add a stricter seeded-demo cleanup or labeling workflow before any real provider data is introduced.
 
 ## Future provider/data work
 

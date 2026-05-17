@@ -383,6 +383,61 @@ class ScannerRepository:
             ).fetchall()
         return pd.DataFrame([dict(row) for row in rows])
 
+    def list_snapshots_for_analytics(
+        self,
+        include_seeded_demo: bool = False,
+        days: int | None = None,
+        universe_role: str | None = None,
+        setup_category: str | None = None,
+        outcome_label: str | None = None,
+        min_score: float | None = None,
+        limit: int = 5000,
+    ) -> pd.DataFrame:
+        """List candidate snapshots for outcome analytics."""
+        where: list[str] = []
+        params: list[Any] = []
+        if not include_seeded_demo:
+            where.append(
+                """
+                NOT (
+                    COALESCE(notes, '') LIKE '%Demo seeded snapshot%'
+                    OR COALESCE(notes, '') LIKE '%Seeded demo snapshot%'
+                    OR setup_category = 'Demo Outcome Fixture'
+                    OR tags_json LIKE '%demo_seeded%'
+                    OR tags_json LIKE '%outcome_fixture%'
+                )
+                """
+            )
+        if days is not None:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).replace(microsecond=0).isoformat()
+            where.append("snapshot_time >= ?")
+            params.append(cutoff)
+        if universe_role:
+            where.append("universe_role = ?")
+            params.append(universe_role)
+        if setup_category:
+            where.append("setup_category = ?")
+            params.append(setup_category)
+        if outcome_label:
+            where.append("COALESCE(outcome_label, 'unreviewed') = ?")
+            params.append(outcome_label)
+        if min_score is not None:
+            where.append("total_score >= ?")
+            params.append(min_score)
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        params.append(limit)
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM candidate_snapshots
+                {clause}
+                ORDER BY snapshot_time DESC, total_score DESC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        return pd.DataFrame([dict(row) for row in rows])
+
     def latest_candidate_snapshots(self, limit: int = 100) -> pd.DataFrame:
         """Return recent candidate snapshots."""
         return self.list_candidate_snapshots(limit=limit)

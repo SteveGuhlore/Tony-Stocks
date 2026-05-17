@@ -14,6 +14,7 @@ if str(ROOT / "src") not in sys.path:
 
 from trading_bot.data.market_data import build_market_data_provider
 from trading_bot.data.universe import load_universe_metadata
+from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.indicators import simple_moving_average
 from trading_bot.settings import load_scanner_settings
 from trading_bot.storage.repositories import ScannerRepository
@@ -486,6 +487,68 @@ def render_tony_stocks(repo: ScannerRepository) -> None:
         st.json(json.loads(row["payload_json"] or "{}"))
 
 
+def render_outcome_analytics(repo: ScannerRepository) -> None:
+    st.subheader("Outcome Analytics")
+    st.info("Outcome analytics are for model evaluation and research. Seeded demo fixture results are excluded by default and are not proof of strategy quality.")
+    filter_cols = st.columns(4)
+    include_seeded = filter_cols[0].checkbox("Include seeded demo fixtures", value=False)
+    days = filter_cols[1].number_input("Last N days", min_value=0, value=0, help="0 means all available snapshots.")
+    min_score = filter_cols[2].number_input("Minimum score", min_value=0.0, max_value=100.0, value=0.0)
+    role_filter = filter_cols[3].text_input("Universe role filter")
+    snapshots = repo.list_snapshots_for_analytics(
+        include_seeded_demo=include_seeded,
+        days=int(days) if days else None,
+        universe_role=role_filter.strip() or None,
+        min_score=min_score if min_score > 0 else None,
+    )
+    analytics = OutcomeAnalytics(snapshots, include_seeded_demo=include_seeded)
+    prepared = analytics.prepared()
+    seeded_count = int(prepared["is_seeded_demo"].sum()) if not prepared.empty and "is_seeded_demo" in prepared else 0
+    metric_cols = st.columns(5)
+    metric_cols[0].metric("Snapshots Reviewed", len(prepared))
+    metric_cols[1].metric("Seeded Fixtures", seeded_count)
+    metric_cols[2].metric("Triggered", int(prepared["entry_triggered"].sum()) if not prepared.empty else 0)
+    metric_cols[3].metric("Target Hits", int(prepared["outcome_label"].isin(["target_hit", "target_before_stop"]).sum()) if not prepared.empty else 0)
+    metric_cols[4].metric("Failures", int(prepared["outcome_label"].isin(["stop_hit", "stop_before_target", "failed_setup"]).sum()) if not prepared.empty else 0)
+    if prepared.empty:
+        st.info("No snapshots match the current analytics filters.")
+        return
+
+    setup_summary = analytics.grouped_by("setup_category")
+    bucket_summary = analytics.grouped_by("score_bucket")
+    role_summary = analytics.grouped_by("universe_role")
+    warning_summary = analytics.warning_type_summary()
+    outcome_counts = analytics.outcome_counts()
+
+    chart_cols = st.columns(3)
+    if not outcome_counts.empty:
+        chart_cols[0].plotly_chart(
+            go.Figure(data=[go.Bar(x=outcome_counts["outcome_label"], y=outcome_counts["count"])]).update_layout(title="Outcome Counts"),
+            width="stretch",
+        )
+    if not setup_summary.empty:
+        chart_cols[1].plotly_chart(
+            go.Figure(data=[go.Bar(x=setup_summary["setup_category"], y=setup_summary["target_hit_rate"])]).update_layout(title="Target Rate by Setup"),
+            width="stretch",
+        )
+    if not bucket_summary.empty and "average_result_5d" in bucket_summary.columns:
+        chart_cols[2].plotly_chart(
+            go.Figure(data=[go.Bar(x=bucket_summary["score_bucket"], y=bucket_summary["average_result_5d"])]).update_layout(title="Avg 5D Return by Score Bucket"),
+            width="stretch",
+        )
+
+    st.subheader("Setup Category Performance")
+    st.dataframe(setup_summary, width="stretch", hide_index=True)
+    st.subheader("Score Bucket Performance")
+    st.dataframe(bucket_summary, width="stretch", hide_index=True)
+    st.subheader("Universe Role Performance")
+    st.dataframe(role_summary, width="stretch", hide_index=True)
+    st.subheader("Outcome Label Counts")
+    st.dataframe(outcome_counts, width="stretch", hide_index=True)
+    st.subheader("Warning Type Performance")
+    st.dataframe(warning_summary.head(100), width="stretch", hide_index=True)
+
+
 def _ranked_columns(results: pd.DataFrame) -> pd.DataFrame:
     columns = [
         "symbol",
@@ -630,7 +693,7 @@ def main() -> None:
     repo = repository()
     results = latest_results(repo)
     st.title("Trading Bot Scanner")
-    tabs = st.tabs(["Overview", "Ranked Stocks", "Stock Detail", "Candidate Snapshots", "Tony Stocks", "Manual Picks", "Paper Journal", "Performance"])
+    tabs = st.tabs(["Overview", "Ranked Stocks", "Stock Detail", "Candidate Snapshots", "Outcome Analytics", "Tony Stocks", "Manual Picks", "Paper Journal", "Performance"])
     with tabs[0]:
         render_overview(repo, results)
     with tabs[1]:
@@ -640,12 +703,14 @@ def main() -> None:
     with tabs[3]:
         render_candidate_snapshots(repo)
     with tabs[4]:
-        render_tony_stocks(repo)
+        render_outcome_analytics(repo)
     with tabs[5]:
-        render_manual_picks(repo, results)
+        render_tony_stocks(repo)
     with tabs[6]:
-        render_paper_journal(repo)
+        render_manual_picks(repo, results)
     with tabs[7]:
+        render_paper_journal(repo)
+    with tabs[8]:
         render_performance(repo)
 
 

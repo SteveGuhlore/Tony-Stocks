@@ -31,6 +31,7 @@ class TonyConfig:
         "outcome_updated",
         "warning_summary",
         "watch_cycle_completed",
+        "outcome_analytics_updated",
         "system_warning",
     )
     high_score_threshold: float = 85.0
@@ -196,6 +197,23 @@ class TonyStocksService:
                 f"Next scan: {next_run}."
             ),
             payload=cycle_summary,
+        )
+
+    def record_outcome_analytics(self, analytics_summary: dict[str, Any]) -> None:
+        """Create one concise event after outcome analytics is calculated."""
+        included_seeded = bool(analytics_summary.get("include_seeded_demo", False))
+        snapshot_count = int(analytics_summary.get("snapshot_count", 0))
+        best_group = analytics_summary.get("best_group") or "none"
+        suffix = " Includes seeded demo fixtures; not evidence of real market edge." if included_seeded else ""
+        self.create_event(
+            event_type="outcome_analytics_updated",
+            severity="warning" if included_seeded else "info",
+            title=f"{self.config.agent_name}: Outcome analytics updated",
+            message=(
+                f"Outcome analytics reviewed {snapshot_count} snapshot(s). "
+                f"Highest target-hit rate currently appears in {best_group}.{suffix}"
+            ),
+            payload=analytics_summary,
         )
 
     def latest_events(

@@ -75,6 +75,7 @@ tony_stocks:
     - outcome_updated
     - warning_summary
     - watch_cycle_completed
+    - outcome_analytics_updated
     - system_warning
   high_score_threshold: 85
   include_seeded_demo_events: false

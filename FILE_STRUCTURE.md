@@ -78,6 +78,9 @@ TradingBotAgentProject/
       indicators/
         __init__.py
         technicals.py
+      analytics/
+        __init__.py
+        outcomes.py
       scoring/
         __init__.py
         score_engine.py
@@ -118,4 +121,5 @@ TradingBotAgentProject/
     test_database.py
     test_scanner_smoke.py
     test_snapshot_followup.py
+    test_outcome_analytics.py
 ```

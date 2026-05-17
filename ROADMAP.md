@@ -4,7 +4,7 @@ _Last updated: 2026-05-17_
 
 ## Phase 1 - V1/V2 scanner, scorer, and dashboard
 
-Status: V1 scaffold, V2 swing scoring, V3 mid/small-cap universe role pass, candidate snapshot foundation, trade-plan validation, V4 snapshot follow-up update command, V4.5 demo outcome seeder, V5 scheduled watch mode, and V6 Tony Stocks internal event layer tested locally.
+Status: V1 scaffold, V2 swing scoring, V3 mid/small-cap universe role pass, candidate snapshot foundation, trade-plan validation, V4 snapshot follow-up update command, V4.5 demo outcome seeder, V5 scheduled watch mode, V6 Tony Stocks internal event layer, and V7 outcome analytics tested locally.
 
 Goals:
 
@@ -22,7 +22,7 @@ Goals:
 Exit criteria:
 
 - `python -m compileall src` passes. Done.
-- `pytest` passes. Done with 45 tests.
+- `pytest` passes. Done with 51 tests.
 - Scanner runs with demo data and writes SQLite/CSV output. Done.
 - Snapshot command saves eligible candidate snapshots. Done.
 - Dashboard opens and reads latest scan. Startup verified.
@@ -46,6 +46,7 @@ Exit criteria:
 - Demo seeded historical snapshots exist for dashboard/outcome testing only. Done; they are not evidence of real market edge.
 - Scheduled Watch Mode can collect snapshots during the day. Done; it is scanning/snapshot collection only and does not place paper or live trades.
 - Tony Stocks can create internal watcher/analyst events for scans, snapshot updates, high-score candidates, and watch cycles. Done; it does not send external notifications or trade.
+- Outcome analytics can compare setup categories, score buckets, universe roles, warning types, and seeded-demo fixture separation. Done; seeded demo rows are excluded by default and are not evidence of real market edge.
 
 ## Phase 1C - Tony Stocks watcher/analyst layer
 
@@ -65,6 +66,25 @@ Exit criteria:
 - Dashboard can display Tony events. Done.
 - CLI can print recent Tony events. Done.
 - Tony does not create paper trades or live trades. Done.
+
+## Phase 1D - Outcome analytics and model evaluation
+
+Status: Initial snapshot outcome analytics implemented and tested locally.
+
+Goals:
+
+- Compare outcomes by setup category, universe role, score bucket, warning type, and tags.
+- Keep seeded demo fixture rows separated from real watch-mode rows by default.
+- Produce CLI and dashboard summaries for model evaluation.
+- Let Tony create one concise internal event when analytics runs.
+
+Exit criteria:
+
+- Outcome analytics service exists. Done.
+- CLI command prints grouped summaries. Done.
+- Dashboard tab displays grouped tables and basic charts. Done.
+- Seeded demo rows are excluded by default. Done.
+- Analytics remain research-only and do not create trades. Done.
 
 ## Phase 2 - Real API providers
 

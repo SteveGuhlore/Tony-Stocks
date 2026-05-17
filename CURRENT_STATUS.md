@@ -4,7 +4,7 @@ _Last updated: 2026-05-17_
 
 ## Overall status
 
-V6 Tony Stocks Agent Foundation + Event Log has been added on top of the swing/day-trade scanner. Tony Stocks is currently a watcher/analyst event layer only; it creates structured internal events for scans, snapshots, follow-up updates, and watch cycles. It does not paper trade, execute broker orders, or place live trades.
+V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The project can now summarize candidate snapshot outcomes by setup category, universe role, score bucket, warning type, tags, and seeded-demo status. Tony Stocks remains a watcher/analyst event layer only; it does not paper trade, execute broker orders, or place live trades.
 
 ## Implemented
 
@@ -49,13 +49,18 @@ V6 Tony Stocks Agent Foundation + Event Log has been added on top of the swing/d
 - CLI command: `python -m trading_bot.cli tony-events --config config/default_config.yaml --limit 20`.
 - Tony events are created for scan start/completion, snapshots created/updated, high-score candidates, warning summaries, outcome updates, and watch-cycle completion.
 - Dashboard Tony Stocks tab with filters, status cards, event table, and payload detail.
+- Outcome analytics service in `src/trading_bot/analytics/outcomes.py`.
+- CLI command: `python -m trading_bot.cli outcome-analytics --config config/default_config.yaml`.
+- Outcome analytics exclude seeded demo fixture rows by default and can include them with `--include-seeded`.
+- Dashboard Outcome Analytics tab with setup-category, score-bucket, universe-role, outcome-label, and warning-type summaries.
+- Tony event integration for outcome analytics runs.
 - PowerShell helper scripts for tests, scanner, and dashboard.
 
 ## Confirmed in this environment
 
 - `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` passed.
 - `python -m compileall src` passed through the test script.
-- `pytest` passed with 45 tests.
+- `pytest` passed with 51 tests.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\run_scanner.ps1` ran successfully and wrote `data/trading_bot.db`, `outputs/latest_scan_results.csv`, and `logs/trading_bot.log`.
 - `python -m trading_bot.cli snapshot --config config/default_config.yaml` ran successfully. The latest run created 0 new snapshots because the configured dedupe window suppressed same-hour duplicates.
 - `python -m trading_bot.cli update-snapshots --config config/default_config.yaml` ran successfully and updated 17 open/watch snapshots.
@@ -66,13 +71,16 @@ V6 Tony Stocks Agent Foundation + Event Log has been added on top of the swing/d
 - `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1` ran successfully.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\run_watch_mode.ps1 -MaxCycles 1` ran successfully.
 - `python -m trading_bot.cli tony-events --config config/default_config.yaml --limit 20` ran successfully.
+- `python -m trading_bot.cli outcome-analytics --config config/default_config.yaml` ran successfully with seeded demo rows excluded by default.
+- `python -m trading_bot.cli outcome-analytics --config config/default_config.yaml --include-seeded` ran successfully and clearly labeled seeded demo fixtures as not evidence of real market edge.
 - `powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1` started Streamlit and reported `http://localhost:8501`.
 - Demo snapshot outcomes now include `target_hit`, `stop_hit`, `partial_move`, `failed_setup`, `entry_not_triggered`, `expired_no_trigger`, and `insufficient_future_data` examples.
 - Programmatic CSV validation confirmed eligible non-reference/non-avoid rows have `stop < entry`, `target > entry`, positive risk/reward, and valid trade-plan flags.
 
-## Not confirmed in this shell
+## Git notes
 
-- Git is not initialized, so `git status --short` and `git diff --check` could not be executed.
+- `git status --short` and `git diff --check` run in this shell, but Git prints a permission warning for `C:\Users\alexa/.config/git/ignore`.
+- Git also reports CRLF normalization warnings for edited files.
 
 ## Not implemented
 
@@ -86,5 +94,5 @@ V6 Tony Stocks Agent Foundation + Event Log has been added on top of the swing/d
 ## Next recommended work
 
 1. Review the Tony Stocks dashboard tab after a supervised watch-mode session.
-2. Add outcome analytics by setup category, universe role, and score bucket.
-3. Initialize git and commit a known-good baseline.
+2. Review Outcome Analytics with non-seeded watch-mode snapshots after several supervised sessions.
+3. Initialize/clean up git ignore permissions and commit a known-good baseline.
