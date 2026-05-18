@@ -1,2 +1,0 @@
-2026-05-18 00:55:53,235 WARNING trading_bot.data.market_data - Alpaca IEX fallback to demo for PLTR: Alpaca IEX HTTP 500 for PLTR: Internal Server Error
-2026-05-18 00:55:53,492 WARNING trading_bot.data.market_data - Alpaca IEX fallback to demo for SPY: Alpaca IEX HTTP 500 for SPY: Internal Server Error

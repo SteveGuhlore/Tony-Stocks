@@ -31,6 +31,7 @@ from trading_bot.tony.analysis import (
     RISK_ACCEPTABLE,
     RISK_WIDE_ATR,
     MKT_SUPPORTIVE,
+    DQ_ALPACA_IEX,
     DQ_DEMO,
     OC_NOT_ENOUGH,
 )
@@ -379,7 +380,11 @@ class TestTonyOutcomeAnalyticsGroups:
                 row["tony_recommended_action"] = action
                 row["tony_setup_read"] = setup
                 row["tony_risk_read"] = RISK_ACCEPTABLE
-                row["tony_data_quality_read"] = DQ_DEMO
+                row["tony_data_quality_read"] = DQ_ALPACA_IEX
+                row["data_source"] = "real_alpaca"
+                row["data_source_provider"] = "alpaca_iex"
+                row["used_demo_data"] = 0
+                row["used_fallback_data"] = 0
                 row["tony_analysis_version"] = TONY_ANALYSIS_VERSION
             rows.append(row)
         return pd.DataFrame(rows)

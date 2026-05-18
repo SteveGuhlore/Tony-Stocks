@@ -24,6 +24,7 @@ from trading_bot.tony.analysis import (
     DQ_ALPACA_IEX,
     DQ_DEMO,
     DQ_FALLBACK,
+    DQ_MISSING_REAL,
     DQ_SEEDED,
     DQ_STALE,
     MKT_MISSING,
@@ -300,8 +301,8 @@ class TestDataQuality:
 
     def test_fallback_data(self):
         label, text = _data_quality(_stock(symbol="PLTR"), "alpaca_iex", {"PLTR"}, set())
-        assert label == DQ_FALLBACK
-        assert "demo" in text.lower() or "synthetic" in text.lower()
+        assert label == DQ_MISSING_REAL
+        assert "missing" in text.lower()
 
     def test_stale_data(self):
         label, text = _data_quality(_stock(symbol="PLTR"), "alpaca_iex", set(), {"PLTR"})
@@ -319,7 +320,7 @@ class TestDataQuality:
 
     def test_fallback_takes_priority_over_demo(self):
         label, _ = _data_quality(_stock(symbol="PLTR"), "demo_generated", {"PLTR"}, set())
-        assert label == DQ_FALLBACK
+        assert label == DQ_MISSING_REAL
 
 
 # ── Priority and action tests ─────────────────────────────────────────────────
@@ -511,7 +512,7 @@ class TestAnalyzeCandidates:
             provider_name="alpaca_iex",
         )
         assert results[0].recommended_action == ACTION_NEEDS_DATA
-        assert results[0].data_quality_read == DQ_FALLBACK
+        assert results[0].data_quality_read == DQ_MISSING_REAL
 
     def test_stale_symbols_give_needs_more_data(self):
         pltr = _stock("PLTR", final_score=85, setup_category="Breakout Watch")

@@ -1,9 +1,0 @@
-
-symbols:
-  - symbol: PLTR
-    tags: [mid_cap, software]
-    universe_role: primary_candidate
-    demo_profile: clean_breakout
-csv_path:
-filters:
-  max_universe_size: 5

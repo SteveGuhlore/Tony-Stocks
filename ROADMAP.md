@@ -69,14 +69,15 @@ Exit criteria:
 
 ## Phase 1D - Outcome analytics and model evaluation
 
-Status: Initial snapshot outcome analytics implemented and tested locally.
+Status: Real-data-only outcome analytics implemented and tested locally. First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring.
 
 Goals:
 
 - Compare outcomes by setup category, universe role, score bucket, warning type, and tags.
-- Keep seeded demo fixture rows separated from real watch-mode rows by default.
+- Keep demo, missing-real-data, and legacy rows excluded from active watch/learning analytics by default.
 - Produce CLI and dashboard summaries for model evaluation.
 - Let Tony create one concise internal event when analytics runs.
+- Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
 
 Exit criteria:
 
@@ -88,7 +89,7 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V14.5 complete.** Intraday watch activation tightened: watch startup prints intraday config, scan/watch cycles print intraday summary stats, Tony records `intraday_analysis_summary`, and candidate snapshots store intraday reads when enabled. Daily scoring remains the default. 331 tests pass.
+Status: **V14.7 complete.** First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring. Outcome analytics now separates `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshots, and the CLI/dashboard include market-day review tooling. Daily scoring remains the default.
 
 V13: Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
 
@@ -110,7 +111,7 @@ Goals:
 - Dashboard Command Center tab (first/default): Done (V11).
 - Intraday VWAP/opening-range research reads: Initial foundation done (V14) and watch/snapshot verification tightened (V14.5). Not entry automation.
 
-**Next validation step:** Run `watch --max-cycles 3` with real Alpaca keys and `intraday.enabled: true`; verify heartbeat resets in Command Center and `tony-events` shows `batch_fetch_summary`, `universe_rotation_summary`, `intraday_analysis_summary`, and `watch_run_stopped`.
+**Next validation step:** After the next supervised market-hours run, compare `outcome-analytics --real-only --today --provider alpaca_iex` with `eod-report` and confirm demo/fallback/legacy rows are excluded before any intraday scoring work.
 
 **Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for research and scanning only. Not for production execution decisions. **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**
 

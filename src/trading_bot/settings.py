@@ -21,6 +21,11 @@ API_KEY_ENV_VARS = (
 @dataclass(frozen=True)
 class ScannerSettings:
     provider: str = "demo_generated"
+    real_data_only: bool = False
+    allow_demo_fallback_in_watch: bool = True
+    allow_demo_snapshots: bool = True
+    allow_demo_in_learning: bool = True
+    allow_demo_in_analytics: bool = True
     database_path: Path = Path("data/trading_bot.db")
     outputs_dir: Path = Path("outputs")
     cache_dir: Path = Path("data/cache")
@@ -98,10 +103,17 @@ def resolve_effective_provider(settings: ScannerSettings) -> str:
 
     When market_data.real_provider_enabled is true and market_data.provider is set,
     that provider wins over the legacy top-level settings.provider field.
-    This allows the config to have a safe demo fallback at the top level while
-    activating a real provider through the market_data block.
+    This allows the active config to promote a real provider through the
+    market_data block while keeping demo providers available only for explicit
+    development configs and commands.
     """
     market_data = settings.market_data or {}
     if market_data.get("real_provider_enabled", False) and market_data.get("provider"):
         return str(market_data["provider"])
     return settings.provider
+
+
+def real_data_only_enabled(settings: ScannerSettings) -> bool:
+    """Return true when active scan/watch paths must reject demo market data."""
+    market_data = settings.market_data or {}
+    return bool(settings.real_data_only or market_data.get("real_data_only", False))

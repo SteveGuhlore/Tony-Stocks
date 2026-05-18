@@ -3,7 +3,7 @@
 Verifies:
 - Real Alpaca IEX daily data labeled DQ_ALPACA_IEX, not DQ_DEMO
 - Demo-profile metadata warning does not override a real-provider label
-- Fallback symbols still get DQ_FALLBACK (not DQ_ALPACA_IEX)
+- Missing real-data symbols get DQ_MISSING_REAL (not DQ_ALPACA_IEX)
 - require_real_provider=True with non-Alpaca provider marks all symbols as missing
 - allow_demo_fallback=False with individual Alpaca fallback marks symbols as missing
 - Entire batch failure with allow_demo_fallback=False marks all as missing
@@ -33,7 +33,7 @@ from trading_bot.tony.analysis import (
     ALLOWED_ACTIONS,
     DQ_ALPACA_IEX,
     DQ_DEMO,
-    DQ_FALLBACK,
+    DQ_MISSING_REAL,
     DQ_INTRADAY_FALLBACK,
     DQ_INTRADAY_MISSING,
     DQ_INTRADAY_REAL,
@@ -148,11 +148,11 @@ class TestDataQualityLabelFix:
         assert analyses[0].data_quality_read == DQ_ALPACA_IEX
 
     def test_fallback_symbol_still_gets_fallback_label_not_alpaca(self):
-        """Symbols that fell back from Alpaca to demo must still get DQ_FALLBACK."""
+        """Symbols missing real Alpaca bars must get DQ_MISSING_REAL."""
         stock = _stock()
         label, text = _data_quality(stock, "alpaca_iex", fallback_set={"PLTR"}, stale_set=set())
-        assert label == DQ_FALLBACK
-        assert "fell back" in text.lower()
+        assert label == DQ_MISSING_REAL
+        assert "missing" in text.lower()
 
     def test_stale_symbol_gets_stale_label_not_demo(self):
         """Stale Alpaca symbols must get DQ_STALE, not DQ_DEMO."""

@@ -51,6 +51,9 @@ Required test areas:
 - V12 watch run state (table CRUD, heartbeat staleness, market-hours guard, watch status labels, no-broker behavior),
 - V13 Tony hypothesis-to-outcome tracking (schema columns, Tony field storage, null-safe legacy compat, analysis version constant, outcome analytics grouping, learning event, no-broker guards).
 - V14/V14.5 intraday data mode foundation (config parsing, 5Min fetch mocks, VWAP, opening range, insufficient data, Tony intraday labels, watch-mode summary, `intraday_analysis_summary` event, nullable snapshot fields, no order behavior).
+- V14.7 real-data-only enforcement (snapshot data-source classification, default real-only analytics, `--include-demo`, today/provider filters, missing-real-data aggregation, EOD report structure, legacy row compatibility, no order behavior).
+
+Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
 
 ## Scanner smoke test
 
@@ -66,6 +69,9 @@ Expected:
 - `data/trading_bot.db` exists,
 - `outputs/latest_scan_results.csv` exists,
 - `logs/trading_bot.log` exists.
+- active real-data-only config reports Alpaca no-bar symbols as missing real data,
+- no demo fallback is used for active real runs,
+- missing symbols are not scored or snapshotted.
 
 ## Candidate snapshot smoke test
 
@@ -158,15 +164,33 @@ Expected:
 $env:PYTHONPATH = "src"
 python -m trading_bot.cli outcome-analytics --config config/default_config.yaml
 python -m trading_bot.cli outcome-analytics --config config/default_config.yaml --include-seeded
+python -m trading_bot.cli outcome-analytics --config config/default_config.yaml --include-demo
+python -m trading_bot.cli outcome-analytics --config config/default_config.yaml --real-only
+python -m trading_bot.cli outcome-analytics --config config/default_config.yaml --real-only --today --provider alpaca_iex
 ```
 
 Expected:
 
 - no crash,
-- seeded demo fixture rows are excluded by default,
+- seeded demo fixture rows, old demo rows, missing-real-data rows, and legacy rows are excluded by default,
 - `--include-seeded` mode clearly labels seeded fixture results as not evidence of real market edge,
+- `--include-demo` explicitly includes old demo rows for review,
 - grouped setup category, score bucket, universe role, outcome label, and warning summaries print,
 - no paper trades or orders are created.
+
+## End-of-day market review smoke test
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m trading_bot.cli eod-report --config config/default_config.yaml
+```
+
+Expected:
+
+- no crash,
+- prints watch cycles, latest watch status, provider, real symbols scanned, API requests, missing real-data symbols, intraday real/stale/VWAP/opening-range counts, snapshots today, outcome counts, warning counts, and data-quality notes,
+- repeated missing real-data symbols are reported for manual review only,
+- no paper trades, broker orders, or live orders are created.
 
 ## Data-check smoke test (demo mode — no real keys needed)
 

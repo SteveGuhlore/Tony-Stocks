@@ -1,3 +1,5 @@
+import pandas as pd
+
 from trading_bot.analytics import OutcomeAnalytics, score_bucket
 from trading_bot.scoring.score_models import ScoredStock
 from trading_bot.storage.database import connect
@@ -44,8 +46,8 @@ def stock(symbol="TEST", score=80, category="Breakout Watch", role="primary_cand
     )
 
 
-def create_snapshot(repo, result, outcome, triggered=1, result_5d=0.02):
-    run_id = repo.create_scan_run(1, "demo_generated", {"provider": "demo_generated"})
+def create_snapshot(repo, result, outcome, triggered=1, result_5d=0.02, provider="alpaca_iex", data_source="real_alpaca"):
+    run_id = repo.create_scan_run(1, provider, {"provider": provider})
     ids = repo.create_candidate_snapshots(
         run_id,
         [result],
@@ -55,6 +57,16 @@ def create_snapshot(repo, result, outcome, triggered=1, result_5d=0.02):
             "include_roles": [result.universe_role],
             "include_categories": [result.setup_category],
             "dedupe_minutes": 0,
+        },
+        tony_analyses={
+            result.symbol: {
+                "data_quality_read": "daily_real_alpaca" if provider == "alpaca_iex" else "demo_data",
+                "data_source": data_source,
+                "data_source_provider": provider,
+                "used_demo_data": provider == "demo_generated",
+                "used_fallback_data": False,
+                "real_data_only_run": provider == "alpaca_iex",
+            }
         },
     )
     repo.update_candidate_snapshot_followup(
@@ -107,7 +119,12 @@ def test_outcome_analytics_excludes_seeded_demo_by_default(tmp_path):
     assert analytics.prepared().iloc[0]["symbol"] == "REAL"
 
     snapshots_with_seeded = repo.list_snapshots_for_analytics(include_seeded_demo=True)
-    analytics_with_seeded = OutcomeAnalytics(snapshots_with_seeded, include_seeded_demo=True)
+    analytics_with_seeded = OutcomeAnalytics(
+        snapshots_with_seeded,
+        include_seeded_demo=True,
+        real_only=False,
+        include_demo=True,
+    )
     assert len(analytics_with_seeded.prepared()) == 2
     assert analytics_with_seeded.prepared()["is_seeded_demo"].sum() == 1
 
@@ -149,3 +166,79 @@ def test_warning_parsing_handles_missing_or_invalid_json(tmp_path):
     warnings = analytics.warning_type_summary()
     assert not warnings.empty
     assert "No warning" in set(warnings["warning_type"])
+
+
+def test_snapshot_data_source_classification(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    real_id = create_snapshot(repo, stock("REAL"), "unreviewed", provider="alpaca_iex")
+    demo_id = create_snapshot(
+        repo,
+        stock("DEMO", warnings=["Demo data only; do not use for real trade decisions."]),
+        "unreviewed",
+        provider="demo_generated",
+        data_source="demo_generated",
+    )
+    missing_id = create_snapshot(
+        repo,
+        stock("MISS", warnings=["provider_missing"]),
+        "unreviewed",
+        provider="alpaca_iex",
+        data_source="missing_real_data",
+    )
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET tony_data_quality_read = 'daily_real_alpaca' WHERE id = ?",
+            (real_id,),
+        )
+        conn.execute("UPDATE candidate_snapshots SET scan_run_id = 9998, warnings_json = '[]', data_source = 'legacy_unknown' WHERE id = ?", (demo_id,))
+
+    prepared = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        real_only=False,
+        include_legacy=True,
+    ).prepared()
+    classes = dict(zip(prepared["symbol"], prepared["data_source_classification"]))
+    assert classes["REAL"] == "real_alpaca"
+    assert classes["DEMO"] == "legacy_unknown"
+    assert "MISS" not in classes
+
+
+def test_real_only_excludes_demo_and_legacy_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    real_id = create_snapshot(repo, stock("REAL"), "target_hit", provider="alpaca_iex")
+    create_snapshot(
+        repo,
+        stock("DEMO", warnings=["Demo data only; do not use for real trade decisions."]),
+        "target_hit",
+        provider="demo_generated",
+        data_source="demo_generated",
+    )
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET tony_data_quality_read = 'daily_real_alpaca' WHERE id = ?",
+            (real_id,),
+        )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(include_seeded_demo=True), include_seeded_demo=True, real_only=True)
+    prepared = analytics.prepared()
+    assert list(prepared["symbol"]) == ["REAL"]
+
+
+def test_today_and_provider_filters(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    real_id = create_snapshot(repo, stock("TODAY"), "target_hit", provider="alpaca_iex")
+    old_id = create_snapshot(repo, stock("OLD"), "target_hit", provider="alpaca_iex")
+    create_snapshot(repo, stock("DEMO"), "target_hit", provider="demo_generated", data_source="demo_generated")
+    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", (f"{today}T12:00:00+00:00", real_id))
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", ("2026-01-01T12:00:00+00:00", old_id))
+
+    analytics = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        today=True,
+        provider="alpaca_iex",
+    )
+    assert list(analytics.prepared()["symbol"]) == ["TODAY"]

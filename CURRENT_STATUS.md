@@ -4,6 +4,8 @@ _Last updated: 2026-05-18_
 
 ## Overall status
 
+**V14.7** - Real-Data-Only Enforcement. First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring. Active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series. Outcome analytics now defaults to real-data rows only and excludes demo, missing-real-data, and legacy rows unless explicitly included for review.
+
 **V14.5** - Intraday Watch Activation + Snapshot Verification. Watch/scan cycles now print intraday configuration and per-cycle summary stats, create a concise `intraday_analysis_summary` Tony event, and verify intraday reads attach to Tony hypotheses and candidate snapshots when enabled. Intraday reads are attached to Tony research hypotheses and snapshots, but do not affect scoring yet.
 
 **V14** - Real Intraday Data Mode Foundation. Intraday config, 5Min Alpaca/demo fetch support, deterministic intraday feature extraction, VWAP/opening-range reads, Tony intraday labels, nullable snapshot fields, data-check timeframe support, and dashboard intraday read displays have been added. Intraday reads are research-only and are not entry automation.
@@ -72,7 +74,11 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Outcome analytics service in `src/trading_bot/analytics/outcomes.py`.
 - CLI command: `python -m trading_bot.cli outcome-analytics --config config/default_config.yaml`.
 - Outcome analytics exclude seeded demo fixture rows by default and can include them with `--include-seeded`.
+- Outcome analytics can derive snapshot data-source classes (`real_alpaca`, `missing_real_data`, `recorded_real_fixture`, `legacy_unknown`, and old `demo_generated`) from snapshot metadata and legacy provider/warning/tag/note/Tony fields.
+- Outcome analytics defaults to real-data rows only; CLI filters include `--real-only`, `--include-demo`, `--include-legacy`, `--today`, and `--provider alpaca_iex`.
+- CLI command: `python -m trading_bot.cli eod-report --config config/default_config.yaml` for research-only market-day data-quality review.
 - Dashboard Outcome Analytics tab with setup-category, score-bucket, universe-role, outcome-label, and warning-type summaries.
+- Dashboard Command Center includes a compact Market Day Review with real/demo/mixed rows, fallback symbols, snapshots today, real/stale intraday counts, and research-only warnings.
 - Tony event integration for outcome analytics runs.
 - PowerShell helper scripts for tests, scanner, and dashboard.
 - Alpaca IEX market data provider adapter in `src/trading_bot/data/market_data.py` (disabled by default).
@@ -93,6 +99,14 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Watch startup printed intraday config and watch cycle output printed intraday requested/with-data/missing/fallback/VWAP/opening-range counts.
 - `tony-events --limit 50` showed `intraday_analysis_summary`.
 - Snapshot spot check confirmed new rows store `tony_intraday_read` and `intraday_timeframe` when intraday is enabled; in this environment they correctly show missing intraday data because real Alpaca fetch fell back and intraday fallback is disallowed.
+
+## Confirmed in V14.7
+
+- First live market-hours Tony run completed successfully.
+- Latest market-hours watch events showed watch cycle 40 completed, Alpaca IEX returned real data for 167 symbols, 171 symbols fetched in 3 requests, 62/66 real Alpaca intraday reads, 0 stale intraday, and repeated fallback/no-bar symbols `HCP`, `SAMSF`, `SMAR`, and `SQ`.
+- Outcome analytics root cause: demo warning rows were not current real-row warning carryover. The default analytics set mixed old demo/fallback snapshots with real rows; real-only analytics reviewed 77 `real_alpaca` snapshots and excluded the `Demo data only` warning rows.
+- EOD report command prints watch status, provider, API request count, fallback symbols, intraday counts, snapshot counts, outcome/warning counts, and data-quality notes without trade recommendations.
+- Tony remains research-only; no broker execution, paper trades, live trades, orders, options/Greeks logic, or LLM trade decisions were added.
 
 ## Confirmed in V14
 
@@ -192,10 +206,11 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 
 ## Next recommended work
 
-1. Run a supervised `watch --max-cycles 1` during market hours on a machine/network that allows Alpaca HTTPS, with `intraday.enabled: true`, then inspect Tony hypothesis payloads and candidate snapshots for VWAP/opening-range reads.
-2. Add `watch_run_id` FK to `candidate_snapshots` so each snapshot can be correlated to a watch session.
-3. Add `tony_analysis_version` grouping to the CLI `--group-by` outcome table output so Tony v1 vs future v2 reads can be compared directly.
-4. Decide whether intraday reads should become a scoring input after enough real-data snapshots exist.
+1. Review `outcome-analytics --real-only --today --provider alpaca_iex` and `eod-report` after the next market-hours run before adding intraday scoring.
+2. Quarantine, disable, or replace repeated fallback/no-bar symbols only after manual review; current repeated symbols are `HCP`, `SAMSF`, `SMAR`, and `SQ`.
+3. Add `watch_run_id` FK to `candidate_snapshots` so each snapshot can be correlated to a watch session.
+4. Add `tony_analysis_version` grouping to the CLI `--group-by` outcome table output so Tony v1 vs future v2 reads can be compared directly.
+5. Decide whether intraday reads should become a scoring input after enough real-data snapshots exist.
 5. Add a holiday calendar to `is_within_us_eastern_market_hours()` if market-hours-only mode needs holiday awareness.
 6. Initialize git and commit a known-good baseline.
 

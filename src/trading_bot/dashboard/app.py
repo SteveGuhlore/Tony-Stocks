@@ -899,6 +899,33 @@ def _latest_event_time(events: pd.DataFrame, event_type: str) -> str | None:
     return str(rows.iloc[0]["created_at"])
 
 
+def _fallback_symbols_from_events(events: pd.DataFrame) -> list[str]:
+    if events.empty or "payload_json" not in events.columns:
+        return []
+    counts: dict[str, int] = {}
+    for raw in events["payload_json"].tolist():
+        try:
+            payload = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            continue
+        symbols = (
+            payload.get("missing_real_data_symbols")
+            or payload.get("fallback_symbols")
+            or payload.get("intraday_missing_symbols")
+            or payload.get("intraday_fallback_symbols")
+            or []
+        )
+        if isinstance(symbols, str):
+            symbols = [symbols]
+        for symbol in symbols:
+            key = str(symbol).upper().strip()
+            if key:
+                counts[key] = counts.get(key, 0) + 1
+    if counts and max(counts.values()) > 1:
+        counts = {symbol: count for symbol, count in counts.items() if count > 1}
+    return [symbol for symbol, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+
+
 def _tony_event_columns(events: pd.DataFrame) -> pd.DataFrame:
     columns = ["created_at", "severity", "event_type", "symbol", "title", "message", "acknowledged", "dismissed"]
     return events[[column for column in columns if column in events.columns]].rename(
@@ -998,8 +1025,8 @@ def render_watch_health(repo: ScannerRepository) -> None:
     batch_requests = None
     if batch_event:
         bp = json.loads(batch_event.get("payload_json") or "{}")
-        api_requests = bp.get("api_requests_used")
-        batch_requests = bp.get("batch_requests_used")
+        api_requests = bp.get("api_requests_used") or bp.get("api_requests")
+        batch_requests = bp.get("batch_requests_used") or bp.get("batch_requests")
 
     # Rate limit / fallback counts from recent events
     rate_limit_count = int(filter_events_by_type(events, "rate_limit_warning").shape[0])
@@ -1086,6 +1113,42 @@ def render_data_quality_panel(repo: ScannerRepository) -> None:
         st.error("All candidates are using demo data. Real Alpaca IEX data is not flowing.")
 
 
+def render_market_day_review(repo: ScannerRepository) -> None:
+    """Compact market-day data quality review for real vs demo hygiene."""
+    st.subheader("Market Day Review")
+    st.caption("Research-only data quality review. Tony does not place orders or make trade recommendations.")
+    events = repo.list_tony_events(limit=300)
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=5000)
+    analytics = OutcomeAnalytics(snapshots, include_seeded_demo=True, today=True, real_only=True)
+    prepared = analytics.prepared()
+    source_counts = analytics.raw_data_source_counts()
+    source_map = {
+        str(row["data_source_classification"]): int(row["count"])
+        for row in source_counts.to_dict("records")
+    } if not source_counts.empty else {}
+    exclusions = analytics.exclusion_counts()
+    intraday_event = latest_event_of_type(events, "intraday_analysis_summary")
+    intraday_payload = json.loads(intraday_event.get("payload_json") or "{}") if intraday_event else {}
+    fallback_symbols = _fallback_symbols_from_events(events)
+    analyst_events = filter_events_by_type(events, "analyst_candidate_hypothesis")
+    priority_counts = count_hypothesis_by_priority(analyst_events)
+
+    cols = st.columns(6)
+    cols[0].metric("Real Rows", source_map.get("real_alpaca", 0))
+    cols[1].metric("Demo Excluded", exclusions["demo_rows_excluded"])
+    cols[2].metric("Legacy Excluded", exclusions["legacy_unknown_rows_excluded"])
+    cols[3].metric("Snapshots Today", len(prepared))
+    cols[4].metric("Real Intraday", int(intraday_payload.get("real_intraday_count", 0) or 0))
+    cols[5].metric("Stale Intraday", int(intraday_payload.get("intraday_stale_count", 0) or 0))
+
+    st.caption(f"Missing real-data symbols: {', '.join(fallback_symbols[:12]) if fallback_symbols else 'none'}")
+    st.caption(f"Quarantine candidates: {', '.join(fallback_symbols[:12]) if fallback_symbols else 'none'}")
+    repeated = ", ".join(f"{key}: {value}" for key, value in priority_counts.items())
+    st.caption(f"Tony repeated symbols: {repeated or 'none'}")
+    if source_map.get("demo_generated", 0) or source_map.get("legacy_unknown", 0) or source_map.get("missing_real_data", 0):
+        st.warning("Demo, missing-real-data, or legacy rows exist in the database but are excluded from this real-only review.")
+
+
 def render_outcome_snapshot_panel(repo: ScannerRepository) -> None:
     """Outcome Snapshot panel — today count, open/watch, triggered, hit/miss. Seeded demo excluded."""
     outcome_counts = repo.count_candidate_snapshots_by_outcome()
@@ -1141,8 +1204,8 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
     batch_event = latest_event_of_type(events, "batch_fetch_summary")
     if batch_event:
         bp = json.loads(batch_event.get("payload_json") or "{}")
-        api_requests = bp.get("api_requests_used")
-        symbols_scanned = bp.get("symbols_fetched") or bp.get("symbols_scanned")
+        api_requests = bp.get("api_requests_used") or bp.get("api_requests")
+        symbols_scanned = bp.get("symbols_fetched") or bp.get("symbols_scanned") or bp.get("symbols")
 
     if symbols_scanned is None and not results.empty:
         symbols_scanned = len(results)
@@ -1288,6 +1351,9 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
         render_data_quality_panel(repo)
 
     st.markdown("---")
+    render_market_day_review(repo)
+
+    st.markdown("---")
     render_outcome_snapshot_panel(repo)
 
     st.markdown("---")
@@ -1304,7 +1370,7 @@ def render_tony_learning_panel(repo: ScannerRepository) -> None:
         )
         try:
             snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
-            analytics = OutcomeAnalytics(snapshots, include_seeded_demo=False)
+            analytics = OutcomeAnalytics(snapshots, include_seeded_demo=False, real_only=True)
             prepared = analytics.prepared()
         except Exception:
             st.info("Tony Learning data not available yet.")
@@ -1405,3 +1471,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    exclusions = analytics.exclusion_counts()

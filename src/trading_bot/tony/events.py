@@ -222,19 +222,24 @@ class TonyStocksService:
         )
 
     def record_data_provider_fallback(self, fallback_symbols: list[str], provider: str) -> None:
-        """Create an event when the Alpaca provider falls back to demo data for one or more symbols."""
+        """Create an event when a real provider has missing bars for one or more symbols."""
         if not fallback_symbols:
             return
         self.create_event(
             event_type="data_provider_fallback",
             severity="warning",
-            title=f"{self.config.agent_name}: Provider fallback occurred",
+            title=f"{self.config.agent_name}: Missing real market data",
             message=(
-                f"{len(fallback_symbols)} symbol(s) fell back from {provider} to demo data: "
+                f"{len(fallback_symbols)} symbol(s) returned missing real data from {provider}: "
                 f"{', '.join(sorted(fallback_symbols)[:10])}. "
-                "Alpaca IEX data may be unavailable. Check API keys and market hours."
+                "No demo data was used for these symbols. Check eligibility, API access, and market hours."
             ),
-            payload={"provider": provider, "fallback_symbols": fallback_symbols, "count": len(fallback_symbols)},
+            payload={
+                "provider": provider,
+                "missing_real_data_symbols": fallback_symbols,
+                "fallback_symbols": fallback_symbols,
+                "count": len(fallback_symbols),
+            },
         )
 
     def record_stale_data_warning(self, stale_symbols: list[str], provider: str, stale_minutes: int) -> None:
@@ -310,7 +315,7 @@ class TonyStocksService:
             title=f"{self.config.agent_name}: Batch fetch summary",
             message=(
                 f"{provider} fetched {symbols} symbol(s) in {api_requests} request(s) "
-                f"({batch_requests} batch, {fallbacks} fallback(s))."
+                f"({batch_requests} batch, {fallbacks} missing/no-bar symbol(s))."
             ),
             payload={
                 "provider": provider,
@@ -322,17 +327,17 @@ class TonyStocksService:
         )
 
     def record_provider_fallback_summary(self, provider: str, fallback_count: int, total_scanned: int) -> None:
-        """Create a warning event when a notable portion of symbols fell back to demo."""
+        """Create a warning event when a notable portion of symbols returned no real bars."""
         pct = round(100 * fallback_count / max(total_scanned, 1))
         self.create_event(
             event_type="provider_fallback_summary",
             severity="warning",
-            title=f"{self.config.agent_name}: Provider fallback summary",
+            title=f"{self.config.agent_name}: Missing real-data summary",
             message=(
-                f"{fallback_count}/{total_scanned} ({pct}%) symbol(s) fell back from {provider} to demo data. "
-                "Results for fallback symbols reflect demo prices, not real market data."
+                f"{fallback_count}/{total_scanned} ({pct}%) symbol(s) returned missing real data from {provider}. "
+                "Those symbols were not scored from demo data."
             ),
-            payload={"provider": provider, "fallback_count": fallback_count, "total_scanned": total_scanned, "fallback_pct": pct},
+            payload={"provider": provider, "missing_real_data_count": fallback_count, "fallback_count": fallback_count, "total_scanned": total_scanned, "fallback_pct": pct},
         )
 
     def record_real_provider_active(self, provider: str, symbols_with_real_data: int) -> None:
@@ -353,11 +358,10 @@ class TonyStocksService:
         self.create_event(
             event_type="all_symbol_fallback",
             severity="critical",
-            title=f"{self.config.agent_name}: ALL symbols fell back to demo data",
+            title=f"{self.config.agent_name}: ALL symbols missing real data",
             message=(
-                f"All {fallback_count} symbol(s) fell back from {provider} to demo data this cycle. "
-                "Scan results reflect demo-generated prices, not real market data. "
-                "Check Alpaca API keys, connectivity, and market hours before acting on any signals."
+                f"All {fallback_count} symbol(s) returned missing real data from {provider} this cycle. "
+                "No demo data was used. Check Alpaca API keys, connectivity, and market hours."
             ),
             payload={"provider": provider, "fallback_count": fallback_count},
         )
@@ -462,8 +466,8 @@ class TonyStocksService:
             title=f"{self.config.agent_name}: Data quality summary ({provider_name})",
             message=(
                 f"{total_candidates} candidates: {real_count} daily real Alpaca, {intraday_real} intraday real Alpaca, "
-                f"{demo_count} demo, {fallback_count} daily fallback, {stale_count} daily stale, "
-                f"{intraday_missing} intraday missing, {intraday_fallback} intraday demo fallback, "
+                f"{demo_count} demo, {fallback_count} daily missing/fallback, {stale_count} daily stale, "
+                f"{intraday_missing} intraday missing, {intraday_fallback} intraday fallback, "
                 f"{intraday_stale} stale intraday (real Alpaca bars past freshness — often after hours; "
                 f"also counted in intraday real when bars exist), {seeded_count} seeded fixtures. "
                 "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape."
@@ -526,7 +530,7 @@ class TonyStocksService:
             title=f"{self.config.agent_name}: Intraday analysis summary",
             message=(
                 f"{timeframe} intraday provider={provider_used} allow_demo_fallback={allow_fallback}: "
-                f"{real_count}/{requested} real Alpaca intraday, {missing} missing, {fallback} demo fallback, "
+                f"{real_count}/{requested} real Alpaca intraday, {missing} missing, {fallback} fallback, "
                 f"{stale} stale real Alpaca (past freshness — often after hours). "
                 f"VWAP: {above} above, {below} below. Research-only context; scoring unchanged."
             ),
@@ -647,7 +651,7 @@ class TonyStocksService:
             severity="info",
             title=f"{self.config.agent_name}: Tony learning analytics updated",
             message=(
-                f"Tony learning reviewed {snapshot_count} real-data snapshot(s); "
+                f"Tony learning reviewed {snapshot_count} filtered snapshot(s); "
                 f"{analyzed_count} have Tony analysis attached. "
                 "Early tracking only — not enough history to draw conclusions. "
                 "Research mode only."

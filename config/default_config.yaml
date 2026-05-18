@@ -1,4 +1,9 @@
 provider: alpaca_iex
+real_data_only: true
+allow_demo_fallback_in_watch: false
+allow_demo_snapshots: false
+allow_demo_in_learning: false
+allow_demo_in_analytics: false
 database_path: data/trading_bot.db
 outputs_dir: outputs
 cache_dir: data/cache
@@ -43,7 +48,7 @@ snapshot_followup:
   expire_after_trading_days: 20
 
 demo_snapshot_seed:
-  enabled: true
+  enabled: false
   count: 12
   days_back_start: 25
   dedupe: true
@@ -55,8 +60,8 @@ scheduled_watch:
   run_snapshot_update_after_scan: true
   max_cycles:
   market_hours_only: false
-  premarket_enabled: false
-  afterhours_enabled: false
+  premarket_enabled: true
+  afterhours_enabled: true
   start_time: "09:35"
   end_time: "16:10"
   timezone: "America/New_York"
@@ -67,7 +72,8 @@ scheduled_watch:
 
 market_data:
   provider: alpaca_iex
-  fallback_provider: demo_generated
+  real_data_only: true
+  fallback_provider:
   real_provider_enabled: true
   alpaca:
     enabled: true
@@ -80,8 +86,8 @@ market_data:
     request_buffer_percent: 15
     request_sleep_seconds: 0.25
     stop_on_rate_limit: false
-    fallback_on_rate_limit: true
-    fail_safe_to_demo: true
+    fallback_on_rate_limit: false
+    fail_safe_to_demo: false
     stale_data_minutes: 20
     label_single_exchange_warning: true
 

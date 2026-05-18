@@ -6,6 +6,142 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V14.7 handoff - Real-Data-Only Enforcement / No Demo Provider
+
+### Current active task
+
+V14.7 real-data-only enforcement implemented. First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring. Active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
+
+### Files changed in this pass
+
+- `config/default_config.yaml` - Added real-data-only guard fields, disabled active demo fallback, disabled default demo snapshot seeding, and set Alpaca fail-safe/fallback flags false.
+- `src/trading_bot/settings.py` - Added config fields and `real_data_only_enabled()`.
+- `src/trading_bot/data/market_data.py` - Real-only Alpaca config forces `fail_safe_to_demo=false`; provider now tracks missing symbols separately from explicit dev fallback symbols.
+- `src/trading_bot/storage/database.py` - Added nullable candidate snapshot data-source metadata columns.
+- `src/trading_bot/storage/repositories.py` - Candidate snapshots and old demo seed snapshots can persist data-source metadata.
+- `src/trading_bot/analytics/outcomes.py` - Analytics defaults to real rows only, adds `--include-demo`/legacy behavior support, and reports exclusion counts.
+- `src/trading_bot/cli.py` - Real-only scan/watch rejects demo providers, records missing real-data symbols, excludes demo/legacy rows by default in analytics, and expands EOD report fields.
+- `src/trading_bot/tony/analysis.py` - Missing real data is labeled `missing_real_data`; Tony learning uses real-only analytics by default.
+- `src/trading_bot/tony/events.py` - Real-run event wording now reports missing real data and says no demo data was used.
+- `src/trading_bot/dashboard/app.py` - Market Day Review now shows real rows, demo/legacy excluded rows, missing real-data symbols, quarantine candidates, and intraday real/stale counts.
+- `tests/test_outcome_analytics.py`, `tests/test_database.py`, `tests/test_scanner_smoke.py`, `tests/test_tony_analyst.py` - Updated/added mocked tests for real-only defaults, include-demo review, missing-symbol behavior, schema compatibility, EOD output, and no paper/order behavior.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md` - Updated hard rule, status, backlog, and handoff notes.
+
+### Behavior
+
+- With `real_data_only: true`, active scan/watch refuses `demo_generated` and `demo_csv` providers.
+- Alpaca no-bar or provider-missing symbols are marked missing real data, are not scored from demo data, do not create snapshots, and do not enter Tony learning.
+- Snapshot classifications are now `real_alpaca`, `missing_real_data`, `recorded_real_fixture`, `legacy_unknown`, and old `demo_generated`.
+- Outcome analytics defaults to real rows only and prints: `Real-data rows only. Demo and legacy rows excluded.`
+- `--include-demo` explicitly reviews old demo rows; old demo rows are not deleted automatically.
+- Repeated missing symbols such as `HCP`, `SAMSF`, `SMAR`, and `SQ` are report-only quarantine/replacement candidates.
+
+### Tests/checks run
+
+```powershell
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m compileall src\trading_bot
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_database.py tests/test_outcome_analytics.py tests/test_scanner_smoke.py tests/test_tony_analyst.py -q --basetemp=.pytest_tmp
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_scanner.ps1
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli outcome-analytics --config config/default_config.yaml
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli outcome-analytics --config config/default_config.yaml --include-demo
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli eod-report --config config/default_config.yaml
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli tony-events --config config/default_config.yaml --limit 50
+powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1
+git diff --check
+```
+
+Results:
+
+- Focused tests passed: 91 passed.
+- Full test script passed: 371 passed.
+- Scanner script completed. This sandbox blocked Alpaca HTTPS (`WinError 10013`), so 100 symbols were marked missing real data, 0 symbols were scored, and no demo fallback was used.
+- Default `outcome-analytics` reviewed 77 `real_alpaca` rows and excluded demo/legacy/missing rows.
+- `outcome-analytics --include-demo` reviewed 257 rows and explicitly surfaced old demo warning rows.
+- `eod-report` completed and showed real symbols scanned as 0 after the blocked scanner smoke, repeated missing real-data symbols including `HCP`, `SAMSF`, `SMAR`, and `SQ`, plus the older live-run real-only snapshot counts.
+- `watch --max-cycles 1` timed out because default config is market-hours-only and the command ran outside the configured market window; it waited for market open and did not scan, trade, or fallback to demo. The resulting running watch row was marked error with a verification-timeout note so the dashboard is not left with a stale running process.
+- `tony-events --limit 50` completed.
+- Dashboard script started Streamlit at `http://localhost:8501`; the command timed out because Streamlit runs in the foreground. No lingering Streamlit/Python process remained.
+- `git diff --check` passed with CRLF normalization warnings only.
+
+### Safety confirmation
+
+No broker execution, live trading, automatic paper trades, orders, options/Greeks logic, API key logging, LLM trade decisions, or profitability claims were added. Tony remains research-only.
+
+### Next recommended task
+
+Run one supervised market-hours watch cycle with the hardened config. If `HCP`, `SAMSF`, `SMAR`, and `SQ` continue to report missing real data, manually quarantine or replace them before intraday scoring work.
+
+---
+
+## V14.7 handoff - Real Market-Day Review Cleanup
+
+### Current active task
+
+V14.7 complete. First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring. Outcome analytics now derives `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshot classes from existing scan provider, warning, tag, note, and Tony data-quality fields. CLI/dashboard review tools now separate real Alpaca rows from demo/fallback/legacy rows before scoring or learning changes.
+
+### Files changed in V14.7
+
+- `src/trading_bot/analytics/outcomes.py` - Added snapshot data-source classification and analytics filters for real-only, exclude-demo, today, and provider.
+- `src/trading_bot/storage/repositories.py` - Analytics snapshot queries now include nullable `snapshot_provider` and `scan_created_at` via a left join to `scan_runs`; legacy rows still load.
+- `src/trading_bot/cli.py` - Added `outcome-analytics --real-only --exclude-demo --today --provider`; added research-only `eod-report`; added fallback symbol aggregation.
+- `src/trading_bot/dashboard/app.py` - Added compact Market Day Review section and corrected batch event metric key handling.
+- `src/trading_bot/tony/events.py` - Tony learning event wording no longer calls mixed filtered rows real-data by default.
+- `tests/test_outcome_analytics.py`, `tests/test_database.py`, `tests/test_scanner_smoke.py` - Added mocked/local tests for classification, filters, fallback aggregation, EOD output, legacy compatibility, and no paper-trade behavior.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md` - Updated status, testing, backlog, and handoff notes.
+
+### Root cause of demo warning rows
+
+The remaining `"Demo data only; do not use for real trade decisions."` rows were not real Alpaca warning carryover in the latest real-only set. Default analytics still included older demo rows and mixed Alpaca fallback rows. After classification, local analytics showed 265 non-seeded rows: 77 `real_alpaca`, 154 `mixed_fallback`, and 34 `demo_generated`. `--real-only` reviewed 77 rows and excluded the demo warning rows.
+
+### Latest market-day facts from events
+
+- Watch cycle 40 completed.
+- `alpaca_iex` returned real data for 167 symbols.
+- 171 symbols fetched in 3 requests.
+- 62/66 real Alpaca intraday reads.
+- 0 stale intraday during live market hours.
+- Repeated fallback/no-bar symbols: `HCP`, `SAMSF`, `SMAR`, `SQ`.
+- No broker execution, paper trades, live trades, or orders.
+
+### Tests/checks run
+
+```powershell
+$env:PYTHONPATH='src'; $env:TMP=(Join-Path (Get-Location) '.pytest_tmp_sessions'); $env:TEMP=$env:TMP; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py tests/test_database.py tests/test_scanner_smoke.py -q --basetemp .pytest_tmp_sessions
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m compileall src
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli outcome-analytics --config config/default_config.yaml
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli outcome-analytics --config config/default_config.yaml --real-only
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli eod-report --config config/default_config.yaml
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli tony-events --config config/default_config.yaml --limit 50
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_scanner.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1
+git diff --check
+```
+
+Results:
+
+- Focused tests passed: 30 passed.
+- Full test script passed: 370 passed.
+- Scanner script completed, but this environment blocked Alpaca HTTPS after the live market-hours session; the scanner fell back to demo for all 100 requested symbols. This did not place trades.
+- `outcome-analytics` completed. Default non-seeded analytics classified 265 snapshots: 77 `real_alpaca`, 154 `mixed_fallback`, 34 `demo_generated`.
+- `outcome-analytics --real-only` completed and reviewed 77 `real_alpaca` snapshots with no demo warning rows.
+- `eod-report` completed and reported repeated fallback/no-bar symbols `HCP`, `SMAR`, `SQ`, `SAMSF`. The original market-hours events remain the cleaner source for the first live run: 167 real symbols, 171 fetched in 3 requests, 62/66 real intraday, 0 stale.
+- `tony-events --limit 50` completed.
+- Dashboard script started Streamlit at `http://localhost:8501`; command timed out because Streamlit runs in the foreground.
+- `git diff --check` passed with CRLF normalization warnings only.
+
+### Safety confirmation
+
+No broker execution, live trading, paper trades, orders, options/Greeks logic, API key logging, LLM trade decisions, or profitability claims were added. Tony remains research-only.
+
+### Next recommended task
+
+Run one more supervised market-hours watch session, then compare `outcome-analytics --real-only --today --provider alpaca_iex` with `eod-report`. If `HCP`, `SAMSF`, `SMAR`, and `SQ` continue to repeat as no-bar/fallback symbols, manually quarantine, disable, or replace them before intraday scoring work.
+
+---
+
 ## V14.5 handoff - Real Intraday Provider Enforcement (bugfix)
 
 ### Current active task

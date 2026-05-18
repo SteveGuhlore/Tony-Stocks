@@ -141,6 +141,12 @@ CREATE TABLE IF NOT EXISTS candidate_snapshots (
     intraday_day_change_percent REAL,
     intraday_relative_volume REAL,
     intraday_opening_range_status TEXT,
+    data_source TEXT,
+    data_source_provider TEXT,
+    used_demo_data INTEGER,
+    used_fallback_data INTEGER,
+    real_data_only_run INTEGER,
+    missing_real_data_reason TEXT,
     FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
 );
 
@@ -224,6 +230,12 @@ CANDIDATE_SNAPSHOT_MIGRATIONS = (
     "ALTER TABLE candidate_snapshots ADD COLUMN intraday_day_change_percent REAL",
     "ALTER TABLE candidate_snapshots ADD COLUMN intraday_relative_volume REAL",
     "ALTER TABLE candidate_snapshots ADD COLUMN intraday_opening_range_status TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN data_source TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN data_source_provider TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN used_demo_data INTEGER",
+    "ALTER TABLE candidate_snapshots ADD COLUMN used_fallback_data INTEGER",
+    "ALTER TABLE candidate_snapshots ADD COLUMN real_data_only_run INTEGER",
+    "ALTER TABLE candidate_snapshots ADD COLUMN missing_real_data_reason TEXT",
 )
 
 WATCH_RUN_MIGRATIONS: tuple[str, ...] = ()  # reserved for future additive columns

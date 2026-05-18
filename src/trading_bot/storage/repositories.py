@@ -328,10 +328,12 @@ class ScannerRepository:
                         tony_reasons_json, tony_concerns_json, tony_analysis_version,
                         tony_intraday_read, intraday_timeframe, intraday_close, intraday_vwap,
                         intraday_above_vwap, intraday_day_change_percent,
-                        intraday_relative_volume, intraday_opening_range_status
+                        intraday_relative_volume, intraday_opening_range_status,
+                        data_source, data_source_provider, used_demo_data, used_fallback_data,
+                        real_data_only_run, missing_real_data_reason
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         scan_run_id,
@@ -377,6 +379,12 @@ class ScannerRepository:
                         ta.get("intraday_day_change_percent") if ta else None,
                         ta.get("intraday_relative_volume") if ta else None,
                         ta.get("intraday_opening_range_status") if ta else None,
+                        ta.get("data_source") if ta else None,
+                        ta.get("data_source_provider") if ta else None,
+                        _bool_to_int_or_none(ta.get("used_demo_data")) if ta else None,
+                        _bool_to_int_or_none(ta.get("used_fallback_data")) if ta else None,
+                        _bool_to_int_or_none(ta.get("real_data_only_run")) if ta else None,
+                        ta.get("missing_real_data_reason") if ta else None,
                     ),
                 )
                 created_ids.append(int(cursor.lastrowid))
@@ -465,9 +473,14 @@ class ScannerRepository:
         with connect(self.database_path) as conn:
             rows = conn.execute(
                 f"""
-                SELECT * FROM candidate_snapshots
+                SELECT
+                    candidate_snapshots.*,
+                    scan_runs.provider AS snapshot_provider,
+                    scan_runs.created_at AS scan_created_at
+                FROM candidate_snapshots
+                LEFT JOIN scan_runs ON scan_runs.id = candidate_snapshots.scan_run_id
                 {clause}
-                ORDER BY snapshot_time DESC, total_score DESC
+                ORDER BY candidate_snapshots.snapshot_time DESC, candidate_snapshots.total_score DESC
                 LIMIT ?
                 """,
                 params,
@@ -494,9 +507,10 @@ class ScannerRepository:
                     total_score, close, entry, stop, target, risk_reward, trade_plan_valid,
                     trade_plan_status, dollar_volume, relative_volume, atr_percent, reasons_json,
                     warnings_json, candidate_summary, status, entry_trigger_price, entry_triggered,
-                    notes
+                    notes, data_source, data_source_provider, used_demo_data, used_fallback_data,
+                    real_data_only_run, missing_real_data_reason
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     int(snapshot["scan_run_id"]),
@@ -523,6 +537,12 @@ class ScannerRepository:
                     float(snapshot["entry"]),
                     0,
                     snapshot.get("notes", "Demo seeded snapshot for outcome tracker testing."),
+                    "demo_generated",
+                    "demo_generated",
+                    1,
+                    0,
+                    0,
+                    None,
                 ),
             )
             return int(cursor.lastrowid)

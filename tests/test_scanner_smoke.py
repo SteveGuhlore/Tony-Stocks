@@ -6,12 +6,14 @@ import pandas as pd
 from trading_bot.cli import (
     _build_intraday_summary,
     run_data_check,
+    run_eod_report,
     run_outcome_analytics,
     run_scan,
     run_seed_demo_snapshots,
     run_update_snapshots,
     run_watch,
 )
+from trading_bot.data.market_data import AlpacaIEXProvider
 from trading_bot.intraday.features import IntradayFeatures
 from trading_bot.settings import load_scanner_settings
 
@@ -509,21 +511,175 @@ tony_stocks:
     from trading_bot.storage.repositories import ScannerRepository
 
     repo = ScannerRepository(database_path)
-    run_id = repo.create_scan_run(1, "demo_generated", {})
+    run_id = repo.create_scan_run(1, "alpaca_iex", {})
     ids = repo.create_candidate_snapshots(
         run_id,
         [sample_scored_stock("PLTR")],
         {"enabled": True, "min_score": 0, "include_roles": ["primary_candidate"], "include_categories": ["Breakout Watch"]},
+        tony_analyses={
+            "PLTR": {
+                "data_quality_read": "daily_real_alpaca",
+                "data_source": "real_alpaca",
+                "data_source_provider": "alpaca_iex",
+                "used_demo_data": False,
+                "used_fallback_data": False,
+                "real_data_only_run": True,
+            }
+        },
     )
     repo.update_candidate_snapshot_followup(ids[0], outcome_label="target_hit", entry_triggered=1)
 
-    run_outcome_analytics(Namespace(config=str(config_path), include_seeded=False, days=None, group_by=["setup_category"], min_score=None))
+    run_outcome_analytics(
+        Namespace(
+            config=str(config_path),
+            include_seeded=False,
+            days=None,
+            group_by=["setup_category"],
+            min_score=None,
+            real_only=False,
+            include_demo=False,
+            include_legacy=False,
+            exclude_demo=False,
+            today=False,
+            provider=None,
+        )
+    )
     output = capsys.readouterr().out
 
     assert "Outcome analytics" in output
     assert "Seeded demo fixture rows are excluded by default." in output
     assert "Breakout Watch" in output
     assert repo.count_tony_events(event_type="outcome_analytics_updated") == 1
+
+
+def test_outcome_analytics_cli_filters_real_today_provider(tmp_path: Path, capsys):
+    database_path = tmp_path / "scanner.db"
+    config_path = tmp_path / "default_config.yaml"
+    config_path.write_text(
+        f"""
+provider: demo_generated
+database_path: {database_path.as_posix()}
+outputs_dir: {(tmp_path / "outputs").as_posix()}
+cache_dir: {(tmp_path / "cache").as_posix()}
+log_dir: {(tmp_path / "logs").as_posix()}
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: config/universe_swing_research_config.yaml
+tony_stocks:
+  enabled: false
+""",
+        encoding="utf-8",
+    )
+    from tests.test_database import sample_scored_stock
+    from trading_bot.storage.database import connect
+    from trading_bot.storage.repositories import ScannerRepository
+
+    repo = ScannerRepository(database_path)
+    run_id = repo.create_scan_run(1, "alpaca_iex", {})
+    ids = repo.create_candidate_snapshots(
+        run_id,
+        [sample_scored_stock("PLTR")],
+        {"enabled": True, "min_score": 0, "include_roles": ["primary_candidate"], "include_categories": ["Breakout Watch"]},
+        tony_analyses={"PLTR": {"data_quality_read": "daily_real_alpaca"}},
+    )
+    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    with connect(database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", (f"{today}T12:00:00+00:00", ids[0]))
+
+    run_outcome_analytics(
+        Namespace(
+            config=str(config_path),
+            include_seeded=False,
+            days=None,
+            group_by=["setup_category"],
+            min_score=None,
+            real_only=True,
+            include_demo=False,
+            include_legacy=False,
+            exclude_demo=False,
+            today=True,
+            provider="alpaca_iex",
+        )
+    )
+    output = capsys.readouterr().out
+    assert "Real-only filter: True" in output
+    assert "Provider filter: alpaca_iex" in output
+    assert "real_alpaca" in output
+    assert "Snapshots reviewed: 1" in output
+
+
+def test_eod_report_output_structure_and_fallback_symbols(tmp_path: Path, capsys):
+    database_path = tmp_path / "scanner.db"
+    config_path = tmp_path / "default_config.yaml"
+    config_path.write_text(
+        f"""
+provider: alpaca_iex
+database_path: {database_path.as_posix()}
+outputs_dir: {(tmp_path / "outputs").as_posix()}
+cache_dir: {(tmp_path / "cache").as_posix()}
+log_dir: {(tmp_path / "logs").as_posix()}
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: config/universe_swing_research_config.yaml
+tony_stocks:
+  enabled: true
+""",
+        encoding="utf-8",
+    )
+    from tests.test_database import sample_scored_stock
+    from trading_bot.storage.repositories import ScannerRepository
+
+    repo = ScannerRepository(database_path)
+    repo.create_watch_run("alpaca_iex", 5, True)
+    repo.update_watch_run_heartbeat(1, cycles_completed=40, latest_symbols_scored=167, latest_api_requests_used=3)
+    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    for symbols in (["HCP", "SAMSF"], ["SMAR", "SQ"]):
+        repo.create_tony_event(
+            "intraday_analysis_summary",
+            "warning",
+            "Intraday summary",
+            "fallbacks",
+            payload={
+                "enabled": True,
+                "provider": "alpaca_iex",
+                "real_intraday_count": 62,
+                "intraday_stale_count": 0,
+                "intraday_fallback_symbols": symbols,
+            },
+        )
+    run_id = repo.create_scan_run(1, "alpaca_iex", {})
+    repo.create_candidate_snapshots(
+        run_id,
+        [sample_scored_stock("PLTR")],
+        {"enabled": True, "min_score": 0, "include_roles": ["primary_candidate"], "include_categories": ["Breakout Watch"]},
+        tony_analyses={"PLTR": {"data_quality_read": "daily_real_alpaca"}},
+    )
+
+    summary = run_eod_report(Namespace(config=str(config_path), date=today))
+    output = capsys.readouterr().out
+    assert "End-of-day market data review" in output
+    assert "Research only" in output
+    assert "HCP" in output
+    assert "SAMSF" in output
+    assert "SMAR" in output
+    assert "SQ" in output
+    assert summary["cycles_completed"] == 40
+    assert summary["fallback_symbols"] == ["HCP", "SAMSF", "SMAR", "SQ"]
+    assert repo.paper_trades().empty
 
 
 def test_data_check_supports_intraday_timeframe_in_demo_mode(tmp_path: Path, capsys):
@@ -649,6 +805,105 @@ tony_stocks:
     assert summary["intraday_analysis"]["symbols_with_intraday"] == 1
     events = repo.list_tony_events(event_type="intraday_analysis_summary", limit=5)
     assert len(events) == 1
+    assert repo.paper_trades().empty
+
+
+def test_real_data_only_scan_marks_missing_without_demo_snapshots(tmp_path: Path, monkeypatch):
+    database_path = tmp_path / "scanner.db"
+    universe_path = tmp_path / "universe.yaml"
+    config_path = tmp_path / "default_config.yaml"
+    universe_path.write_text(
+        """
+symbols:
+  - symbol: PLTR
+    tags: [mid_cap, software, breakout_candidate]
+    universe_role: primary_candidate
+  - symbol: HCP
+    tags: [mid_cap]
+    universe_role: primary_candidate
+csv_path:
+filters:
+  max_universe_size: 5
+""",
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        f"""
+provider: alpaca_iex
+real_data_only: true
+allow_demo_fallback_in_watch: false
+database_path: {database_path.as_posix()}
+outputs_dir: {(tmp_path / "outputs").as_posix()}
+cache_dir: {(tmp_path / "cache").as_posix()}
+log_dir: {(tmp_path / "logs").as_posix()}
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 1
+min_dollar_volume: 1
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: {universe_path.as_posix()}
+candidate_snapshots:
+  enabled: true
+  min_score: 0
+  include_roles: [primary_candidate]
+  include_categories: [Breakout Watch, Pullback Watch, Momentum Continuation, Base Building, Speculative Watchlist]
+  exclude_categories: [Weak / Avoid, Overextended / Wait, ETF / Benchmark Reference, Invalid Trade Plan]
+  dedupe_minutes: 0
+market_data:
+  provider: alpaca_iex
+  real_data_only: true
+  real_provider_enabled: true
+  alpaca:
+    batch_requests_enabled: false
+    fail_safe_to_demo: false
+tony_stocks:
+  enabled: true
+  create_events_for: [data_provider_fallback, provider_fallback_summary, scan_completed]
+  max_events_per_cycle: 10
+""",
+        encoding="utf-8",
+    )
+
+    class FixtureAlpacaProvider(AlpacaIEXProvider):
+        def __init__(self) -> None:
+            super().__init__(api_key="x", secret_key="x", _skip_key_check=True, fail_safe_to_demo=False, batch_requests_enabled=False)
+
+        def fetch_ohlcv(self, symbol: str, lookback_days: int, timeframe: str = "daily") -> pd.DataFrame:
+            if symbol.upper() == "HCP":
+                self.missing_symbols.append("HCP")
+                return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+            dates = pd.bdate_range(end=pd.Timestamp("2026-05-18"), periods=max(lookback_days, 80))
+            close = pd.Series(range(len(dates)), index=dates, dtype=float) + 50.0
+            return pd.DataFrame(
+                {
+                    "open": close - 0.2,
+                    "high": close + 0.5,
+                    "low": close - 0.5,
+                    "close": close,
+                    "volume": 1_000_000,
+                },
+                index=dates,
+            )
+
+    monkeypatch.setattr("trading_bot.cli.build_market_data_provider", lambda *args, **kwargs: FixtureAlpacaProvider())
+
+    summary = run_scan(Namespace(config=str(config_path), symbols="", save_snapshots=True))
+
+    from trading_bot.storage.repositories import ScannerRepository
+
+    repo = ScannerRepository(database_path)
+    snapshots = repo.latest_candidate_snapshots()
+    assert "HCP" in summary["missing_real_data_symbols"]
+    assert summary["fallback_count"] == 0
+    assert set(snapshots["symbol"]) == {"PLTR"}
+    assert snapshots.iloc[0]["data_source"] == "real_alpaca"
+    assert snapshots.iloc[0]["used_demo_data"] == 0
     assert repo.paper_trades().empty
 
 

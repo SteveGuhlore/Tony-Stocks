@@ -12,6 +12,10 @@ _Last updated: 2026-05-17_
 - Review Tony Stocks event volume and wording after a supervised watch-mode session.
 - Review Outcome Analytics after collecting several non-seeded watch-mode sessions.
 - Review V14.5 intraday watch summaries during a supervised market session; confirm VWAP/opening-range labels are understandable and snapshots show Tony intraday fields.
+- First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring.
+- Review real-data-only analytics after each market-hours run using `outcome-analytics --today --provider alpaca_iex` and `eod-report`; default analytics now excludes demo and legacy rows.
+- Review repeated missing-real-data symbols before the next universe cleanup. Current repeated symbols: `HCP`, `SAMSF`, `SMAR`, `SQ`. Quarantine or replace these symbols only after manual review.
+- Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
 - Initialize git and make an initial commit after checks pass.
 
 ## V1/V2 follow-ups
@@ -32,6 +36,7 @@ _Last updated: 2026-05-17_
 - Add Tony event acknowledgement/dismiss actions in the dashboard.
 - Add external Tony notifications later through explicit opt-in channels.
 - Add a stricter seeded-demo cleanup or labeling workflow before any real provider data is introduced.
+- Add a cleanup/archive workflow for old demo or mixed-fallback snapshots only after real-data filters have been validated.
 - Decide later whether intraday features should influence scoring. For now they are Tony research context only.
 - Review `intraday_analysis_summary` event volume and dashboard wording after several market-hours watch cycles.
 

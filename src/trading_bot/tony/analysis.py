@@ -66,6 +66,7 @@ DQ_DAILY_REAL = "daily_real_alpaca"
 DQ_ALPACA_IEX = DQ_DAILY_REAL  # backward-compatible alias
 DQ_DEMO = "demo_data"
 DQ_FALLBACK = "fallback_data"
+DQ_MISSING_REAL = "missing_real_data"
 DQ_STALE = "stale_data"
 DQ_SEEDED = "seeded_demo_fixture"
 
@@ -320,7 +321,7 @@ def _analyze_one(
             "Real Alpaca IEX intraday data is stale — latest bar is older than the freshness threshold, "
             "often because the market is closed."
         )
-    elif dq_label in (DQ_FALLBACK, DQ_STALE, DQ_SEEDED, DQ_INTRADAY_FALLBACK, DQ_INTRADAY_MISSING, DQ_INTRADAY_STALE):
+    elif dq_label in (DQ_FALLBACK, DQ_MISSING_REAL, DQ_STALE, DQ_SEEDED, DQ_INTRADAY_FALLBACK, DQ_INTRADAY_MISSING, DQ_INTRADAY_STALE):
         concerns.append(f"Data quality flag: {dq_label}. Signals may not reflect real market prices.")
     if ctx_label == MKT_WEAK:
         concerns.append("Broad market is weak; setup faces headwinds.")
@@ -527,10 +528,9 @@ def _data_quality(
             "Signals may not reflect current market conditions."
         )
     if symbol in fallback_set:
-        return DQ_FALLBACK, (
-            f"{stock.symbol} daily data fell back from {provider_name} to demo-generated prices. "
-            "This is a synthetic approximation — not real market data. "
-            "Do not act on this signal until real data is confirmed."
+        return DQ_MISSING_REAL, (
+            f"{stock.symbol} daily real data is missing from {provider_name}. "
+            "No demo-generated prices should be used for Tony learning or snapshots."
         )
     if intraday_enabled:
         if symbol in intraday_fallback_set:
@@ -586,7 +586,12 @@ def _outcome_context(
     if outcome_snapshots is None or outcome_snapshots.empty:
         return OC_NOT_ENOUGH
 
-    analytics = OutcomeAnalytics(outcome_snapshots, include_seeded_demo=include_seeded_demo)
+    analytics = OutcomeAnalytics(
+        outcome_snapshots,
+        include_seeded_demo=include_seeded_demo,
+        real_only=not include_seeded_demo,
+        include_demo=include_seeded_demo,
+    )
     by_category = analytics.grouped_by("setup_category")
     if by_category.empty:
         return OC_NOT_ENOUGH
@@ -626,7 +631,7 @@ def _priority_and_action(
     if setup_label in (SETUP_OVEREXTENDED, SETUP_WEAK, SETUP_INSUFFICIENT, SETUP_REFERENCE):
         return PRI_AVOID, ACTION_AVOID
 
-    if dq_label in (DQ_FALLBACK, DQ_STALE, DQ_INTRADAY_FALLBACK, DQ_INTRADAY_MISSING):
+    if dq_label in (DQ_FALLBACK, DQ_MISSING_REAL, DQ_STALE, DQ_INTRADAY_FALLBACK, DQ_INTRADAY_MISSING):
         return PRI_LOW, ACTION_NEEDS_DATA
 
     if dq_label == DQ_SEEDED:
@@ -741,7 +746,8 @@ def _build_hypothesis(
 
     dq_notes = {
         DQ_DEMO: "Note: demo-generated data — not real market prices.",
-        DQ_FALLBACK: "Caution: daily data fell back to demo this cycle.",
+        DQ_FALLBACK: "Caution: daily data fallback this cycle.",
+        DQ_MISSING_REAL: "Caution: daily real data is missing; no demo data should be used.",
         DQ_STALE: "Caution: daily data may be stale.",
         DQ_SEEDED: "Seeded fixture only — not a real market signal.",
         DQ_DAILY_REAL: "Data: Alpaca IEX daily bars (single-exchange feed, not full SIP tape).",

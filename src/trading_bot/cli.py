@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import time
+from collections import Counter
 from dataclasses import asdict
-from datetime import datetime, time as datetime_time, timedelta
+from datetime import datetime, time as datetime_time, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -33,7 +35,7 @@ from trading_bot.snapshots import calculate_snapshot_followup
 from trading_bot.snapshots.seeding import build_demo_seed_snapshots
 from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
-from trading_bot.settings import load_scanner_settings, resolve_effective_provider
+from trading_bot.settings import load_scanner_settings, real_data_only_enabled, resolve_effective_provider
 from trading_bot.tony import TonyStocksService
 from trading_bot.tony.analysis import TONY_ANALYSIS_VERSION, MarketContext, analyze_candidates
 
@@ -86,6 +88,12 @@ def build_parser() -> argparse.ArgumentParser:
     outcome_analytics.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     outcome_analytics.add_argument("--include-seeded", action="store_true", help="Include demo seeded fixture rows.")
     outcome_analytics.add_argument("--days", type=int, default=None, help="Only include snapshots from the last N days.")
+    outcome_analytics.add_argument("--real-only", action="store_true", help="Only include snapshots classified as real rows.")
+    outcome_analytics.add_argument("--include-demo", action="store_true", help="Explicitly include old demo-generated rows.")
+    outcome_analytics.add_argument("--include-legacy", action="store_true", help="Explicitly include legacy rows with unknown data source.")
+    outcome_analytics.add_argument("--exclude-demo", action="store_true", help="Exclude snapshots classified as demo generated rows.")
+    outcome_analytics.add_argument("--today", action="store_true", help="Only include snapshots created today in UTC.")
+    outcome_analytics.add_argument("--provider", default=None, help="Only include snapshots whose scan provider matches this value.")
     outcome_analytics.add_argument(
         "--group-by",
         action="append",
@@ -111,6 +119,10 @@ def build_parser() -> argparse.ArgumentParser:
     provider_health.add_argument("--symbols", default="", help="Comma-separated test symbols (default: PLTR,AAPL,SPY).")
     provider_health.add_argument("--lookback-days", type=int, default=5, help="Lookback days for the health check (default: 5).")
     provider_health.add_argument("--record-event", action="store_true", help="Record the health check result as a Tony Stocks event.")
+
+    eod_report = subparsers.add_parser("eod-report", help="Print a research-only market-day data quality report.")
+    eod_report.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    eod_report.add_argument("--date", default=None, help="UTC date to review as YYYY-MM-DD. Defaults to today.")
 
     return parser
 
@@ -163,6 +175,11 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         if metadata.demo_profile
     }
     effective_provider = resolve_effective_provider(settings)
+    real_only = real_data_only_enabled(settings)
+    if real_only and effective_provider in {"demo_generated", "demo_csv"}:
+        raise ValueError(
+            f"real_data_only is true; provider {effective_provider!r} is not allowed for scan/watch runs."
+        )
     provider = build_market_data_provider(
         effective_provider,
         settings.cache_dir,
@@ -199,24 +216,37 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     ohlcv_by_symbol: dict[str, Any] = {}
     if isinstance(provider, AlpacaIEXProvider) and provider.batch_requests_enabled and len(symbols) > 1:
         LOGGER.info("Alpaca IEX: batch fetching %d symbols", len(symbols))
-        ohlcv_by_symbol = provider.fetch_ohlcv_batch(symbols, settings.lookback_days, settings.timeframe)
+        try:
+            ohlcv_by_symbol = provider.fetch_ohlcv_batch(symbols, settings.lookback_days, settings.timeframe)
+        except Exception as exc:
+            LOGGER.warning("Batch fetch failed; marking symbols missing real data: %s", exc)
+            if real_only:
+                provider.missing_symbols.extend(s.upper() for s in symbols)
+                ohlcv_by_symbol = {s: pd.DataFrame(columns=["open", "high", "low", "close", "volume"]) for s in symbols}
+            else:
+                raise
     else:
         for symbol in symbols:
             try:
                 ohlcv_by_symbol[symbol] = provider.fetch_ohlcv(symbol, settings.lookback_days, settings.timeframe)
             except Exception as exc:
                 LOGGER.warning("Skipping %s: %s", symbol, exc)
+                if isinstance(provider, AlpacaIEXProvider):
+                    provider.missing_symbols.append(symbol.upper())
 
     # --- Filter by price / liquidity ---
     market_data: dict[str, object] = {}
     spy_data = None
     skipped_count = 0
+    missing_real_data_symbols: set[str] = set()
 
     for symbol in symbols:
         data = ohlcv_by_symbol.get(symbol)
         if data is None or data.empty or len(data) < 60:
             LOGGER.warning("Skipping %s: not enough data", symbol)
             skipped_count += 1
+            if real_only and "alpaca_iex" in provider.name:
+                missing_real_data_symbols.add(symbol.upper())
             continue
         latest_close = float(data["close"].iloc[-1])
         avg_volume_20 = float(data["volume"].tail(20).mean())
@@ -240,6 +270,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             spy_data = None
 
     market_data_source = "real" if "alpaca_iex" in provider.name else "demo"
+    if real_only:
+        market_data_source = "real"
     results: list[Any] = []
     for symbol, data in market_data.items():
         try:
@@ -275,22 +307,30 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         "symbols_skipped": skipped_count,
         "warnings_count": sum(len(result.warnings) for result in results),
         "high_priority_symbols": high_priority_symbols,
+        "real_data_only": real_only,
     }
     if isinstance(provider, AlpacaIEXProvider):
         alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
         stale_minutes = int(alpaca_cfg.get("stale_data_minutes", 20))
         cycle_stats = provider.get_cycle_stats()
         scanned_count = len(symbols)
+        missing_real_data_symbols.update(s.upper() for s in provider.missing_symbols)
         fallback_count = len(provider.fallback_symbols)
-        real_data_count = scanned_count - fallback_count
+        missing_count = len(missing_real_data_symbols)
+        real_data_count = max(0, len(market_data) - fallback_count)
         summary.update({
             "api_requests_used": cycle_stats.get("api_requests_used", 0),
             "batch_requests_used": cycle_stats.get("batch_requests_used", 0),
             "rate_limit_warnings": cycle_stats.get("rate_limit_warnings", 0),
             "batch_mode": cycle_stats.get("batch_mode", False),
             "fallback_count": fallback_count,
+            "missing_real_data_count": missing_count,
+            "missing_real_data_symbols": sorted(missing_real_data_symbols),
         })
-        if fallback_count > 0 and fallback_count >= scanned_count:
+        if real_only and missing_count:
+            tony.record_data_provider_fallback(sorted(missing_real_data_symbols), provider.name)
+            tony.record_provider_fallback_summary(provider.name, missing_count, scanned_count)
+        elif fallback_count > 0 and fallback_count >= scanned_count:
             print(
                 f"\nWARNING: ALL {fallback_count} symbol(s) fell back to demo data from {provider.name}. "
                 "Scan results reflect demo prices. Check Alpaca keys and connectivity."
@@ -314,7 +354,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
                 scanned_count,
                 cycle_stats.get("api_requests_used", 0),
                 cycle_stats.get("batch_requests_used", 0),
-                fallback_count,
+                missing_count if real_only else fallback_count,
             )
         if cycle_stats.get("rate_limit_warnings", 0) > 0:
             rl = provider._rate_limiter
@@ -328,7 +368,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     if results and tony.enabled:
         benchmark_rows = [r for r in results if r.universe_role in ("benchmark", "reference")]
         candidate_rows = [r for r in results if r.universe_role not in ("benchmark", "reference")]
-        fallback_syms = list(provider.fallback_symbols) if isinstance(provider, AlpacaIEXProvider) else []
+        fallback_syms = [] if real_only else (list(provider.fallback_symbols) if isinstance(provider, AlpacaIEXProvider) else [])
         stale_syms = list(provider.stale_symbols) if isinstance(provider, AlpacaIEXProvider) else []
         effective_provider_name = provider.name
         intraday_cfg = settings.intraday or {}
@@ -338,7 +378,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
 
         outcome_snaps: Any = None
         try:
-            outcome_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
+            raw_outcome_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
+            outcome_snaps = OutcomeAnalytics(raw_outcome_snaps, include_seeded_demo=False, real_only=True).prepared()
         except Exception:
             pass
         intraday_features_by_symbol, intraday_summary = _fetch_intraday_features_for_tony(
@@ -367,6 +408,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
                 **a.to_dict(),
                 "tony_analysis_version": TONY_ANALYSIS_VERSION,
                 **_intraday_snapshot_fields(intraday_features_by_symbol.get(a.symbol)),
+                **_snapshot_data_source_fields(provider.name, real_only),
             }
             for a in analyses
         }
@@ -415,18 +457,19 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     # ── Create candidate snapshots WITH Tony analysis attached ────────────────
     snapshot_ids = []
     if getattr(args, "save_snapshots", False):
+        source_fields = _snapshot_data_source_fields(provider.name, real_only)
+        for result in results:
+            tony_analyses.setdefault(result.symbol, {}).update(source_fields)
         snapshot_ids = repo.create_candidate_snapshots(
             scan_run_id=scan_run_id,
             results=results,
             snapshot_config=settings.candidate_snapshots or {},
-            tony_analyses=tony_analyses if tony_analyses else None,
+            tony_analyses=tony_analyses,
         )
 
     export_rows = [result.to_dict() for result in results]
     output_path = Path(settings.outputs_dir) / "latest_scan_results.csv"
     if export_rows:
-        import pandas as pd
-
         pd.DataFrame(export_rows).to_csv(output_path, index=False)
     else:
         output_path.write_text("", encoding="utf-8")
@@ -640,6 +683,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Config: {args.config}")
     print(f"Configured provider: {settings.provider}")
     print(f"Effective provider:  {effective_provider_name} (real_provider_enabled={real_enabled})")
+    print(f"Real-data-only: {real_data_only_enabled(settings)}")
     if effective_provider_name == "alpaca_iex":
         feed = str(alpaca_cfg_watch.get("feed", "iex")).upper()
         timeframe = str(alpaca_cfg_watch.get("timeframe", "1Day"))
@@ -885,17 +929,43 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         days=args.days,
         min_score=args.min_score,
     )
-    analytics = OutcomeAnalytics(snapshots, include_seeded_demo=args.include_seeded)
+    analytics = OutcomeAnalytics(
+        snapshots,
+        include_seeded_demo=args.include_seeded,
+        real_only=True if getattr(args, "real_only", False) else not (getattr(args, "include_demo", False) or getattr(args, "include_legacy", False)),
+        include_demo=bool(getattr(args, "include_demo", False)),
+        include_legacy=bool(getattr(args, "include_legacy", False)),
+        exclude_demo=bool(getattr(args, "exclude_demo", False)),
+        today=bool(getattr(args, "today", False)),
+        provider=getattr(args, "provider", None),
+    )
     prepared = analytics.prepared()
+    exclusions = analytics.exclusion_counts()
     groups = args.group_by or ["setup_category", "score_bucket", "universe_role", "outcome_label", "warning_type"]
 
     print("Outcome analytics")
     print("Research only: analytics evaluate scanner output; they do not create trades or prove an edge.")
+    if not getattr(args, "include_demo", False) and not getattr(args, "include_legacy", False):
+        print("Real-data rows only. Demo and legacy rows excluded.")
     print(f"Seeded demo rows included: {bool(args.include_seeded)}")
+    print(f"Real-only filter: {analytics.real_only}")
+    print(f"Include demo rows: {bool(getattr(args, 'include_demo', False))}")
+    print(f"Include legacy rows: {bool(getattr(args, 'include_legacy', False))}")
+    print(f"Exclude demo filter: {bool(getattr(args, 'exclude_demo', False))}")
+    print(f"Today filter: {bool(getattr(args, 'today', False))}")
+    print(f"Provider filter: {getattr(args, 'provider', None) or 'none'}")
     if args.include_seeded:
         print("Includes seeded demo fixtures; not evidence of real market edge.")
     else:
         print("Seeded demo fixture rows are excluded by default.")
+    if not prepared.empty and "data_source_classification" in prepared.columns:
+        print("\nData source classification:")
+        _print_dataframe(analytics.data_source_counts())
+    print("\nExcluded row counts:")
+    print(f"Real rows available: {exclusions['real_rows']}")
+    print(f"Demo rows excluded: {exclusions['demo_rows_excluded'] if not getattr(args, 'include_demo', False) else 0}")
+    print(f"Legacy unknown rows excluded: {exclusions['legacy_unknown_rows_excluded'] if not getattr(args, 'include_legacy', False) else 0}")
+    print(f"Fallback/missing rows excluded: {exclusions['missing_real_data_rows_excluded']}")
     print(f"Snapshots reviewed: {len(prepared)}")
 
     printed_tables: dict[str, pd.DataFrame] = {}
@@ -921,13 +991,19 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         {
             "snapshot_count": len(prepared),
             "include_seeded_demo": bool(args.include_seeded),
+            "real_only": analytics.real_only,
+            "include_demo": bool(getattr(args, "include_demo", False)),
+            "include_legacy": bool(getattr(args, "include_legacy", False)),
+            "exclude_demo": bool(getattr(args, "exclude_demo", False)),
+            "today": bool(getattr(args, "today", False)),
+            "provider": getattr(args, "provider", None),
             "groups": groups,
             "best_group": best_group,
         }
     )
 
     # Tony learning event — count snapshots that have Tony analysis attached
-    if not args.include_seeded:
+    if not args.include_seeded and analytics.real_only and not getattr(args, "include_demo", False) and not getattr(args, "include_legacy", False):
         analyzed_count = 0
         by_priority: dict[str, Any] = {}
         if not prepared.empty and "tony_analysis_version" in prepared.columns:
@@ -940,6 +1016,108 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
             analyzed_count=analyzed_count,
             by_priority=by_priority,
         )
+
+
+def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
+    """Print a research-only end-of-day data quality report."""
+    settings = load_scanner_settings(args.config)
+    repo = ScannerRepository(settings.database_path)
+    report_date = getattr(args, "date", None) or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    events = repo.list_tony_events(limit=1000)
+    today_events = _events_on_date(events, report_date)
+    watch_run = repo.latest_watch_run()
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    analytics = OutcomeAnalytics(snapshots, include_seeded_demo=True, real_only=True)
+    prepared = analytics.prepared()
+    exclusions = analytics.exclusion_counts()
+    if not prepared.empty:
+        prepared = prepared[prepared["snapshot_time"].astype(str).str.slice(0, 10).eq(report_date)].copy()
+    outcome_counts = _outcome_counts(prepared)
+    warning_counts = _warning_counts(prepared)
+
+    latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
+    cycles_completed = int(watch_run.get("cycles_completed", 0) or 0) if watch_run else 0
+    provider_used = str(watch_run.get("provider", settings.provider)) if watch_run else settings.provider
+    symbols_scanned = watch_run.get("latest_symbols_scored") if watch_run else None
+    api_requests = watch_run.get("latest_api_requests_used") if watch_run else None
+
+    batch_event = latest_event_of_type_records(today_events, "batch_fetch_summary")
+    if batch_event:
+        payload = _payload(batch_event)
+        provider_used = str(payload.get("provider", provider_used))
+        symbols_scanned = payload.get("symbols") or payload.get("symbols_scanned") or payload.get("symbols_fetched") or symbols_scanned
+        api_requests = payload.get("api_requests") or payload.get("api_requests_used") or api_requests
+
+    intraday_event = latest_event_of_type_records(today_events, "intraday_analysis_summary")
+    intraday_payload = _payload(intraday_event) if intraday_event else {}
+    fallback_symbols = repeated_fallback_symbols(today_events)
+    real_symbols_scanned = symbols_scanned
+    if isinstance(symbols_scanned, int):
+        real_symbols_scanned = max(0, symbols_scanned - len(fallback_symbols))
+    top_symbols = _top_event_symbols(today_events)
+    top_hypotheses = _top_hypotheses(today_events)
+
+    created_today = len(prepared)
+    updated_today = int(prepared["last_checked_at"].fillna("").astype(str).str.slice(0, 10).eq(report_date).sum()) if not prepared.empty and "last_checked_at" in prepared else 0
+
+    print("End-of-day market data review")
+    print("Research only: no trade recommendations, no broker execution, no paper trades, no live trades.")
+    print("Tony has no proven edge from this report; it is data-quality review only.")
+    print(f"Date reviewed: {report_date}")
+    print(f"Watch cycles completed today: {cycles_completed}")
+    print(f"Latest watch status: {latest_watch_status}")
+    print(f"Provider used: {provider_used}")
+    print(f"Symbols scanned: {symbols_scanned if symbols_scanned is not None else 'unknown'}")
+    print(f"API requests: {api_requests if api_requests is not None else 'unknown'}")
+    print(f"Real symbols scanned: {real_symbols_scanned if real_symbols_scanned is not None else 'unknown'}")
+    print(f"Missing real-data symbols: {', '.join(fallback_symbols) if fallback_symbols else 'none'}")
+    print(f"Real intraday count: {intraday_payload.get('real_intraday_count', 0)}")
+    print(f"Stale intraday count: {intraday_payload.get('intraday_stale_count', 0)}")
+    print(f"Above VWAP count: {intraday_payload.get('above_vwap_count', 0)}")
+    print(f"Below VWAP count: {intraday_payload.get('below_vwap_count', 0)}")
+    print(f"Opening range breakout count: {intraday_payload.get('opening_range_breakout_count', 0)}")
+    print(f"Opening range breakdown count: {intraday_payload.get('opening_range_breakdown_count', 0)}")
+    print(f"Snapshots created today: {created_today}")
+    print(f"Snapshots updated today: {updated_today}")
+    print(f"Real-only snapshots reviewed: {len(prepared)}")
+    print(f"Demo rows excluded: {exclusions['demo_rows_excluded']}")
+    print(f"Legacy unknown rows excluded: {exclusions['legacy_unknown_rows_excluded']}")
+    print(f"Fallback/missing rows excluded: {exclusions['missing_real_data_rows_excluded']}")
+    print(f"Top repeated high-priority symbols: {_format_counter(top_symbols)}")
+    print(f"Top Tony hypotheses: {_format_counter(top_hypotheses)}")
+    print("\nOutcome counts:")
+    _print_dataframe(outcome_counts)
+    print("\nWarning counts:")
+    _print_dataframe(warning_counts)
+    print("\nRepeated missing real-data symbols:")
+    if fallback_symbols:
+        for symbol in fallback_symbols:
+            print(f"  {symbol}: missing real-data candidate. Quarantine or replace these symbols.")
+    else:
+        print("  none")
+    print("\nData-quality notes:")
+    print("  Active analytics review real-data rows only; demo, missing, and legacy rows are excluded by default.")
+    print("  Alpaca IEX is a single-exchange feed and may differ from consolidated SIP data.")
+
+    return {
+        "date": report_date,
+        "cycles_completed": cycles_completed,
+        "latest_watch_status": latest_watch_status,
+        "provider": provider_used,
+        "symbols_scanned": symbols_scanned,
+        "real_symbols_scanned": real_symbols_scanned,
+        "api_requests": api_requests,
+        "fallback_symbols": fallback_symbols,
+        "missing_real_data_symbols": fallback_symbols,
+        "real_intraday_count": int(intraday_payload.get("real_intraday_count", 0) or 0),
+        "stale_intraday_count": int(intraday_payload.get("intraday_stale_count", 0) or 0),
+        "snapshots_created_today": created_today,
+        "snapshots_updated_today": updated_today,
+        "real_only_snapshots_reviewed": len(prepared),
+        "demo_rows_excluded": exclusions["demo_rows_excluded"],
+        "legacy_unknown_rows_excluded": exclusions["legacy_unknown_rows_excluded"],
+        "missing_real_data_rows_excluded": exclusions["missing_real_data_rows_excluded"],
+    }
 
 
 def run_data_check(args: argparse.Namespace) -> None:
@@ -1313,7 +1491,7 @@ def _print_intraday_summary(summary: dict[str, Any], prefix: str = "") -> None:
         f"requested={summary.get('symbols_requested', 0)} "
         f"real_intraday={summary.get('real_intraday_count', summary.get('symbols_with_intraday', 0))} "
         f"missing={summary.get('missing_count', 0)} "
-        f"demo_fallback={summary.get('intraday_fallback_count', 0)} "
+        f"fallback={summary.get('intraday_fallback_count', 0)} "
         f"stale={summary.get('intraday_stale_count', 0)} "
         f"above_vwap={summary.get('above_vwap_count', 0)} "
         f"below_vwap={summary.get('below_vwap_count', 0)} "
@@ -1368,6 +1546,27 @@ def _tony_intraday_label_from_features(features: IntradayFeatures) -> str:
     return features.trend_since_open
 
 
+def _snapshot_data_source_fields(provider_name: str, real_only: bool) -> dict[str, Any]:
+    """Metadata persisted on candidate snapshots for analytics filtering."""
+    if "alpaca_iex" in provider_name:
+        data_source = "real_alpaca"
+        used_demo = False
+    elif provider_name == "recorded_real_fixture":
+        data_source = "recorded_real_fixture"
+        used_demo = False
+    else:
+        data_source = "demo_generated"
+        used_demo = True
+    return {
+        "data_source": data_source,
+        "data_source_provider": provider_name,
+        "used_demo_data": used_demo,
+        "used_fallback_data": False,
+        "real_data_only_run": real_only,
+        "missing_real_data_reason": None,
+    }
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -1388,6 +1587,8 @@ def main() -> None:
         run_tony_events(args)
     elif args.command == "outcome-analytics":
         run_outcome_analytics(args)
+    elif args.command == "eod-report":
+        run_eod_report(args)
     elif args.command == "data-check":
         run_data_check(args)
     elif args.command == "provider-health":
@@ -1458,6 +1659,119 @@ def _print_dataframe(data: pd.DataFrame) -> None:
         print("No rows.")
         return
     print(data.to_string(index=False))
+
+
+def _events_on_date(events: pd.DataFrame, date_value: str) -> list[dict[str, Any]]:
+    if events.empty or "created_at" not in events.columns:
+        return []
+    rows = []
+    for row in events.to_dict("records"):
+        if str(row.get("created_at", "")).startswith(date_value):
+            rows.append(row)
+    return rows
+
+
+def latest_event_of_type_records(events: list[dict[str, Any]], event_type: str) -> dict[str, Any] | None:
+    for row in events:
+        if row.get("event_type") == event_type:
+            return row
+    return None
+
+
+def _payload(row: dict[str, Any] | None) -> dict[str, Any]:
+    if not row:
+        return {}
+    try:
+        parsed = json.loads(str(row.get("payload_json") or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def repeated_fallback_symbols(events: list[dict[str, Any]]) -> list[str]:
+    counts: Counter[str] = Counter()
+    for row in events:
+        payload = _payload(row)
+        candidates = (
+            payload.get("missing_real_data_symbols")
+            or payload.get("fallback_symbols")
+            or payload.get("intraday_fallback_symbols")
+            or payload.get("intraday_missing_symbols")
+            or payload.get("symbols_fallback")
+            or []
+        )
+        if isinstance(candidates, str):
+            candidates = [candidates]
+        for symbol in candidates:
+            text = str(symbol).upper().strip()
+            if text:
+                counts[text] += 1
+    if not counts:
+        return []
+    max_count = max(counts.values())
+    if max_count > 1:
+        counts = Counter({symbol: count for symbol, count in counts.items() if count > 1})
+    return [symbol for symbol, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+
+
+def _top_event_symbols(events: list[dict[str, Any]]) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for row in events:
+        symbol = str(row.get("symbol") or "").upper().strip()
+        if symbol and symbol != "NAN":
+            counts[symbol] += 1
+        payload = _payload(row)
+        payload_symbol = str(payload.get("symbol") or "").upper().strip()
+        if payload_symbol and payload_symbol != "NAN":
+            counts[payload_symbol] += 1
+    return counts
+
+
+def _top_hypotheses(events: list[dict[str, Any]]) -> Counter[str]:
+    counts: Counter[str] = Counter()
+    for row in events:
+        if row.get("event_type") != "analyst_candidate_hypothesis":
+            continue
+        payload = _payload(row)
+        label = str(payload.get("setup_read") or payload.get("priority_label") or row.get("title") or "unknown")
+        counts[label] += 1
+    return counts
+
+
+def _format_counter(counts: Counter[str], limit: int = 5) -> str:
+    if not counts:
+        return "none"
+    return ", ".join(f"{key}: {value}" for key, value in counts.most_common(limit))
+
+
+def _warning_counts(prepared: pd.DataFrame) -> pd.DataFrame:
+    if prepared.empty or "warnings_json" not in prepared.columns:
+        return pd.DataFrame(columns=["warning_type", "count"])
+    counts: Counter[str] = Counter()
+    for raw in prepared["warnings_json"].tolist():
+        try:
+            warnings = json.loads(str(raw or "[]"))
+        except json.JSONDecodeError:
+            warnings = []
+        if not warnings:
+            warnings = ["No warning"]
+        for warning in warnings:
+            counts[str(warning)] += 1
+    return pd.DataFrame(
+        [{"warning_type": key, "count": value} for key, value in counts.most_common()]
+    )
+
+
+def _outcome_counts(prepared: pd.DataFrame) -> pd.DataFrame:
+    if prepared.empty or "outcome_label" not in prepared.columns:
+        return pd.DataFrame(columns=["outcome_label", "count"])
+    return (
+        prepared["outcome_label"]
+        .fillna("unreviewed")
+        .value_counts()
+        .rename_axis("outcome_label")
+        .reset_index(name="count")
+    )
 
 
 def _best_target_hit_group(table: pd.DataFrame | None) -> str:

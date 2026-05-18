@@ -303,6 +303,7 @@ class AlpacaIEXProvider(MarketDataProvider):
         self._rate_limiter = rate_limiter
         self._demo = DemoGeneratedProvider(profiles_by_symbol=profiles_by_symbol)
         self.fallback_symbols: list[str] = []
+        self.missing_symbols: list[str] = []
         self.stale_symbols: list[str] = []
         self._requests_this_cycle: int = 0
         self._batch_requests_this_cycle: int = 0
@@ -311,6 +312,7 @@ class AlpacaIEXProvider(MarketDataProvider):
     def reset_cycle_state(self) -> None:
         """Reset per-scan tracking. Call before each scan cycle."""
         self.fallback_symbols = []
+        self.missing_symbols = []
         self.stale_symbols = []
         self._requests_this_cycle = 0
         self._batch_requests_this_cycle = 0
@@ -325,6 +327,7 @@ class AlpacaIEXProvider(MarketDataProvider):
             "batch_requests_used": self._batch_requests_this_cycle,
             "rate_limit_warnings": self._rate_limit_warnings_this_cycle,
             "fallback_count": len(self.fallback_symbols),
+            "missing_count": len(self.missing_symbols),
             "stale_count": len(self.stale_symbols),
             "batch_mode": self.batch_requests_enabled,
         }
@@ -337,6 +340,7 @@ class AlpacaIEXProvider(MarketDataProvider):
                 LOGGER.warning("Alpaca IEX fallback to demo for %s: %s", symbol, exc)
                 self.fallback_symbols.append(symbol)
                 return self._demo.fetch_ohlcv(symbol, lookback_days, timeframe)
+            self.missing_symbols.append(symbol.upper())
             raise
 
     def fetch_ohlcv_batch(
@@ -365,6 +369,7 @@ class AlpacaIEXProvider(MarketDataProvider):
                     self.fallback_symbols.append(symbol)
                     result[symbol] = self._demo.fetch_ohlcv(symbol, lookback_days, timeframe)
                 return result
+            self.missing_symbols.extend(s.upper() for s in symbols)
             raise
 
     def _fetch_bars(self, symbol: str, lookback_days: int, timeframe: str) -> pd.DataFrame:
@@ -479,10 +484,11 @@ class AlpacaIEXProvider(MarketDataProvider):
             bars = bars_by_symbol.get(symbol, [])
             if not bars:
                 LOGGER.warning("Alpaca IEX batch: no bars for %s", symbol)
-                self.fallback_symbols.append(symbol)
                 if self.fail_safe_to_demo:
+                    self.fallback_symbols.append(symbol)
                     result[symbol] = self._demo.fetch_ohlcv(symbol, lookback_days, timeframe)
                 else:
+                    self.missing_symbols.append(symbol)
                     result[symbol] = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
             else:
                 result[symbol] = self._normalize_raw_bars(bars, lookback_days, symbol, alpaca_tf)
@@ -563,6 +569,7 @@ def _build_alpaca_provider(
 ) -> AlpacaIEXProvider:
     """Construct an AlpacaIEXProvider from config and environment variables."""
     alpaca_cfg = market_data_config.get("alpaca") or {}
+    real_only = bool(market_data_config.get("real_data_only", False))
     api_key = os.getenv("ALPACA_API_KEY", "")
     secret_key = os.getenv("ALPACA_SECRET_KEY", "")
     feed = os.getenv("ALPACA_DATA_FEED") or str(alpaca_cfg.get("feed", "iex"))
@@ -578,12 +585,12 @@ def _build_alpaca_provider(
         timeframe=str(alpaca_cfg.get("timeframe", "1Day")),
         adjustment=str(alpaca_cfg.get("adjustment", "raw")),
         timeout=int(alpaca_cfg.get("request_timeout_seconds", 15)),
-        fail_safe_to_demo=bool(alpaca_cfg.get("fail_safe_to_demo", True)),
+        fail_safe_to_demo=False if real_only else bool(alpaca_cfg.get("fail_safe_to_demo", True)),
         stale_data_minutes=int(alpaca_cfg.get("stale_data_minutes", 20)),
         batch_requests_enabled=batch_enabled,
         max_symbols_per_batch=int(alpaca_cfg.get("max_symbols_per_batch", 175)),
         stop_on_rate_limit=bool(alpaca_cfg.get("stop_on_rate_limit", False)),
-        fallback_on_rate_limit=bool(alpaca_cfg.get("fallback_on_rate_limit", True)),
+        fallback_on_rate_limit=False if real_only else bool(alpaca_cfg.get("fallback_on_rate_limit", True)),
         rate_limiter=rate_limiter,
         profiles_by_symbol=profiles_by_symbol,
     )

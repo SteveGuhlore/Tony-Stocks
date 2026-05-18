@@ -74,6 +74,14 @@ def test_candidate_snapshot_table_exists(tmp_path):
         "intraday_relative_volume",
         "intraday_opening_range_status",
     }.issubset(columns)
+    assert {
+        "data_source",
+        "data_source_provider",
+        "used_demo_data",
+        "used_fallback_data",
+        "real_data_only_run",
+        "missing_real_data_reason",
+    }.issubset(columns)
 
 
 def test_tony_event_table_exists(tmp_path):
@@ -271,3 +279,25 @@ def test_candidate_snapshot_stores_optional_intraday_tony_fields(tmp_path):
     assert row["intraday_timeframe"] == "5Min"
     assert row["intraday_above_vwap"] == 1
     assert row["intraday_opening_range_status"] == "opening_range_breakout_watch"
+    assert row["data_source"] is None
+
+
+def test_snapshots_for_analytics_include_nullable_provider_context(tmp_path):
+    db = tmp_path / "scanner.db"
+    repo = ScannerRepository(db)
+    run_id = repo.create_scan_run(1, "alpaca_iex", {"provider": "alpaca_iex"})
+    repo.create_candidate_snapshots(
+        run_id,
+        [sample_scored_stock("PLTR")],
+        {
+            "enabled": True,
+            "min_score": 60,
+            "include_roles": ["primary_candidate"],
+            "include_categories": ["Breakout Watch"],
+        },
+    )
+
+    rows = repo.list_snapshots_for_analytics(include_seeded_demo=True)
+    assert rows.iloc[0]["snapshot_provider"] == "alpaca_iex"
+    assert "data_source" in rows.columns
+    assert "scan_created_at" in rows.columns

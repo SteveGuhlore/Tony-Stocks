@@ -22,18 +22,51 @@ class OutcomeAnalytics:
 
     snapshots: pd.DataFrame
     include_seeded_demo: bool = False
+    real_only: bool = True
+    include_demo: bool = False
+    include_legacy: bool = False
+    exclude_demo: bool = False
+    today: bool = False
+    provider: str | None = None
 
     def prepared(self) -> pd.DataFrame:
         """Return normalized snapshots with seeded fixtures filtered as configured."""
         data = self.snapshots.copy()
         if data.empty:
             return data
-        for column in ("notes", "tags_json", "warnings_json", "outcome_label"):
+        for column in (
+            "notes",
+            "tags_json",
+            "warnings_json",
+            "outcome_label",
+            "snapshot_provider",
+            "tony_data_quality_read",
+            "snapshot_time",
+            "data_source",
+            "data_source_provider",
+            "used_demo_data",
+            "used_fallback_data",
+            "real_data_only_run",
+            "missing_real_data_reason",
+        ):
             if column not in data.columns:
                 data[column] = "" if column != "tags_json" and column != "warnings_json" else "[]"
         data["is_seeded_demo"] = data.apply(_is_seeded_demo_row, axis=1)
+        data["data_source_classification"] = data.apply(classify_snapshot_data_source, axis=1)
         if not self.include_seeded_demo:
             data = data[~data["is_seeded_demo"]].copy()
+        if self.exclude_demo or not self.include_demo:
+            data = data[~data["data_source_classification"].eq("demo_generated")].copy()
+        if not self.include_legacy:
+            data = data[~data["data_source_classification"].eq("legacy_unknown")].copy()
+        data = data[~data["data_source_classification"].eq("missing_real_data")].copy()
+        if self.real_only:
+            data = data[data["data_source_classification"].isin({"real_alpaca", "recorded_real_fixture"})].copy()
+        if self.provider:
+            data = data[data["snapshot_provider"].fillna("").eq(self.provider)].copy()
+        if self.today:
+            today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+            data = data[data["snapshot_time"].fillna("").astype(str).str.slice(0, 10).eq(today)].copy()
         data["score_bucket"] = data["total_score"].apply(score_bucket)
         data["outcome_label"] = data["outcome_label"].fillna("unreviewed")
         data["entry_triggered"] = data["entry_triggered"].fillna(0).astype(int)
@@ -110,6 +143,61 @@ class OutcomeAnalytics:
             .reset_index(name="count")
         )
 
+    def data_source_counts(self) -> pd.DataFrame:
+        """Count snapshots by derived data-source class after active filters."""
+        data = self.prepared()
+        if data.empty:
+            return pd.DataFrame(columns=["data_source_classification", "count"])
+        return (
+            data["data_source_classification"]
+                .fillna("legacy_unknown")
+            .value_counts()
+            .rename_axis("data_source_classification")
+            .reset_index(name="count")
+        )
+
+    def raw_data_source_counts(self) -> pd.DataFrame:
+        """Count snapshots by derived data-source class before active source filters."""
+        data = self.snapshots.copy()
+        if data.empty:
+            return pd.DataFrame(columns=["data_source_classification", "count"])
+        for column in (
+            "notes",
+            "tags_json",
+            "warnings_json",
+            "snapshot_provider",
+            "tony_data_quality_read",
+            "data_source",
+            "data_source_provider",
+            "used_demo_data",
+            "used_fallback_data",
+            "missing_real_data_reason",
+        ):
+            if column not in data.columns:
+                data[column] = "" if column not in {"tags_json", "warnings_json"} else "[]"
+        data["is_seeded_demo"] = data.apply(_is_seeded_demo_row, axis=1)
+        data["data_source_classification"] = data.apply(classify_snapshot_data_source, axis=1)
+        if not self.include_seeded_demo:
+            data = data[~data["is_seeded_demo"]].copy()
+        return (
+            data["data_source_classification"]
+            .fillna("legacy_unknown")
+            .value_counts()
+            .rename_axis("data_source_classification")
+            .reset_index(name="count")
+        )
+
+    def exclusion_counts(self) -> dict[str, int]:
+        """Return counts excluded from default real-data-only analytics."""
+        raw = self.raw_data_source_counts()
+        counts = {str(row["data_source_classification"]): int(row["count"]) for _, row in raw.iterrows()}
+        return {
+            "real_rows": counts.get("real_alpaca", 0) + counts.get("recorded_real_fixture", 0),
+            "demo_rows_excluded": counts.get("demo_generated", 0),
+            "legacy_unknown_rows_excluded": counts.get("legacy_unknown", 0),
+            "missing_real_data_rows_excluded": counts.get("missing_real_data", 0),
+        }
+
 
 def score_bucket(score: float | int | None) -> str:
     """Assign a 0-100 score into research buckets."""
@@ -123,6 +211,63 @@ def score_bucket(score: float | int | None) -> str:
     if value >= 60:
         return "60-69"
     return "below 60"
+
+
+def classify_snapshot_data_source(row: pd.Series) -> str:
+    """Classify a candidate snapshot using existing nullable metadata.
+
+    Returns one of: real_alpaca, missing_real_data, recorded_real_fixture,
+    legacy_unknown, or demo_generated for old demo rows.
+    """
+    explicit_source = str(row.get("data_source") or "").lower()
+    if explicit_source in {"real_alpaca", "missing_real_data", "recorded_real_fixture", "demo_generated", "legacy_unknown"}:
+        return explicit_source
+    provider = str(row.get("snapshot_provider") or row.get("provider") or "").lower()
+    source_provider = str(row.get("data_source_provider") or "").lower()
+    notes = str(row.get("notes") or "").lower()
+    dq = str(row.get("tony_data_quality_read") or "").lower()
+    tags = {str(tag).lower() for tag in _safe_json_list(row.get("tags_json"))}
+    warnings = " | ".join(str(item).lower() for item in _safe_json_list(row.get("warnings_json")))
+    used_demo = _truthy(row.get("used_demo_data"))
+    used_fallback = _truthy(row.get("used_fallback_data"))
+    missing_reason = str(row.get("missing_real_data_reason") or "").lower()
+    if _is_seeded_demo_row(row):
+        return "demo_generated"
+    if missing_reason or explicit_source == "missing_real_data":
+        return "missing_real_data"
+    if "recorded_real_fixture" in {explicit_source, source_provider, provider}:
+        return "recorded_real_fixture"
+    demo_markers = (
+        "demo data only" in warnings
+        or "demo-generated" in warnings
+        or "demo_generated" in provider
+        or "demo_generated" in source_provider
+        or "demo_data" == dq
+        or "demo" in tags
+        or "demo seeded" in notes
+        or used_demo
+    )
+    fallback_markers = (
+        "fallback" in warnings
+        or "fallback" in dq
+        or "fallback" in provider
+        or "fallback" in source_provider
+        or "fallback_data" == dq
+        or "intraday_fallback_demo" == dq
+        or used_fallback
+    )
+    real_markers = (
+        provider == "alpaca_iex"
+        or source_provider == "alpaca_iex"
+        or dq in {"daily_real_alpaca", "intraday_real_alpaca"}
+    )
+    if demo_markers:
+        return "demo_generated"
+    if fallback_markers:
+        return "missing_real_data"
+    if real_markers:
+        return "real_alpaca"
+    return "legacy_unknown"
 
 
 def _summary_row(group_column: str, group_value: Any, group: pd.DataFrame) -> dict[str, Any]:
@@ -199,3 +344,13 @@ def _safe_json_list(value: Any) -> list[Any]:
     except (TypeError, json.JSONDecodeError):
         return []
     return parsed if isinstance(parsed, list) else []
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value in (None, ""):
+        return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}

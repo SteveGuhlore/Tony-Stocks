@@ -1,4 +1,0 @@
-2026-05-18 00:56:02,339 WARNING trading_bot.cli - Intraday feature fetch failed: Connection refused
-2026-05-18 00:56:02,450 WARNING trading_bot.data.market_data - Alpaca IEX batch fetch failed (network error). Falling back to per-symbol demo.
-2026-05-18 00:56:02,481 INFO trading_bot.data.market_data - Rate limiter: waiting 60.0s (2/2 requests in window)
-2026-05-18 00:57:02,536 WARNING trading_bot.data.market_data - Alpaca IEX rate limit (429) for PLTR. Sleeping 61s.
