@@ -121,6 +121,18 @@ CREATE TABLE IF NOT EXISTS candidate_snapshots (
     result_20d REAL,
     outcome_label TEXT,
     notes TEXT,
+    tony_priority_label TEXT,
+    tony_recommended_action TEXT,
+    tony_setup_read TEXT,
+    tony_volume_read TEXT,
+    tony_risk_read TEXT,
+    tony_market_context_read TEXT,
+    tony_data_quality_read TEXT,
+    tony_outcome_context TEXT,
+    tony_hypothesis TEXT,
+    tony_reasons_json TEXT,
+    tony_concerns_json TEXT,
+    tony_analysis_version TEXT,
     FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
 );
 
@@ -184,6 +196,18 @@ CANDIDATE_SNAPSHOT_MIGRATIONS = (
     "ALTER TABLE candidate_snapshots ADD COLUMN notes TEXT",
     "ALTER TABLE candidate_snapshots ADD COLUMN trade_plan_valid INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE candidate_snapshots ADD COLUMN trade_plan_status TEXT NOT NULL DEFAULT 'valid'",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_priority_label TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_recommended_action TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_setup_read TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_volume_read TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_risk_read TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_market_context_read TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_data_quality_read TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_outcome_context TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_hypothesis TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_reasons_json TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_concerns_json TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_analysis_version TEXT",
 )
 
 WATCH_RUN_MIGRATIONS: tuple[str, ...] = ()  # reserved for future additive columns

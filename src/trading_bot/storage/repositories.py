@@ -263,8 +263,15 @@ class ScannerRepository:
         scan_run_id: int,
         results: list[ScoredStock],
         snapshot_config: dict[str, Any] | None = None,
+        tony_analyses: dict[str, Any] | None = None,
     ) -> list[int]:
-        """Create candidate snapshots from scored scan results."""
+        """Create candidate snapshots from scored scan results.
+
+        tony_analyses maps symbol → dict with Tony analyst fields (from CandidateAnalysis.to_dict()
+        plus 'tony_analysis_version'). When provided the Tony hypothesis fields are stored on the
+        snapshot row. When absent or when no analysis exists for a symbol, Tony fields are NULL.
+        No broker execution, paper trades, or orders are created.
+        """
         config = snapshot_config or {}
         if not config.get("enabled", True):
             return []
@@ -306,6 +313,7 @@ class ScannerRepository:
                     dedupe_minutes=dedupe_minutes,
                 ):
                     continue
+                ta: dict[str, Any] | None = (tony_analyses or {}).get(result.symbol)
                 cursor = conn.execute(
                     """
                     INSERT INTO candidate_snapshots (
@@ -313,9 +321,14 @@ class ScannerRepository:
                         total_score, close, entry, stop, target, risk_reward, dollar_volume,
                         relative_volume, atr_percent, trade_plan_valid, trade_plan_status,
                         reasons_json, warnings_json, candidate_summary,
-                        status, entry_trigger_price, entry_triggered
+                        status, entry_trigger_price, entry_triggered,
+                        tony_priority_label, tony_recommended_action, tony_setup_read,
+                        tony_volume_read, tony_risk_read, tony_market_context_read,
+                        tony_data_quality_read, tony_outcome_context, tony_hypothesis,
+                        tony_reasons_json, tony_concerns_json, tony_analysis_version
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         scan_run_id,
@@ -341,6 +354,18 @@ class ScannerRepository:
                         "open/watch",
                         result.suggested_entry,
                         0,
+                        ta.get("priority_label") if ta else None,
+                        ta.get("recommended_action") if ta else None,
+                        ta.get("setup_read") if ta else None,
+                        ta.get("volume_read") if ta else None,
+                        ta.get("risk_read") if ta else None,
+                        ta.get("market_context_read") if ta else None,
+                        ta.get("data_quality_read") if ta else None,
+                        ta.get("outcome_context") if ta else None,
+                        ta.get("tony_hypothesis") if ta else None,
+                        json.dumps(ta.get("reasons", [])) if ta else None,
+                        json.dumps(ta.get("concerns", [])) if ta else None,
+                        ta.get("tony_analysis_version") if ta else None,
                     ),
                 )
                 created_ids.append(int(cursor.lastrowid))

@@ -134,6 +134,7 @@ tony_stocks:
     - watch_run_error
     - watch_heartbeat_stale
     - watch_waiting_for_market_open
+    - tony_learning_updated
   high_score_threshold: 85
   include_seeded_demo_events: false
   max_events_per_cycle: 30

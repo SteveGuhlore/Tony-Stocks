@@ -80,6 +80,9 @@ PRI_LOW = "low_priority"
 PRI_AVOID = "avoid"
 PRI_REFERENCE = "reference_only"
 
+# ── Analysis versioning ───────────────────────────────────────────────────────
+TONY_ANALYSIS_VERSION = "v1"
+
 # ── Recommended actions (exhaustive — no paper_trade or live_trade) ───────────
 ACTION_SNAPSHOT = "snapshot_only"
 ACTION_WATCH = "watch_only"

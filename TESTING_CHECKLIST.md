@@ -1,6 +1,6 @@
 # Trading Bot Project - Testing Checklist
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-18_
 
 Use this after every meaningful code change.
 
@@ -48,7 +48,8 @@ Required test areas:
 - backtester,
 - V9 scaling (batch fetch, rate limiter, universe rotation, request count audit),
 - V11 dashboard helpers (event age, fallback detection, hypothesis counting, snapshot counting),
-- V12 watch run state (table CRUD, heartbeat staleness, market-hours guard, watch status labels, no-broker behavior).
+- V12 watch run state (table CRUD, heartbeat staleness, market-hours guard, watch status labels, no-broker behavior),
+- V13 Tony hypothesis-to-outcome tracking (schema columns, Tony field storage, null-safe legacy compat, analysis version constant, outcome analytics grouping, learning event, no-broker guards).
 
 ## Scanner smoke test
 

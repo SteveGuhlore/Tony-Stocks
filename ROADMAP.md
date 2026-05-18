@@ -1,6 +1,6 @@
 # Trading Bot Project - Roadmap
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-18_
 
 ## Phase 1 - V1/V2 scanner, scorer, and dashboard
 
@@ -88,7 +88,9 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V12 complete.** Workday Watch Mode operational. Watch run lifecycle tracked in SQLite. Heartbeat staleness detection. Market-hours guard. Tony lifecycle events. Dashboard Command Center (V11) shows real-time watch status. Analyst Engine (V10) produces deterministic reads every cycle. 282 tests pass, 0 errors.
+Status: **V13 complete.** Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
+
+V12: Workday Watch Mode operational. Watch run lifecycle tracked in SQLite. Heartbeat staleness detection. Market-hours guard. Tony lifecycle events. Dashboard Command Center (V11) shows real-time watch status. Analyst Engine (V10) produces deterministic reads every cycle. 282 tests pass, 0 errors.
 
 Goals:
 

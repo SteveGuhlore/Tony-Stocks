@@ -6,6 +6,64 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V13 handoff — Tony Hypothesis-to-Outcome Tracking
+
+### Current active task
+
+V13 complete. Tony analyst reads (hypothesis, priority, recommended action, setup/risk/data-quality reads) now stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard has Tony Learning panel (early tracking language). 321 tests pass, 0 failures.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V13
+
+- `src/trading_bot/storage/database.py` — Added 12 Tony fields to `candidate_snapshots` SCHEMA and `CANDIDATE_SNAPSHOT_MIGRATIONS` tuple (additive, nullable TEXT, no DEFAULT).
+- `src/trading_bot/storage/repositories.py` — Updated `create_candidate_snapshots()` signature to accept `tony_analyses: dict[str, Any] | None`; extended INSERT from 23 → 35 columns; JSON-encodes reasons/concerns lists.
+- `src/trading_bot/tony/analysis.py` — Added `TONY_ANALYSIS_VERSION = "v1"` constant.
+- `src/trading_bot/tony/events.py` — Added `"tony_learning_updated"` to `TonyConfig.create_events_for` default tuple; added `record_tony_learning_updated()` method returning `int | None`.
+- `src/trading_bot/cli.py` — Moved Tony analyst block before `create_candidate_snapshots()` in `run_scan()` so reads attach at snapshot creation; added `tony_analyses` dict construction (`{symbol: {**a.to_dict(), "tony_analysis_version": TONY_ANALYSIS_VERSION}}`); added 6 Tony group choices to `--group-by`; fires `tony_learning_updated` from `run_outcome_analytics()` (when not include_seeded).
+- `src/trading_bot/dashboard/app.py` — Added `render_tony_learning_panel(repo)` function and call at end of `render_command_center()`; shows priority/action/setup/risk-read breakdown tables with "Early tracking only" language.
+- `config/default_config.yaml` — Added `- tony_learning_updated` to `tony_stocks.create_events_for`.
+- `tests/test_v13_tony_learning.py` — NEW. 39 tests in 7 classes covering schema columns, Tony field storage, null-safe legacy behavior, analysis version constant, outcome analytics grouping, learning event, and no-broker guards.
+
+### Tony fields added to candidate_snapshots
+
+```
+tony_priority_label TEXT,
+tony_recommended_action TEXT,
+tony_setup_read TEXT,
+tony_volume_read TEXT,
+tony_risk_read TEXT,
+tony_market_context_read TEXT,
+tony_data_quality_read TEXT,
+tony_outcome_context TEXT,
+tony_hypothesis TEXT,
+tony_reasons_json TEXT,
+tony_concerns_json TEXT,
+tony_analysis_version TEXT,
+```
+
+### Tests/checks run in V13
+
+- `pytest tests/test_v13_tony_learning.py -v` — **39 passed, 0 failures**
+- `pytest --tb=short -q` (full suite) — **321 passed, 0 failures, 0 errors** (up from 282)
+- `provider-health` — PASSED
+- `watch --max-cycles 1` — completed; `watch_run_stopped` and analyst events visible
+- `tony-events --limit 30` — `tony_learning_updated` confirmed at top
+- `outcome-analytics` — ran cleanly; `tony_learning_updated` event fired
+
+### Safety confirmed in V13
+
+- No broker execution, no live trading, no paper trades, no orders
+- No options/Greeks logic
+- No LLM for trade decisions
+- No profitability claims
+- No API keys printed or committed
+- Alpaca IEX treated as single-exchange feed, not SIP consolidated tape
+
+---
+
 ## V12 handoff — Workday Watch Mode + Run Controls
 
 ### Current active task

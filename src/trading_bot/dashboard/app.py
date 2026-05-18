@@ -1215,6 +1215,80 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
     st.markdown("---")
     render_outcome_snapshot_panel(repo)
 
+    st.markdown("---")
+    render_tony_learning_panel(repo)
+
+
+def render_tony_learning_panel(repo: ScannerRepository) -> None:
+    """Compact Tony Learning section — early tracking of hypothesis-to-outcome patterns."""
+    with st.expander("Tony Learning — Early Hypothesis Tracking", expanded=False):
+        st.caption(
+            "Early tracking only. Not enough history yet to draw conclusions. "
+            "Research mode — not evidence of real market edge. "
+            "Seeded demo fixtures excluded."
+        )
+        try:
+            snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
+            analytics = OutcomeAnalytics(snapshots, include_seeded_demo=False)
+            prepared = analytics.prepared()
+        except Exception:
+            st.info("Tony Learning data not available yet.")
+            return
+
+        if prepared.empty:
+            st.info("No real-data snapshots yet. Run watch mode to collect snapshots.")
+            return
+
+        has_tony = (
+            "tony_analysis_version" in prepared.columns
+            and prepared["tony_analysis_version"].notna().any()
+        )
+        analyzed_count = (
+            int(prepared["tony_analysis_version"].notna().sum())
+            if "tony_analysis_version" in prepared.columns
+            else 0
+        )
+        st.caption(
+            f"{len(prepared)} real-data snapshot(s) reviewed. "
+            f"{analyzed_count} have Tony analysis attached."
+        )
+
+        if not has_tony:
+            st.info(
+                "No snapshots with Tony analysis yet. "
+                "Watch mode attaches Tony reads to new snapshots going forward."
+            )
+            return
+
+        _tony_learning_compact_cols = [
+            "total_snapshots", "target_hit_count", "stop_hit_count",
+            "target_hit_rate", "failure_rate", "insufficient_future_data_count",
+        ]
+
+        pri_table = analytics.grouped_by("tony_priority_label")
+        if not pri_table.empty and "tony_priority_label" in pri_table.columns:
+            st.markdown("**By Tony Priority Label**")
+            display_cols = ["tony_priority_label"] + [c for c in _tony_learning_compact_cols if c in pri_table.columns]
+            st.dataframe(pri_table[display_cols], hide_index=True)
+
+        action_table = analytics.grouped_by("tony_recommended_action")
+        if not action_table.empty and "tony_recommended_action" in action_table.columns:
+            st.markdown("**By Recommended Action**")
+            display_cols = ["tony_recommended_action"] + [c for c in _tony_learning_compact_cols if c in action_table.columns]
+            st.dataframe(action_table[display_cols], hide_index=True)
+
+        setup_table = analytics.grouped_by("tony_setup_read")
+        if not setup_table.empty and "tony_setup_read" in setup_table.columns:
+            st.markdown("**By Setup Read**")
+            display_cols = ["tony_setup_read"] + [c for c in _tony_learning_compact_cols if c in setup_table.columns]
+            st.dataframe(setup_table[display_cols], hide_index=True)
+
+        risk_table = analytics.grouped_by("tony_risk_read")
+        if not risk_table.empty and "tony_risk_read" in risk_table.columns:
+            st.markdown("**By Risk Read**")
+            display_cols = ["tony_risk_read"] + [c for c in _tony_learning_compact_cols if c in risk_table.columns]
+            st.dataframe(risk_table[display_cols], hide_index=True)
+
 
 def main() -> None:
     repo = repository()

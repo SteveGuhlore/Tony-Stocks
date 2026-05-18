@@ -53,6 +53,7 @@ class TonyConfig:
         "watch_run_error",
         "watch_heartbeat_stale",
         "watch_waiting_for_market_open",
+        "tony_learning_updated",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -591,6 +592,34 @@ class TonyStocksService:
                 "Regular session: 9:30 AM – 4:00 PM ET. No holiday calendar applied."
             ),
             payload={"timezone": timezone_name, "current_time": current_time_et},
+        )
+
+    def record_tony_learning_updated(
+        self,
+        snapshot_count: int,
+        analyzed_count: int,
+        by_priority: dict[str, Any] | None = None,
+    ) -> int | None:
+        """Create one event when Tony hypothesis-to-outcome analytics is calculated.
+
+        Fires at most once per outcome-analytics run. Tony is analyzing, not trading.
+        Seeded demo fixtures must be excluded before calling this method.
+        """
+        return self.create_event(
+            event_type="tony_learning_updated",
+            severity="info",
+            title=f"{self.config.agent_name}: Tony learning analytics updated",
+            message=(
+                f"Tony learning reviewed {snapshot_count} real-data snapshot(s); "
+                f"{analyzed_count} have Tony analysis attached. "
+                "Early tracking only — not enough history to draw conclusions. "
+                "Research mode only."
+            ),
+            payload={
+                "snapshot_count": snapshot_count,
+                "analyzed_count": analyzed_count,
+                "by_priority": by_priority or {},
+            },
         )
 
     def record_outcome_analytics(self, analytics_summary: dict[str, Any]) -> None:

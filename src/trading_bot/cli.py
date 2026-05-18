@@ -34,7 +34,7 @@ from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
 from trading_bot.settings import load_scanner_settings, resolve_effective_provider
 from trading_bot.tony import TonyStocksService
-from trading_bot.tony.analysis import MarketContext, analyze_candidates
+from trading_bot.tony.analysis import TONY_ANALYSIS_VERSION, MarketContext, analyze_candidates
 
 
 LOGGER = logging.getLogger(__name__)
@@ -88,7 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     outcome_analytics.add_argument(
         "--group-by",
         action="append",
-        choices=["setup_category", "score_bucket", "universe_role", "outcome_label", "warning_type", "tag"],
+        choices=[
+            "setup_category", "score_bucket", "universe_role", "outcome_label", "warning_type", "tag",
+            "tony_priority_label", "tony_recommended_action", "tony_setup_read",
+            "tony_risk_read", "tony_data_quality_read", "tony_analysis_version",
+        ],
         default=None,
         help="Grouping to print. Can be repeated.",
     )
@@ -255,51 +259,16 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         config_snapshot=asdict(settings),
     )
     repo.save_scan_results(scan_run_id, results)
-    snapshot_ids = []
-    if getattr(args, "save_snapshots", False):
-        snapshot_ids = repo.create_candidate_snapshots(
-            scan_run_id=scan_run_id,
-            results=results,
-            snapshot_config=settings.candidate_snapshots or {},
-        )
-
-    export_rows = [result.to_dict() for result in results]
-    output_path = Path(settings.outputs_dir) / "latest_scan_results.csv"
-    if export_rows:
-        import pandas as pd
-
-        pd.DataFrame(export_rows).to_csv(output_path, index=False)
-    else:
-        output_path.write_text("", encoding="utf-8")
-
-    print(f"Scan run id: {scan_run_id}")
-    print(f"Provider: {provider.name}")
-    print(f"Symbols loaded: {len(symbols)}")
-    print(f"Symbols scored: {len(results)}")
-    print(f"CSV export: {output_path}")
-    if getattr(args, "save_snapshots", False):
-        _print_snapshot_summary(results=results, snapshot_count=len(snapshot_ids))
-    print("\nTop ranked stocks:")
-    for result in results[:10]:
-        warning_text = f" warnings={len(result.warnings)}" if result.warnings else ""
-        print(
-            f"{result.symbol:6} score={result.final_score:5.2f} "
-            f"category={result.setup_category:25} "
-            f"close={result.latest_close:8.2f} entry={result.suggested_entry:8.2f} "
-            f"stop={result.suggested_stop:8.2f} target={result.suggested_target_1:8.2f}{warning_text}"
-        )
     high_priority_symbols = [
         r.symbol for r in results if r.final_score >= settings.score_threshold_high_quality
     ]
-    summary = {
+    summary: dict[str, Any] = {
         "scan_run_id": scan_run_id,
         "provider": provider.name,
         "symbols_loaded": len(symbols),
         "symbols_scanned": len(market_data),
         "symbols_scored": len(results),
         "symbols_skipped": skipped_count,
-        "csv_path": str(output_path),
-        "snapshots_created": len(snapshot_ids),
         "warnings_count": sum(len(result.warnings) for result in results),
         "high_priority_symbols": high_priority_symbols,
     }
@@ -349,9 +318,9 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             tony.record_rate_limit_warning(provider.name, cycle_stats["rate_limit_warnings"], waits_count)
         tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
 
-    # ── Tony analyst reads (V10) ──────────────────────────────────────────────
-    # Produce deterministic analyst reads for each candidate.
+    # ── Tony analyst reads — run BEFORE snapshot creation so reads attach to new snapshots ──
     # No LLMs, no paper trades, no orders. Tony is analyzing, not trading.
+    tony_analyses: dict[str, Any] = {}
     if results and tony.enabled:
         benchmark_rows = [r for r in results if r.universe_role in ("benchmark", "reference")]
         candidate_rows = [r for r in results if r.universe_role not in ("benchmark", "reference")]
@@ -374,6 +343,10 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             outcome_snapshots=outcome_snaps if (outcome_snaps is not None and not outcome_snaps.empty) else None,
             include_seeded_demo=False,
         )
+        tony_analyses = {
+            a.symbol: {**a.to_dict(), "tony_analysis_version": TONY_ANALYSIS_VERSION}
+            for a in analyses
+        }
 
         # Market context event (once per scan)
         mkt = MarketContext(benchmark_rows)
@@ -409,6 +382,44 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
                     payload=analysis.to_dict(),
                 )
 
+    # ── Create candidate snapshots WITH Tony analysis attached ────────────────
+    snapshot_ids = []
+    if getattr(args, "save_snapshots", False):
+        snapshot_ids = repo.create_candidate_snapshots(
+            scan_run_id=scan_run_id,
+            results=results,
+            snapshot_config=settings.candidate_snapshots or {},
+            tony_analyses=tony_analyses if tony_analyses else None,
+        )
+
+    export_rows = [result.to_dict() for result in results]
+    output_path = Path(settings.outputs_dir) / "latest_scan_results.csv"
+    if export_rows:
+        import pandas as pd
+
+        pd.DataFrame(export_rows).to_csv(output_path, index=False)
+    else:
+        output_path.write_text("", encoding="utf-8")
+
+    print(f"Scan run id: {scan_run_id}")
+    print(f"Provider: {provider.name}")
+    print(f"Symbols loaded: {len(symbols)}")
+    print(f"Symbols scored: {len(results)}")
+    print(f"CSV export: {output_path}")
+    if getattr(args, "save_snapshots", False):
+        _print_snapshot_summary(results=results, snapshot_count=len(snapshot_ids))
+    print("\nTop ranked stocks:")
+    for result in results[:10]:
+        warning_text = f" warnings={len(result.warnings)}" if result.warnings else ""
+        print(
+            f"{result.symbol:6} score={result.final_score:5.2f} "
+            f"category={result.setup_category:25} "
+            f"close={result.latest_close:8.2f} entry={result.suggested_entry:8.2f} "
+            f"stop={result.suggested_stop:8.2f} target={result.suggested_target_1:8.2f}{warning_text}"
+        )
+
+    summary["snapshots_created"] = len(snapshot_ids)
+    summary["csv_path"] = str(output_path)
     tony.record_scan_completed(summary, results=results, snapshot_ids=snapshot_ids)
     return summary
 
@@ -873,6 +884,21 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
             "best_group": best_group,
         }
     )
+
+    # Tony learning event — count snapshots that have Tony analysis attached
+    if not args.include_seeded:
+        analyzed_count = 0
+        by_priority: dict[str, Any] = {}
+        if not prepared.empty and "tony_analysis_version" in prepared.columns:
+            analyzed_count = int(prepared["tony_analysis_version"].notna().sum())
+        if not prepared.empty and "tony_priority_label" in prepared.columns:
+            pri_counts = prepared["tony_priority_label"].value_counts().to_dict()
+            by_priority = {str(k): int(v) for k, v in pri_counts.items()}
+        tony.record_tony_learning_updated(
+            snapshot_count=len(prepared),
+            analyzed_count=analyzed_count,
+            by_priority=by_priority,
+        )
 
 
 def run_data_check(args: argparse.Namespace) -> None:

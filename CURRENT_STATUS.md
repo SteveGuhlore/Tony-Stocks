@@ -1,8 +1,10 @@
 # Trading Bot Project - Current Status
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-18_
 
 ## Overall status
+
+**V13** — Tony Hypothesis-to-Outcome Tracking. Tony analyst reads (priority label, recommended action, setup/risk/volume/market-context/data-quality reads, hypothesis, reasons, concerns) stored with candidate snapshots at creation time. Outcome analytics groups by any Tony field. Dashboard Tony Learning panel (early tracking language, no profitability claims). `TONY_ANALYSIS_VERSION = "v1"` on every attached read. 321 tests pass, 0 errors.
 
 **V12** — Workday Watch Mode + Run Controls. Watch run lifecycle tracked in SQLite (`watch_runs` table). Heartbeat updates every cycle; dashboard detects and displays stale/running/stopped/error states. Market-hours guard (9:30–16:00 ET) with spam-prevention flag. Tony events for all watch lifecycle transitions. 282 tests pass, 0 errors.
 
@@ -102,6 +104,14 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Demo snapshot outcomes now include `target_hit`, `stop_hit`, `partial_move`, `failed_setup`, `entry_not_triggered`, `expired_no_trigger`, and `insufficient_future_data` examples.
 - Programmatic CSV validation confirmed eligible non-reference/non-avoid rows have `stop < entry`, `target > entry`, positive risk/reward, and valid trade-plan flags.
 
+## Confirmed in V13
+
+- `pytest tests/test_v13_tony_learning.py -v` passed: **39 tests, 0 failures**.
+- `pytest --tb=short -q` passed: **321 tests, 0 failures, 0 errors** (up from 282).
+- `provider-health` PASSED.
+- `watch --max-cycles 1` ran; Tony analyst events and `tony_learning_updated` confirmed in `tony-events`.
+- `outcome-analytics` ran cleanly; `tony_learning_updated` event at top of tony-events log.
+
 ## Confirmed in V12
 
 - `pytest --tb=short -q` passed: **282 tests, 0 failures, 0 errors** (up from 230).
@@ -152,13 +162,11 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 
 ## Next recommended work
 
-1. Run `run_dashboard.ps1` and verify the Command Center Watch Status row shows correctly (status, heartbeat age, cycles, latest scan run ID).
-2. Run `watch --max-cycles 3` and let cycles complete — verify heartbeat age resets in dashboard after each cycle.
-3. Test stop-file clean stop: create `data/STOP_WATCH_MODE` during a running watch, verify dashboard shows `stopped` with reason `stop_file`.
-4. Add Alpaca API keys to `.env` and run `provider-health` to confirm real data is flowing.
-5. Run `watch --config config/universe_swing_research_config.yaml --max-cycles 1` with real keys to validate batch fetch at 171-symbol scale and watch run tracking end-to-end.
-6. Consider adding `watch_run_id` FK to `candidate_snapshots` for per-session snapshot correlation.
-7. Add a holiday calendar to `is_within_us_eastern_market_hours()` if market-hours-only mode needs holiday awareness.
-8. Initialize git and commit a known-good baseline.
+1. Run `run_dashboard.ps1` and verify the Tony Learning panel renders in the Command Center (expander at the bottom).
+2. Run `watch --max-cycles 5` with real Alpaca keys so real-data snapshots accumulate Tony analysis; then run `outcome-analytics` and verify Tony groupings appear in the panel.
+3. Consider V14: add `watch_run_id` FK to `candidate_snapshots` so each snapshot can be correlated to a watch session.
+4. Consider V14: add `tony_analysis_version` grouping to the CLI `--group-by` outcome table output so Tony v1 vs future v2 reads can be compared directly.
+5. Add a holiday calendar to `is_within_us_eastern_market_hours()` if market-hours-only mode needs holiday awareness.
+6. Initialize git and commit a known-good baseline.
 
 **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**
