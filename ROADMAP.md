@@ -88,14 +88,16 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V13 complete.** Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
+Status: **V14 complete.** Intraday data mode foundation added for research-only Tony reads: 5Min fetch support, VWAP/opening-range features, nullable snapshot fields, data-check timeframe override, and dashboard intraday displays. Daily scoring remains the default.
+
+V13: Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
 
 V12: Workday Watch Mode operational. Watch run lifecycle tracked in SQLite. Heartbeat staleness detection. Market-hours guard. Tony lifecycle events. Dashboard Command Center (V11) shows real-time watch status. Analyst Engine (V10) produces deterministic reads every cycle. 282 tests pass, 0 errors.
 
 Goals:
 
 - Add provider adapters for Polygon, Alpaca, Finnhub, Financial Modeling Prep, and/or Twelve Data.
-- Alpaca IEX (free tier): Done for historical daily bars + multi-symbol batch endpoint. Intraday timeframes supported by adapter but scanner uses daily bars.
+- Alpaca IEX (free tier): Done for historical daily bars + multi-symbol batch endpoint. V14 adds 5Min intraday fetch support for Tony research reads; scanner scoring still uses daily bars by default.
 - Rate-limit handling (sliding 60s window, buffer%, sleep): Done.
 - Large-universe ingestion (175 symbols/cycle with rotation): Done.
 - Universe rotation (core → open snapshots → prev candidates → round-robin discovery): Done.
@@ -106,6 +108,7 @@ Goals:
 - Dashboard Command Center with live watch status: Done (V11/V12).
 - Tony Analyst Engine (deterministic reads, priority labels, no LLM): Done (V10).
 - Dashboard Command Center tab (first/default): Done (V11).
+- Intraday VWAP/opening-range research reads: Initial foundation done (V14). Not entry automation.
 
 **Next validation step:** Run `watch --max-cycles 3` with real Alpaca keys; verify heartbeat resets in Command Center and `tony-events` shows `batch_fetch_summary`, `universe_rotation_summary`, `watch_run_stopped`.
 

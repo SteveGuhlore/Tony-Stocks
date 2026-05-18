@@ -28,6 +28,7 @@ from typing import Any
 import pandas as pd
 
 from trading_bot.analytics.outcomes import OutcomeAnalytics, score_bucket
+from trading_bot.intraday.features import IntradayFeatures
 from trading_bot.scoring.score_models import ScoredStock
 
 
@@ -123,6 +124,7 @@ class CandidateAnalysis:
     data_quality_read: str
     tony_hypothesis: str
     outcome_context: str
+    intraday_read: str = "intraday_not_requested"
     reasons: list[str] = field(default_factory=list)
     concerns: list[str] = field(default_factory=list)
     recommended_action: str = ACTION_WATCH
@@ -139,6 +141,7 @@ class CandidateAnalysis:
             "data_quality_read": self.data_quality_read,
             "tony_hypothesis": self.tony_hypothesis,
             "outcome_context": self.outcome_context,
+            "intraday_read": self.intraday_read,
             "reasons": list(self.reasons),
             "concerns": list(self.concerns),
             "recommended_action": self.recommended_action,
@@ -193,6 +196,7 @@ def analyze_candidates(
     stale_symbols: list[str] | None = None,
     outcome_snapshots: pd.DataFrame | None = None,
     include_seeded_demo: bool = False,
+    intraday_features_by_symbol: dict[str, IntradayFeatures] | None = None,
 ) -> list[CandidateAnalysis]:
     """Return one CandidateAnalysis per candidate.
 
@@ -219,6 +223,7 @@ def analyze_candidates(
             outcome_snapshots=outcome_snapshots,
             outcome_cache=outcome_cache,
             include_seeded_demo=include_seeded_demo,
+            intraday_features=(intraday_features_by_symbol or {}).get(stock.symbol),
         )
         results.append(analysis)
     return results
@@ -236,6 +241,7 @@ def _analyze_one(
     outcome_snapshots: pd.DataFrame | None,
     outcome_cache: dict[tuple[str, str, str], str],
     include_seeded_demo: bool,
+    intraday_features: IntradayFeatures | None = None,
 ) -> CandidateAnalysis:
     reasons: list[str] = []
     concerns: list[str] = []
@@ -256,6 +262,7 @@ def _analyze_one(
             include_seeded_demo,
         )
     oc_label = outcome_cache[cache_key]
+    intraday_label, intraday_text = _intraday_read(intraday_features)
 
     priority, action = _priority_and_action(stock, setup_label, risk_label, dq_label)
 
@@ -267,6 +274,8 @@ def _analyze_one(
         reasons.append("Volume is confirming the move; liquidity is adequate.")
     if ctx_label == MKT_SUPPORTIVE:
         reasons.append("Broad market is supportive.")
+    if intraday_label in {"intraday_trend_up", "above_vwap", "near_high_of_day", "opening_range_breakout_watch"}:
+        reasons.append(intraday_text)
 
     # build concerns from scanner warnings + analysis
     for w in stock.warnings[:4]:
@@ -277,8 +286,10 @@ def _analyze_one(
         concerns.append("Broad market is weak; setup faces headwinds.")
     if oc_label == OC_NEGATIVE:
         concerns.append("Historical outcomes have been negative for similar setups.")
+    if intraday_label in {"intraday_data_missing", "intraday_trend_down", "below_vwap", "fading_from_high", "opening_range_breakdown_warning"}:
+        concerns.append(intraday_text)
 
-    hypothesis = _build_hypothesis(stock, setup_label, vol_label, risk_label, ctx_label, oc_label, dq_label, priority)
+    hypothesis = _build_hypothesis(stock, setup_label, vol_label, risk_label, ctx_label, oc_label, dq_label, priority, intraday_label)
 
     return CandidateAnalysis(
         symbol=stock.symbol,
@@ -291,6 +302,7 @@ def _analyze_one(
         data_quality_read=dq_label,
         tony_hypothesis=hypothesis,
         outcome_context=oc_label,
+        intraday_read=intraday_label,
         reasons=reasons,
         concerns=concerns,
         recommended_action=action,
@@ -545,6 +557,29 @@ def _priority_and_action(
     return PRI_LOW, ACTION_WATCH
 
 
+def _intraday_read(features: IntradayFeatures | None) -> tuple[str, str]:
+    """Return Tony's compact intraday label without changing the action."""
+    if features is None or not features.data_available:
+        return "intraday_data_missing", "Intraday data is missing or disabled."
+    if features.opening_range_breakdown_warning:
+        return "opening_range_breakdown_warning", "Price is below the opening range; intraday action is weakening."
+    if features.vwap_loss_warning or features.price_above_vwap is False:
+        return "below_vwap", "Price is below VWAP or losing VWAP; intraday confirmation is weak."
+    if features.opening_range_breakout_candidate:
+        return "opening_range_breakout_watch", "Price is above the opening range; monitor as a research-only breakout read."
+    if features.distance_from_high_percent is not None and features.distance_from_high_percent >= -0.01:
+        return "near_high_of_day", "Price is near the high of day."
+    if features.distance_from_high_percent is not None and features.distance_from_high_percent <= -0.03:
+        return "fading_from_high", "Price has faded from the high of day."
+    if features.price_above_vwap:
+        return "above_vwap", "Price is above session VWAP."
+    if features.trend_since_open == "intraday_trend_up":
+        return "intraday_trend_up", "Intraday trend is up from the day open."
+    if features.trend_since_open == "intraday_trend_down":
+        return "intraday_trend_down", "Intraday trend is down from the day open."
+    return "intraday_data_missing", "Intraday read is inconclusive."
+
+
 def _build_hypothesis(
     stock: ScoredStock,
     setup_label: str,
@@ -554,6 +589,7 @@ def _build_hypothesis(
     oc_label: str,
     dq_label: str,
     priority: str,
+    intraday_label: str = "intraday_not_requested",
 ) -> str:
     if priority == PRI_REFERENCE:
         return (
@@ -625,6 +661,20 @@ def _build_hypothesis(
     }
     if dq_label in dq_notes:
         parts.append(dq_notes[dq_label])
+
+    intraday_notes = {
+        "intraday_data_missing": "Intraday read unavailable.",
+        "intraday_trend_up": "Intraday trend is up from the open.",
+        "intraday_trend_down": "Intraday trend is down from the open.",
+        "above_vwap": "Price is above VWAP.",
+        "below_vwap": "Price is below VWAP.",
+        "near_high_of_day": "Price is near high of day.",
+        "fading_from_high": "Price is fading from high of day.",
+        "opening_range_breakout_watch": "Opening range breakout watch.",
+        "opening_range_breakdown_warning": "Opening range breakdown warning.",
+    }
+    if intraday_label in intraday_notes:
+        parts.append(intraday_notes[intraday_label])
 
     parts.append("Tony is analyzing, not trading.")
     return " ".join(parts)

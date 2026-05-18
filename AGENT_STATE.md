@@ -1,8 +1,83 @@
 # Agent State / Handoff Log
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-18_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## V14 handoff - Real Intraday Data Mode Foundation
+
+### Current active task
+
+V14 complete and tested locally. Intraday config, 5Min market-data fetch support, deterministic intraday features, VWAP/opening-range reads, Tony intraday labels, nullable snapshot fields, data-check timeframe support, and dashboard intraday displays were added. Intraday reads are research-only and are not entry automation.
+
+### Last agent used
+
+Codex.
+
+### Files changed in V14
+
+- `config/default_config.yaml` - Added safe `intraday:` config block.
+- `src/trading_bot/settings.py` - Added generic `intraday` config field.
+- `src/trading_bot/data/cache.py` - Added timeframe to cache file keys so daily and intraday demo/cache data do not collide.
+- `src/trading_bot/data/market_data.py` - Added demo intraday bars, 1Min/5Min timeframe normalization, and intraday row limits for Alpaca bars.
+- `src/trading_bot/intraday/__init__.py` - New package export.
+- `src/trading_bot/intraday/features.py` - New deterministic intraday feature helper for VWAP, opening range, day trend, range, and relative volume.
+- `src/trading_bot/tony/analysis.py` - Added optional intraday reads to Tony analysis without changing recommended actions.
+- `src/trading_bot/storage/database.py` - Added nullable candidate snapshot intraday columns.
+- `src/trading_bot/storage/repositories.py` - Stored optional Tony intraday fields when candidate snapshots are created.
+- `src/trading_bot/cli.py` - Added `data-check --timeframe`, optional intraday fetch for Tony analysis, and snapshot field mapping.
+- `src/trading_bot/dashboard/app.py` - Added intraday status in provider panel, Command Center, hypothesis cards, and candidate snapshot detail.
+- `scripts/run_tests.ps1` - Changed pytest session temp root to a workspace-local `.pytest_tmp_sessions` directory because this sandbox could not create the prior `%LOCALAPPDATA%` temp path.
+- `tests/test_intraday_features.py` - New VWAP/opening-range/insufficient-data tests.
+- `tests/test_alpaca_provider.py` - Added mocked 5Min Alpaca fetch test.
+- `tests/test_database.py` - Added snapshot intraday columns/storage tests.
+- `tests/test_tony_analyst.py` - Added Tony intraday read test.
+- `tests/test_scanner_smoke.py` - Added data-check 5Min demo smoke test.
+- Updated `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `FILE_STRUCTURE.md`, and this handoff.
+
+### Tests/checks run in V14
+
+```powershell
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m compileall src
+$env:PYTHONPATH='src'; $env:TMP=(Join-Path (Get-Location) '.pytest_tmp'); $env:TEMP=$env:TMP; .\.venv\Scripts\python.exe -m pytest tests/test_intraday_features.py tests/test_alpaca_provider.py::test_alpaca_5min_fetch_uses_intraday_timeframe_and_keeps_multiple_bars tests/test_database.py::test_candidate_snapshot_stores_optional_intraday_tony_fields tests/test_tony_analyst.py::TestAnalyzeCandidates::test_intraday_read_labels_are_attached_without_trade_action tests/test_scanner_smoke.py::test_data_check_supports_intraday_timeframe_in_demo_mode -q --basetemp .pytest_tmp
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_scanner.ps1
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli provider-health --config config/default_config.yaml
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli data-check --config config/default_config.yaml --symbols PLTR,SOFI,HOOD --timeframe 5Min
+$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli tony-events --config config/default_config.yaml --limit 30
+powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1
+git diff --check
+git status --short
+```
+
+Results:
+
+- Focused V14 tests passed: 8 passed.
+- Full verification stack passed after moving `run_tests.ps1` temp root into the workspace: 329 passed.
+- Scanner passed and regenerated `outputs/latest_scan_results.csv`; Alpaca HTTPS was blocked in this environment, so all symbols fell back to demo data.
+- `provider-health` command ran and reported FAILED because outbound Alpaca HTTPS was blocked; fallback provider returned demo data for all requested symbols.
+- `watch --max-cycles 1` passed; it created 84 snapshots, updated 173 snapshots, and stopped cleanly at `max_cycles`.
+- `data-check --timeframe 5Min` passed for PLTR, SOFI, and HOOD using demo fallback; it printed 5Min bars, VWAP, above-VWAP status, day change, and opening range.
+- `tony-events --limit 30` passed and showed recent scan/watch/outcome events.
+- Dashboard started at `http://localhost:8501`; command timed out because Streamlit runs in the foreground.
+- `git diff --check` reported only CRLF normalization warnings.
+- `git status --short` worked but printed permission warnings reading `C:\Users\alexa/.config/git/ignore`.
+
+### Known issues / risks
+
+- Intraday reads do not influence scoring yet.
+- Intraday reads are stored only when `intraday.enabled: true` and Tony analysis runs.
+- Alpaca real-data checks could not reach `data.alpaca.markets` from this environment (`WinError 10013` socket permission), so live IEX intraday behavior still needs validation on a machine/network that permits outbound HTTPS.
+- Alpaca IEX remains a single-exchange feed, not SIP consolidated tape.
+- 1Min is supported by the provider normalization but not the default and should be used carefully with rate limits.
+- No broker execution, live trading, orders, options, margin, leverage, shorting, automatic paper trades, or LLM trade decisions were added.
+
+### Next recommended task
+
+Run a supervised `watch --max-cycles 1` during market hours with real Alpaca keys and `intraday.enabled: true`, then inspect Tony hypothesis payloads and candidate snapshots for VWAP/opening-range reads.
 
 ---
 

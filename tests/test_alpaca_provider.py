@@ -75,6 +75,19 @@ def test_alpaca_returns_correct_bar_count():
     assert len(data) == 3
 
 
+def test_alpaca_5min_fetch_uses_intraday_timeframe_and_keeps_multiple_bars():
+    provider = _make_provider()
+    intraday_bars = [
+        {"t": f"2026-05-18T13:{30 + i:02d}:00Z", "o": 10 + i, "h": 11 + i, "l": 9 + i, "c": 10.5 + i, "v": 1000 + i}
+        for i in range(6)
+    ]
+    with patch("requests.get", return_value=_mock_ok_response(intraday_bars)) as mocked:
+        data = provider.fetch_ohlcv("PLTR", 1, "5Min")
+    assert mocked.call_args.kwargs["params"]["timeframe"] == "5Min"
+    assert len(data) == 6
+    assert data.index.tz is not None
+
+
 # --- Empty response ---
 
 def test_alpaca_empty_response_returns_empty_dataframe():

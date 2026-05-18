@@ -325,10 +325,13 @@ class ScannerRepository:
                         tony_priority_label, tony_recommended_action, tony_setup_read,
                         tony_volume_read, tony_risk_read, tony_market_context_read,
                         tony_data_quality_read, tony_outcome_context, tony_hypothesis,
-                        tony_reasons_json, tony_concerns_json, tony_analysis_version
+                        tony_reasons_json, tony_concerns_json, tony_analysis_version,
+                        tony_intraday_read, intraday_timeframe, intraday_close, intraday_vwap,
+                        intraday_above_vwap, intraday_day_change_percent,
+                        intraday_relative_volume, intraday_opening_range_status
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         scan_run_id,
@@ -366,6 +369,14 @@ class ScannerRepository:
                         json.dumps(ta.get("reasons", [])) if ta else None,
                         json.dumps(ta.get("concerns", [])) if ta else None,
                         ta.get("tony_analysis_version") if ta else None,
+                        ta.get("intraday_read") if ta else None,
+                        ta.get("intraday_timeframe") if ta else None,
+                        ta.get("intraday_close") if ta else None,
+                        ta.get("intraday_vwap") if ta else None,
+                        _bool_to_int_or_none(ta.get("intraday_above_vwap")) if ta else None,
+                        ta.get("intraday_day_change_percent") if ta else None,
+                        ta.get("intraday_relative_volume") if ta else None,
+                        ta.get("intraday_opening_range_status") if ta else None,
                     ),
                 )
                 created_ids.append(int(cursor.lastrowid))
@@ -712,3 +723,9 @@ class ScannerRepository:
             (symbol.upper(), f"{prefix}%"),
         ).fetchone()
         return row is not None
+
+
+def _bool_to_int_or_none(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(bool(value))

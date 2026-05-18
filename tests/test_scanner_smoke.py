@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from trading_bot.cli import run_outcome_analytics, run_scan, run_seed_demo_snapshots, run_update_snapshots, run_watch
+from trading_bot.cli import run_data_check, run_outcome_analytics, run_scan, run_seed_demo_snapshots, run_update_snapshots, run_watch
 from trading_bot.settings import load_scanner_settings
 
 
@@ -515,3 +515,44 @@ tony_stocks:
     assert "Seeded demo fixture rows are excluded by default." in output
     assert "Breakout Watch" in output
     assert repo.count_tony_events(event_type="outcome_analytics_updated") == 1
+
+
+def test_data_check_supports_intraday_timeframe_in_demo_mode(tmp_path: Path, capsys):
+    config_path = tmp_path / "default_config.yaml"
+    config_path.write_text(
+        f"""
+provider: demo_generated
+database_path: {(tmp_path / "scanner.db").as_posix()}
+outputs_dir: {(tmp_path / "outputs").as_posix()}
+cache_dir: {(tmp_path / "cache").as_posix()}
+log_dir: {(tmp_path / "logs").as_posix()}
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: config/universe_swing_research_config.yaml
+intraday:
+  enabled: false
+  timeframe: 5Min
+  lookback_days: 5
+  use_for_scoring: false
+  use_for_tony_analysis: true
+  require_real_provider: true
+  allow_demo_fallback: false
+""",
+        encoding="utf-8",
+    )
+    settings = load_scanner_settings(config_path)
+    assert settings.intraday
+    assert settings.intraday["timeframe"] == "5Min"
+
+    run_data_check(Namespace(config=str(config_path), symbol="PLTR", symbols="PLTR,SOFI", lookback_days=1, timeframe="5Min"))
+    output = capsys.readouterr().out
+    assert "Requested timeframe: 5Min" in output
+    assert "Intraday read:" in output
+    assert "VWAP:" in output

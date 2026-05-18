@@ -133,6 +133,14 @@ CREATE TABLE IF NOT EXISTS candidate_snapshots (
     tony_reasons_json TEXT,
     tony_concerns_json TEXT,
     tony_analysis_version TEXT,
+    tony_intraday_read TEXT,
+    intraday_timeframe TEXT,
+    intraday_close REAL,
+    intraday_vwap REAL,
+    intraday_above_vwap INTEGER,
+    intraday_day_change_percent REAL,
+    intraday_relative_volume REAL,
+    intraday_opening_range_status TEXT,
     FOREIGN KEY (scan_run_id) REFERENCES scan_runs(id)
 );
 
@@ -208,6 +216,14 @@ CANDIDATE_SNAPSHOT_MIGRATIONS = (
     "ALTER TABLE candidate_snapshots ADD COLUMN tony_reasons_json TEXT",
     "ALTER TABLE candidate_snapshots ADD COLUMN tony_concerns_json TEXT",
     "ALTER TABLE candidate_snapshots ADD COLUMN tony_analysis_version TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tony_intraday_read TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_timeframe TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_close REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_vwap REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_above_vwap INTEGER",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_day_change_percent REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_relative_volume REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN intraday_opening_range_status TEXT",
 )
 
 WATCH_RUN_MIGRATIONS: tuple[str, ...] = ()  # reserved for future additive columns

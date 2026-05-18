@@ -64,6 +64,16 @@ def test_candidate_snapshot_table_exists(tmp_path):
     with connect(db) as conn:
         columns = {row["name"] for row in conn.execute("PRAGMA table_info(candidate_snapshots)").fetchall()}
     assert {"symbol", "snapshot_time", "total_score", "entry_triggered", "result_5d", "outcome_label", "trade_plan_valid"}.issubset(columns)
+    assert {
+        "tony_intraday_read",
+        "intraday_timeframe",
+        "intraday_close",
+        "intraday_vwap",
+        "intraday_above_vwap",
+        "intraday_day_change_percent",
+        "intraday_relative_volume",
+        "intraday_opening_range_status",
+    }.issubset(columns)
 
 
 def test_tony_event_table_exists(tmp_path):
@@ -213,3 +223,49 @@ def test_candidate_snapshot_followup_update_fields(tmp_path):
     assert updated.iloc[0]["lowest_price_seen"] == 98
     assert updated.iloc[0]["outcome_label"] == "target_before_stop"
     assert repo.count_candidate_snapshots_by_outcome().iloc[0]["outcome_label"] == "target_before_stop"
+
+
+def test_candidate_snapshot_stores_optional_intraday_tony_fields(tmp_path):
+    db = tmp_path / "scanner.db"
+    repo = ScannerRepository(db)
+    run_id = repo.create_scan_run(1, "alpaca_iex", {"provider": "alpaca_iex"})
+    created = repo.create_candidate_snapshots(
+        run_id,
+        [sample_scored_stock("PLTR")],
+        {
+            "enabled": True,
+            "min_score": 60,
+            "include_roles": ["primary_candidate"],
+            "include_categories": ["Breakout Watch"],
+        },
+        tony_analyses={
+            "PLTR": {
+                "priority_label": "high_priority",
+                "recommended_action": "snapshot_only",
+                "setup_read": "breakout_candidate",
+                "volume_read": "volume_confirmation",
+                "risk_read": "acceptable_risk",
+                "market_context_read": "market_supportive",
+                "data_quality_read": "alpaca_iex_real_data",
+                "outcome_context": "not_enough_history",
+                "tony_hypothesis": "PLTR intraday context stored. Tony is analyzing, not trading.",
+                "reasons": ["above VWAP"],
+                "concerns": [],
+                "tony_analysis_version": "v1",
+                "intraday_read": "above_vwap",
+                "intraday_timeframe": "5Min",
+                "intraday_close": 101.5,
+                "intraday_vwap": 100.25,
+                "intraday_above_vwap": True,
+                "intraday_day_change_percent": 0.015,
+                "intraday_relative_volume": 1.2,
+                "intraday_opening_range_status": "opening_range_breakout_watch",
+            }
+        },
+    )
+    assert len(created) == 1
+    row = repo.latest_candidate_snapshots().iloc[0]
+    assert row["tony_intraday_read"] == "above_vwap"
+    assert row["intraday_timeframe"] == "5Min"
+    assert row["intraday_above_vwap"] == 1
+    assert row["intraday_opening_range_status"] == "opening_range_breakout_watch"

@@ -5,10 +5,10 @@ if (Test-Path ".\.venv\Scripts\Activate.ps1") {
     . .\.venv\Scripts\Activate.ps1
 }
 
-# Use a per-session temp dir in LOCALAPPDATA so project-dir file locks from
-# previous Python/SQLite processes never block the next test run.
+# Use a per-session temp dir inside the workspace. Some sandboxed Windows
+# sessions cannot create directories under LOCALAPPDATA.
 $sessionId   = [System.DateTime]::Now.ToString("yyyyMMdd_HHmmss")
-$sessionBase = Join-Path $env:LOCALAPPDATA "TradingBotTests"
+$sessionBase = Join-Path (Get-Location) ".pytest_tmp_sessions"
 $sessionTemp = Join-Path $sessionBase $sessionId
 New-Item -ItemType Directory -Force $sessionTemp | Out-Null
 $env:TMP  = $sessionTemp

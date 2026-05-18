@@ -43,8 +43,8 @@ class DemoGeneratedProvider(MarketDataProvider):
         self.profiles_by_symbol = {symbol.upper(): profile for symbol, profile in (profiles_by_symbol or {}).items()}
 
     def fetch_ohlcv(self, symbol: str, lookback_days: int, timeframe: str = "daily") -> pd.DataFrame:
-        if timeframe != "daily":
-            raise ValueError("DemoGeneratedProvider only supports daily timeframe.")
+        if _normalize_timeframe(timeframe) != "1Day":
+            return self._fetch_intraday(symbol, lookback_days, timeframe)
         seed = int(hashlib.sha256(symbol.upper().encode("utf-8")).hexdigest()[:8], 16)
         rng = np.random.default_rng(seed)
         periods = max(lookback_days, 80)
@@ -60,6 +60,32 @@ class DemoGeneratedProvider(MarketDataProvider):
         return pd.DataFrame(
             {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
             index=dates,
+        )
+
+    def _fetch_intraday(self, symbol: str, lookback_days: int, timeframe: str) -> pd.DataFrame:
+        """Return deterministic synthetic intraday bars for tests and demo fallback."""
+        seed = int(hashlib.sha256(f"{symbol.upper()}:{timeframe}".encode("utf-8")).hexdigest()[:8], 16)
+        rng = np.random.default_rng(seed)
+        minutes = _timeframe_minutes(timeframe)
+        bars_per_day = max(1, 390 // minutes)
+        periods = max(lookback_days, 1) * bars_per_day
+        dates = pd.bdate_range(end=pd.Timestamp(datetime.now(UTC).date()), periods=max(lookback_days, 1))
+        timestamps: list[pd.Timestamp] = []
+        for day in dates:
+            session_start = pd.Timestamp(day.date()).replace(hour=9, minute=30, tzinfo=UTC)
+            for idx in range(bars_per_day):
+                timestamps.append(session_start + pd.Timedelta(minutes=idx * minutes))
+        timestamps = timestamps[-periods:]
+        base = 25 + (seed % 250)
+        returns = rng.normal(0.00015, 0.0025, size=len(timestamps))
+        close = np.maximum(base * np.cumprod(1 + returns), 2.0)
+        open_ = close * (1 + rng.normal(0, 0.0015, size=len(timestamps)))
+        high = np.maximum(open_, close) * (1 + rng.uniform(0.0005, 0.004, size=len(timestamps)))
+        low = np.minimum(open_, close) * (1 - rng.uniform(0.0005, 0.004, size=len(timestamps)))
+        volume = np.maximum(10_000, rng.normal(80_000 + (seed % 250_000), 12_000, size=len(timestamps))).astype(int)
+        return pd.DataFrame(
+            {"open": open_, "high": high, "low": low, "close": close, "volume": volume},
+            index=pd.DatetimeIndex(timestamps, name="timestamp"),
         )
 
     def _profile_returns(self, profile: str, periods: int, rng: np.random.Generator, seed: int) -> np.ndarray:
@@ -230,8 +256,13 @@ class AlpacaIEXProvider(MarketDataProvider):
         "1day": "1Day",
         "1Day": "1Day",
         "5Min": "5Min",
+        "5min": "5Min",
+        "1Min": "1Min",
+        "1min": "1Min",
         "15Min": "15Min",
+        "15min": "15Min",
         "1Hour": "1Hour",
+        "1hour": "1Hour",
     }
 
     def __init__(
@@ -337,7 +368,7 @@ class AlpacaIEXProvider(MarketDataProvider):
             raise
 
     def _fetch_bars(self, symbol: str, lookback_days: int, timeframe: str) -> pd.DataFrame:
-        alpaca_tf = self._TIMEFRAME_MAP.get(timeframe) or self._TIMEFRAME_MAP.get(self.alpaca_timeframe, "1Day")
+        alpaca_tf = _normalize_timeframe(timeframe, self.alpaca_timeframe)
         end_date = datetime.now(UTC).date()
         start_date = end_date - timedelta(days=lookback_days + 30)
         headers = {
@@ -350,7 +381,7 @@ class AlpacaIEXProvider(MarketDataProvider):
             "end": end_date.isoformat(),
             "feed": self.feed,
             "adjustment": self.adjustment,
-            "limit": min(lookback_days + 60, 1000),
+            "limit": _alpaca_limit_for_timeframe(lookback_days, alpaca_tf),
         }
         all_bars: list[dict[str, Any]] = []
         page_token: str | None = None
@@ -394,7 +425,7 @@ class AlpacaIEXProvider(MarketDataProvider):
         The BATCH_URL accepts a 'symbols' query param (comma-separated).
         Response: {"bars": {"PLTR": [...], "AAPL": [...]}, "next_page_token": ...}
         """
-        alpaca_tf = self._TIMEFRAME_MAP.get(timeframe) or self._TIMEFRAME_MAP.get(self.alpaca_timeframe, "1Day")
+        alpaca_tf = _normalize_timeframe(timeframe, self.alpaca_timeframe)
         end_date = datetime.now(UTC).date()
         start_date = end_date - timedelta(days=lookback_days + 30)
         headers = {
@@ -471,7 +502,9 @@ class AlpacaIEXProvider(MarketDataProvider):
         df["timestamp"] = pd.to_datetime(df["t"], utc=True)
         df = df.set_index("timestamp").sort_index()
         df = df.rename(columns={"o": "open", "h": "high", "l": "low", "c": "close", "v": "volume"})
-        df = df[["open", "high", "low", "close", "volume"]].dropna(subset=["close"]).tail(lookback_days)
+        df = df[["open", "high", "low", "close", "volume"]].dropna(subset=["close"]).tail(
+            _rows_to_keep_for_timeframe(lookback_days, alpaca_tf)
+        )
         if alpaca_tf != "1Day" and not df.empty:
             latest_ts = df.index[-1].to_pydatetime()
             age_minutes = (datetime.now(UTC) - latest_ts).total_seconds() / 60
@@ -492,11 +525,11 @@ class CachedMarketDataProvider(MarketDataProvider):
         self.name = provider.name
 
     def fetch_ohlcv(self, symbol: str, lookback_days: int, timeframe: str = "daily") -> pd.DataFrame:
-        cached = self.cache.load(symbol, lookback_days)
+        cached = self.cache.load(symbol, lookback_days, timeframe)
         if cached is not None:
             return cached
         data = self.provider.fetch_ohlcv(symbol, lookback_days, timeframe)
-        self.cache.save(symbol, lookback_days, data)
+        self.cache.save(symbol, lookback_days, data, timeframe)
         return data
 
 
@@ -554,6 +587,32 @@ def _build_alpaca_provider(
         rate_limiter=rate_limiter,
         profiles_by_symbol=profiles_by_symbol,
     )
+
+
+def _normalize_timeframe(timeframe: str, fallback: str = "1Day") -> str:
+    mapping = AlpacaIEXProvider._TIMEFRAME_MAP
+    return mapping.get(str(timeframe), mapping.get(str(timeframe).lower(), mapping.get(str(fallback), "1Day")))
+
+
+def _timeframe_minutes(timeframe: str) -> int:
+    normalized = _normalize_timeframe(timeframe)
+    if normalized.endswith("Min"):
+        return max(1, int(normalized.replace("Min", "")))
+    if normalized.endswith("Hour"):
+        return max(1, int(normalized.replace("Hour", "")) * 60)
+    return 390
+
+
+def _rows_to_keep_for_timeframe(lookback_days: int, alpaca_tf: str) -> int:
+    if alpaca_tf == "1Day":
+        return lookback_days
+    return max(1, lookback_days) * max(1, 390 // _timeframe_minutes(alpaca_tf))
+
+
+def _alpaca_limit_for_timeframe(lookback_days: int, alpaca_tf: str) -> int:
+    if alpaca_tf == "1Day":
+        return min(lookback_days + 60, 1000)
+    return min(max(_rows_to_keep_for_timeframe(lookback_days + 2, alpaca_tf), 100), 10000)
 
 
 @dataclass

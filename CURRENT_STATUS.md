@@ -4,6 +4,8 @@ _Last updated: 2026-05-18_
 
 ## Overall status
 
+**V14** - Real Intraday Data Mode Foundation. Intraday config, 5Min Alpaca/demo fetch support, deterministic intraday feature extraction, VWAP/opening-range reads, Tony intraday labels, nullable snapshot fields, data-check timeframe support, and dashboard intraday read displays have been added. Intraday reads are research-only and are not entry automation.
+
 **V13** — Tony Hypothesis-to-Outcome Tracking. Tony analyst reads (priority label, recommended action, setup/risk/volume/market-context/data-quality reads, hypothesis, reasons, concerns) stored with candidate snapshots at creation time. Outcome analytics groups by any Tony field. Dashboard Tony Learning panel (early tracking language, no profitability claims). `TONY_ANALYSIS_VERSION = "v1"` on every attached read. 321 tests pass, 0 errors.
 
 **V12** — Workday Watch Mode + Run Controls. Watch run lifecycle tracked in SQLite (`watch_runs` table). Heartbeat updates every cycle; dashboard detects and displays stale/running/stopped/error states. Market-hours guard (9:30–16:00 ET) with spam-prevention flag. Tony events for all watch lifecycle transitions. 282 tests pass, 0 errors.
@@ -73,7 +75,20 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - PowerShell helper scripts for tests, scanner, and dashboard.
 - Alpaca IEX market data provider adapter in `src/trading_bot/data/market_data.py` (disabled by default).
 - `market_data:` config block in `config/default_config.yaml` with Alpaca settings (feed, timeframe, max_symbols_per_scan, fail_safe_to_demo, stale_data_minutes).
+- `intraday:` config block in `config/default_config.yaml`; disabled for scoring by default and available for Tony research reads.
 - CLI command: `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR`.
+- Data-check supports intraday timeframe checks, for example `--symbols PLTR,SOFI,HOOD --timeframe 5Min`.
+
+## Confirmed in V14
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` passed: **329 tests, 0 failures, 0 errors**.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_scanner.ps1` passed and regenerated `outputs/latest_scan_results.csv`.
+- `provider-health` command ran but reported FAILED because outbound HTTPS to Alpaca was blocked in this environment; demo fallback returned data.
+- `watch --max-cycles 1` passed, created 84 snapshots, updated 173 snapshots, and stopped cleanly.
+- `data-check --symbols PLTR,SOFI,HOOD --timeframe 5Min` passed with demo fallback and printed intraday close, VWAP, above-VWAP status, day change, and opening range.
+- Dashboard started at `http://localhost:8501`; Streamlit foreground process was stopped by command timeout after startup.
+- Deterministic intraday feature helper in `src/trading_bot/intraday/features.py` for latest close, day range, volume, VWAP, and opening range.
+- Candidate snapshots have nullable intraday fields for Tony intraday read, timeframe, close, VWAP, VWAP status, day-change percent, relative volume, and opening-range status.
 - Data-check prints active provider, feed, timeframe, latest bar timestamp, close, and volume. Works in demo mode without keys.
 - Alpaca per-scan symbol cap applied automatically from `market_data.alpaca.max_symbols_per_scan` (default: 30).
 - Tony events for `data_provider_fallback` and `stale_data_warning` when using Alpaca IEX.
@@ -158,14 +173,14 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - External Tony notifications such as email, SMS, Discord, or Telegram.
 - Margin, leverage, short selling, or options logic.
 - Advanced backtesting and automatic paper-trade creation.
-- Intraday (5Min/15Min) scanning logic (provider supports it; scanner still uses daily bars).
+- Intraday scoring automation. V14 stores optional research reads only; daily scoring remains the scanner default.
 
 ## Next recommended work
 
-1. Run `run_dashboard.ps1` and verify the Tony Learning panel renders in the Command Center (expander at the bottom).
-2. Run `watch --max-cycles 5` with real Alpaca keys so real-data snapshots accumulate Tony analysis; then run `outcome-analytics` and verify Tony groupings appear in the panel.
-3. Consider V14: add `watch_run_id` FK to `candidate_snapshots` so each snapshot can be correlated to a watch session.
-4. Consider V14: add `tony_analysis_version` grouping to the CLI `--group-by` outcome table output so Tony v1 vs future v2 reads can be compared directly.
+1. Run a supervised `watch --max-cycles 1` during market hours on a machine/network that allows Alpaca HTTPS, with `intraday.enabled: true`, then inspect Tony hypothesis payloads and candidate snapshots for VWAP/opening-range reads.
+2. Add `watch_run_id` FK to `candidate_snapshots` so each snapshot can be correlated to a watch session.
+3. Add `tony_analysis_version` grouping to the CLI `--group-by` outcome table output so Tony v1 vs future v2 reads can be compared directly.
+4. Decide whether intraday reads should become a scoring input after enough real-data snapshots exist.
 5. Add a holiday calendar to `is_within_us_eastern_market_hours()` if market-hours-only mode needs holiday awareness.
 6. Initialize git and commit a known-good baseline.
 

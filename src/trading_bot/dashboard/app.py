@@ -100,6 +100,14 @@ def render_data_provider_status(repo: ScannerRepository | None = None) -> None:
             detail_cols[3].metric("Batch Mode", "ON" if batch_enabled else "OFF")
             detail_cols[4].metric("Max RPM (safe)", str(max_rpm))
 
+            intraday_cfg = settings.intraday or {}
+            intraday_cols = st.columns(4)
+            intraday_cols[0].metric("Intraday Reads", "enabled" if intraday_cfg.get("enabled", False) else "disabled")
+            intraday_cols[1].metric("Intraday TF", str(intraday_cfg.get("timeframe", "5Min")))
+            intraday_cols[2].metric("Tony Uses Intraday", str(bool(intraday_cfg.get("use_for_tony_analysis", True))))
+            intraday_cols[3].metric("Scoring Uses Intraday", str(bool(intraday_cfg.get("use_for_scoring", False))))
+            st.caption("Intraday reads are research-only and are not entry automation.")
+
             rotation_cfg = settings.watch_universe_rotation or {}
             if rotation_cfg.get("enabled", False):
                 rot_cols = st.columns(4)
@@ -517,6 +525,7 @@ def render_candidate_snapshots(repo: ScannerRepository) -> None:
         detail_cols[3].metric("Role", row["universe_role"])
         detail_cols[4].metric("Risk/Reward", row["risk_reward"])
         st.write("Trade Plan", {"valid": bool(row.get("trade_plan_valid", True)), "status": row.get("trade_plan_status", "valid")})
+        _render_snapshot_intraday_read(row)
         st.write("Tags", row["tags_list"])
         st.write(
             {
@@ -542,11 +551,42 @@ def render_candidate_snapshots(repo: ScannerRepository) -> None:
                 "result_20d": row["result_20d"],
                 "outcome_label": row["outcome_label"],
                 "notes": row.get("notes", ""),
+                "tony_intraday_read": row.get("tony_intraday_read"),
+                "intraday_timeframe": row.get("intraday_timeframe"),
+                "intraday_close": row.get("intraday_close"),
+                "intraday_vwap": row.get("intraday_vwap"),
+                "intraday_above_vwap": row.get("intraday_above_vwap"),
+                "intraday_day_change_percent": row.get("intraday_day_change_percent"),
+                "intraday_relative_volume": row.get("intraday_relative_volume"),
+                "intraday_opening_range_status": row.get("intraday_opening_range_status"),
             }
         )
         st.write("Reasons", json.loads(row["reasons_json"] or "[]"))
         st.write("Warnings", json.loads(row["warnings_json"] or "[]"))
         st.write("Candidate Summary", row["candidate_summary"])
+
+
+def _render_snapshot_intraday_read(row: pd.Series) -> None:
+    """Render compact intraday read fields when stored on a snapshot."""
+    read = row.get("tony_intraday_read")
+    timeframe = row.get("intraday_timeframe")
+    if read in (None, "", "nan") and timeframe in (None, "", "nan"):
+        return
+    st.subheader("Intraday Read")
+    st.caption("Research-only intraday context. Not entry automation and not a trade instruction.")
+    cols = st.columns(5)
+    cols[0].metric("Tony Read", str(read or "unavailable").replace("_", " "))
+    cols[1].metric("Timeframe", timeframe or "n/a")
+    cols[2].metric("Close", row.get("intraday_close", "n/a"))
+    cols[3].metric("VWAP", row.get("intraday_vwap", "n/a"))
+    cols[4].metric("Above VWAP", row.get("intraday_above_vwap", "n/a"))
+    st.write(
+        {
+            "day_change_percent": row.get("intraday_day_change_percent"),
+            "relative_volume": row.get("intraday_relative_volume"),
+            "opening_range_status": row.get("intraday_opening_range_status"),
+        }
+    )
 
 
 def render_tony_stocks(repo: ScannerRepository) -> None:
@@ -783,6 +823,11 @@ def _snapshot_columns(snapshots: pd.DataFrame) -> pd.DataFrame:
         "result_10d",
         "result_20d",
         "outcome_label",
+        "tony_intraday_read",
+        "intraday_timeframe",
+        "intraday_vwap",
+        "intraday_above_vwap",
+        "intraday_opening_range_status",
         "notes",
         "trade_plan_valid",
         "trade_plan_status",
@@ -811,6 +856,11 @@ def _snapshot_columns(snapshots: pd.DataFrame) -> pd.DataFrame:
             "result_10d": "10D Return",
             "result_20d": "20D Return",
             "outcome_label": "Outcome",
+            "tony_intraday_read": "Tony Intraday Read",
+            "intraday_timeframe": "Intraday TF",
+            "intraday_vwap": "Intraday VWAP",
+            "intraday_above_vwap": "Above VWAP",
+            "intraday_opening_range_status": "Opening Range",
             "notes": "Notes",
             "trade_plan_valid": "Trade Plan Valid",
             "trade_plan_status": "Trade Plan Status",
@@ -895,11 +945,12 @@ def _cc_hypothesis_cards(analyst_events: pd.DataFrame, limit: int = 8) -> None:
         age = event_age_label(ev.get("created_at"))
         header = f"{icon} **{sym}** — {action_labels.get(action, action)} | {setup} | {age}"
         with st.expander(header, expanded=False):
-            card_cols = st.columns(4)
+            card_cols = st.columns(5)
             card_cols[0].metric("Priority", priority.replace("_", " ").title() if priority else "—")
             card_cols[1].metric("Volume", payload.get("volume_read", "—").replace("_", " "))
             card_cols[2].metric("Risk", payload.get("risk_read", "—").replace("_", " "))
             card_cols[3].metric("Data", payload.get("data_quality_read", "—").replace("_", " "))
+            card_cols[4].metric("Intraday", payload.get("intraday_read", "—").replace("_", " "))
             concerns = payload.get("concerns", [])
             if concerns:
                 st.caption("Concerns: " + ", ".join(str(c) for c in concerns))
@@ -1194,6 +1245,26 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
         st.markdown(f"**Data Quality** ({dq_age}): {dq_row.get('message', '')}")
 
     # ── Risk warning ───────────────────────────────────────────────────────────
+    intraday_cfg = settings.intraday or {}
+    intraday_reads: list[str] = []
+    if not analyst_events.empty:
+        for _, ev in analyst_events.head(20).iterrows():
+            try:
+                payload = json.loads(ev.get("payload_json") or "{}")
+                read = payload.get("intraday_read")
+                if read:
+                    intraday_reads.append(str(read))
+            except Exception:
+                pass
+    intraday_counts = pd.Series(intraday_reads).value_counts().to_dict() if intraday_reads else {}
+    st.markdown(
+        "**Intraday Read:** "
+        f"{'enabled' if intraday_cfg.get('enabled', False) else 'disabled'} | "
+        f"timeframe `{intraday_cfg.get('timeframe', '5Min')}` | "
+        f"recent reads: {intraday_counts or 'none yet'}"
+    )
+    st.caption("Intraday reads are research-only context and are not entry automation.")
+
     risk_row = latest_event_of_type(risk_events, "analyst_risk_warning")
     if risk_row:
         risk_age = event_age_label(risk_row.get("created_at"))

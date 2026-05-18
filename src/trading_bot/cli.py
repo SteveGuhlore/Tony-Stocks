@@ -25,6 +25,7 @@ from trading_bot.data.market_data import (
 )
 from trading_bot.data.universe_rotation import RotationResult, WatchUniverseRotator
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
+from trading_bot.intraday import IntradayFeatures, calculate_intraday_features
 from trading_bot.logging_config import configure_logging
 from trading_bot.risk import RiskManager
 from trading_bot.scoring import ScoreEngine, load_scoring_config
@@ -103,6 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
     data_check.add_argument("--symbol", default="PLTR", help="Single symbol to test (default: PLTR). Ignored when --symbols is provided.")
     data_check.add_argument("--symbols", default="", help="Comma-separated symbols to test, e.g. PLTR,SOFI,HOOD.")
     data_check.add_argument("--lookback-days", type=int, default=5, help="Lookback days for the test fetch (default: 5).")
+    data_check.add_argument("--timeframe", default=None, help="Optional timeframe override, such as 5Min. Does not scan or trade.")
 
     provider_health = subparsers.add_parser("provider-health", help="Run a provider health check. Does not scan or trade.")
     provider_health.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
@@ -333,6 +335,11 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             outcome_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
         except Exception:
             pass
+        intraday_features_by_symbol = _fetch_intraday_features_for_tony(
+            settings=settings,
+            provider=provider,
+            symbols=[row.symbol for row in candidate_rows],
+        )
 
         analyses = analyze_candidates(
             candidates=candidate_rows,
@@ -342,9 +349,14 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             stale_symbols=stale_syms,
             outcome_snapshots=outcome_snaps if (outcome_snaps is not None and not outcome_snaps.empty) else None,
             include_seeded_demo=False,
+            intraday_features_by_symbol=intraday_features_by_symbol,
         )
         tony_analyses = {
-            a.symbol: {**a.to_dict(), "tony_analysis_version": TONY_ANALYSIS_VERSION}
+            a.symbol: {
+                **a.to_dict(),
+                "tony_analysis_version": TONY_ANALYSIS_VERSION,
+                **_intraday_snapshot_fields(intraday_features_by_symbol.get(a.symbol)),
+            }
             for a in analyses
         }
 
@@ -909,6 +921,7 @@ def run_data_check(args: argparse.Namespace) -> None:
     alpaca_cfg = market_data_cfg.get("alpaca") or {}
     real_enabled = bool(market_data_cfg.get("real_provider_enabled", False))
     lookback_days = getattr(args, "lookback_days", 5)
+    requested_timeframe = getattr(args, "timeframe", None) or settings.timeframe
 
     # Resolve symbols: --symbols takes precedence over --symbol
     raw_symbols_arg = getattr(args, "symbols", "")
@@ -922,15 +935,16 @@ def run_data_check(args: argparse.Namespace) -> None:
     print(f"Config:              {args.config}")
     print(f"Configured provider: {settings.provider}")
     print(f"Effective provider:  {effective_provider} (real_provider_enabled={real_enabled})")
+    print(f"Requested timeframe: {requested_timeframe}")
     print(f"Symbols:             {', '.join(symbols)}")
 
     if effective_provider == "alpaca_iex":
         feed = str(alpaca_cfg.get("feed", "iex"))
-        timeframe = str(alpaca_cfg.get("timeframe", "1Day"))
+        configured_timeframe = str(alpaca_cfg.get("timeframe", "1Day"))
         import os as _os
         keys_present = bool(_os.getenv("ALPACA_API_KEY")) and bool(_os.getenv("ALPACA_SECRET_KEY"))
         print(f"Feed:                {feed}")
-        print(f"Timeframe:           {timeframe}")
+        print(f"Configured timeframe:{configured_timeframe}")
         print(f"Keys present:        {keys_present}")
         print("NOTE: Alpaca IEX is a single-exchange feed. It may differ from consolidated SIP data.")
 
@@ -956,7 +970,7 @@ def run_data_check(args: argparse.Namespace) -> None:
     for symbol in symbols:
         print(f"\n--- {symbol} ---")
         try:
-            data = provider.fetch_ohlcv(symbol, lookback_days, settings.timeframe)
+            data = provider.fetch_ohlcv(symbol, lookback_days, requested_timeframe)
         except EnvironmentError as exc:
             print(f"  Error: {exc}")
             continue
@@ -976,6 +990,16 @@ def run_data_check(args: argparse.Namespace) -> None:
         print(f"  Latest bar:    {latest_ts}")
         print(f"  Close:         {latest_close:.4f}")
         print(f"  Volume:        {latest_volume:,}")
+        if str(requested_timeframe).lower() not in {"daily", "1day"}:
+            features = calculate_intraday_features(symbol, data, timeframe=str(requested_timeframe))
+            print(f"  Intraday read: {features.status}")
+            print(f"  VWAP:          {features.vwap if features.vwap is not None else 'n/a'}")
+            print(f"  Above VWAP:    {features.price_above_vwap}")
+            print(
+                "  Day change:    "
+                f"{features.intraday_change_percent if features.intraday_change_percent is not None else 'n/a'}"
+            )
+            print(f"  Opening range: {features.opening_range_high} / {features.opening_range_low}")
 
         if isinstance(provider, AlpacaIEXProvider) and symbol in provider.fallback_symbols:
             print(f"  WARNING: {symbol} used demo fallback. Check Alpaca key and connectivity.")
@@ -1054,6 +1078,102 @@ def run_provider_health(args: argparse.Namespace) -> ProviderHealth:
         print("\nHealth check event recorded.")
 
     return health
+
+
+def _fetch_intraday_features_for_tony(
+    settings: Any,
+    provider: Any,
+    symbols: list[str],
+) -> dict[str, IntradayFeatures]:
+    """Fetch optional intraday bars for Tony analysis without changing scoring."""
+    intraday_cfg = settings.intraday or {}
+    if not intraday_cfg.get("enabled", False) or not intraday_cfg.get("use_for_tony_analysis", True):
+        return {}
+    timeframe = str(intraday_cfg.get("timeframe", "5Min"))
+    lookback_days = int(intraday_cfg.get("lookback_days", 5))
+    max_symbols = int(intraday_cfg.get("max_symbols_per_cycle", len(symbols)) or len(symbols))
+    require_real = bool(intraday_cfg.get("require_real_provider", True))
+    allow_demo_fallback = bool(intraday_cfg.get("allow_demo_fallback", False))
+    if require_real and not isinstance(provider, AlpacaIEXProvider):
+        return {
+            symbol: IntradayFeatures(symbol=symbol, timeframe=timeframe, data_available=False, status="intraday_data_missing")
+            for symbol in symbols[:max_symbols]
+        }
+    selected = [symbol.upper() for symbol in symbols[:max_symbols]]
+    if not selected:
+        return {}
+    bars_by_symbol: dict[str, Any] = {}
+    try:
+        if isinstance(provider, AlpacaIEXProvider) and provider.batch_requests_enabled and len(selected) > 1:
+            bars_by_symbol = provider.fetch_ohlcv_batch(selected, lookback_days, timeframe)
+        else:
+            bars_by_symbol = {
+                symbol: provider.fetch_ohlcv(symbol, lookback_days, timeframe)
+                for symbol in selected
+            }
+    except Exception as exc:
+        LOGGER.warning("Intraday feature fetch failed: %s", exc)
+        if not allow_demo_fallback:
+            return {
+                symbol: IntradayFeatures(symbol=symbol, timeframe=timeframe, data_available=False, status="intraday_data_missing")
+                for symbol in selected
+            }
+        demo_provider = build_market_data_provider(
+            "demo_generated",
+            settings.cache_dir,
+            profiles_by_symbol=None,
+            market_data_config=settings.market_data,
+        )
+        bars_by_symbol = {
+            symbol: demo_provider.fetch_ohlcv(symbol, lookback_days, timeframe)
+            for symbol in selected
+        }
+    return {
+        symbol: calculate_intraday_features(symbol, bars_by_symbol.get(symbol), timeframe=timeframe)
+        for symbol in selected
+    }
+
+
+def _intraday_snapshot_fields(features: IntradayFeatures | None) -> dict[str, Any]:
+    if features is None:
+        return {}
+    if not features.data_available:
+        return {
+            "intraday_read": "intraday_data_missing",
+            "intraday_timeframe": features.timeframe,
+            "intraday_opening_range_status": features.status,
+        }
+    opening_range_status = "opening_range_breakout_watch" if features.opening_range_breakout_candidate else (
+        "opening_range_breakdown_warning" if features.opening_range_breakdown_warning else features.status
+    )
+    return {
+        "intraday_read": _tony_intraday_label_from_features(features),
+        "intraday_timeframe": features.timeframe,
+        "intraday_close": features.latest_close,
+        "intraday_vwap": features.vwap,
+        "intraday_above_vwap": features.price_above_vwap,
+        "intraday_day_change_percent": features.intraday_change_percent,
+        "intraday_relative_volume": features.intraday_relative_volume,
+        "intraday_opening_range_status": opening_range_status,
+    }
+
+
+def _tony_intraday_label_from_features(features: IntradayFeatures) -> str:
+    if not features.data_available:
+        return "intraday_data_missing"
+    if features.opening_range_breakdown_warning:
+        return "opening_range_breakdown_warning"
+    if features.price_above_vwap is False or features.vwap_loss_warning:
+        return "below_vwap"
+    if features.opening_range_breakout_candidate:
+        return "opening_range_breakout_watch"
+    if features.distance_from_high_percent is not None and features.distance_from_high_percent >= -0.01:
+        return "near_high_of_day"
+    if features.distance_from_high_percent is not None and features.distance_from_high_percent <= -0.03:
+        return "fading_from_high"
+    if features.price_above_vwap:
+        return "above_vwap"
+    return features.trend_since_open
 
 
 def main() -> None:

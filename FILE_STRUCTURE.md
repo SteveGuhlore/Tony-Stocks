@@ -1,6 +1,6 @@
 # Trading Bot Project - File Structure
 
-_Last updated: 2026-05-17 (V12)_
+_Last updated: 2026-05-18 (V14)_
 
 ```text
 TradingBotAgentProject/
@@ -79,6 +79,9 @@ TradingBotAgentProject/
       indicators/
         __init__.py
         technicals.py
+      intraday/
+        __init__.py
+        features.py
       analytics/
         __init__.py
         outcomes.py
@@ -122,6 +125,7 @@ TradingBotAgentProject/
     test_database.py
     test_scanner_smoke.py
     test_snapshot_followup.py
+    test_intraday_features.py
     test_outcome_analytics.py
     test_alpaca_provider.py
     test_v9_scaling.py

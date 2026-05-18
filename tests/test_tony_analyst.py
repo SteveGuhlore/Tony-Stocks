@@ -57,6 +57,7 @@ from trading_bot.tony.analysis import (
     _setup_read,
     _volume_read,
 )
+from trading_bot.intraday.features import IntradayFeatures
 
 
 # ── Test helpers ──────────────────────────────────────────────────────────────
@@ -551,6 +552,31 @@ class TestAnalyzeCandidates:
     def test_analyst_says_it_is_analyzing_not_trading(self):
         result = analyze_candidates([_stock("PLTR")], provider_name="demo_generated")[0]
         assert "analyzing" in result.tony_hypothesis.lower() or "not trading" in result.tony_hypothesis.lower()
+
+    def test_intraday_read_labels_are_attached_without_trade_action(self):
+        intraday = {
+            "PLTR": IntradayFeatures(
+                symbol="PLTR",
+                timeframe="5Min",
+                data_available=True,
+                status="ok",
+                latest_close=105,
+                day_open=100,
+                high_of_day=105.5,
+                low_of_day=99,
+                intraday_change_percent=0.05,
+                vwap=102,
+                price_above_vwap=True,
+                distance_from_high_percent=-0.004,
+                opening_range_high=104,
+                opening_range_low=99,
+                opening_range_breakout_candidate=True,
+            )
+        }
+        result = analyze_candidates([_stock("PLTR", final_score=86)], provider_name="alpaca_iex", intraday_features_by_symbol=intraday)[0]
+        assert result.intraday_read in {"opening_range_breakout_watch", "near_high_of_day", "above_vwap"}
+        assert result.recommended_action in ALLOWED_ACTIONS
+        assert result.recommended_action != "paper_trade"
 
 
 # ── Tony events analyst methods ───────────────────────────────────────────────

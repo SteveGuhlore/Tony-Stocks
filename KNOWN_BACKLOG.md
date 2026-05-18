@@ -11,6 +11,7 @@ _Last updated: 2026-05-17_
 - Run Scheduled Watch Mode during a supervised demo session and review snapshot volume/dedupe behavior.
 - Review Tony Stocks event volume and wording after a supervised watch-mode session.
 - Review Outcome Analytics after collecting several non-seeded watch-mode sessions.
+- Review V14 intraday reads during a supervised market session; confirm VWAP/opening-range labels are understandable.
 - Initialize git and make an initial commit after checks pass.
 
 ## V1/V2 follow-ups
@@ -31,6 +32,7 @@ _Last updated: 2026-05-17_
 - Add Tony event acknowledgement/dismiss actions in the dashboard.
 - Add external Tony notifications later through explicit opt-in channels.
 - Add a stricter seeded-demo cleanup or labeling workflow before any real provider data is introduced.
+- Decide later whether intraday features should influence scoring. For now they are Tony research context only.
 
 ## Alpaca IEX + V9.5 universe — immediate follow-ups
 
@@ -40,6 +42,7 @@ _Last updated: 2026-05-17_
 - If rate-limit warnings appear, reduce `max_symbols_per_cycle` or increase `request_sleep_seconds`.
 - Monitor rotation `bucket_id` across watch cycles to verify round-robin discovery advances.
 - Add market-hours awareness so watch mode skips Alpaca fetches when the market is closed.
+- Add richer intraday session handling, premarket/after-hours controls, and market-calendar awareness before using intraday reads heavily.
 - Periodically review and prune universe symbols (delist risk, liquidity changes).
 - NOTE: Alpaca IEX is a single-exchange feed. Do not treat as consolidated SIP tape.
 - NOTE: Universe symbols are curated for research/scanning only — not buy/sell recommendations.

@@ -85,6 +85,15 @@ market_data:
     stale_data_minutes: 20
     label_single_exchange_warning: true
 
+intraday:
+  enabled: true
+  timeframe: 5Min
+  lookback_days: 5
+  use_for_scoring: false
+  use_for_tony_analysis: true
+  require_real_provider: true
+  allow_demo_fallback: false
+
 watch_universe_rotation:
   enabled: true
   max_symbols_per_cycle: 175
