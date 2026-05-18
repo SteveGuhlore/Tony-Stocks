@@ -79,33 +79,62 @@ def render_data_provider_status(repo: ScannerRepository | None = None) -> None:
             feed = alpaca_cfg.get("feed", "iex")
             timeframe = alpaca_cfg.get("timeframe", "1Day")
             max_symbols = alpaca_cfg.get("max_symbols_per_scan", 30)
-            detail_cols = st.columns(3)
+            batch_enabled = bool(alpaca_cfg.get("batch_requests_enabled", True))
+            max_per_batch = int(alpaca_cfg.get("max_symbols_per_batch", 175))
+            max_rpm = int(alpaca_cfg.get("max_requests_per_minute", 175))
+            detail_cols = st.columns(5)
             detail_cols[0].metric("Feed", str(feed).upper())
             detail_cols[1].metric("Timeframe", str(timeframe))
             detail_cols[2].metric("Max Symbols/Scan", str(max_symbols))
+            detail_cols[3].metric("Batch Mode", "ON" if batch_enabled else "OFF")
+            detail_cols[4].metric("Max RPM (safe)", str(max_rpm))
+
+            rotation_cfg = settings.watch_universe_rotation or {}
+            if rotation_cfg.get("enabled", False):
+                rot_cols = st.columns(4)
+                rot_cols[0].metric("Rotation", "enabled")
+                rot_cols[1].metric("Max/Cycle", str(rotation_cfg.get("max_symbols_per_cycle", 175)))
+                rot_cols[2].metric("Core Max", str(rotation_cfg.get("core_max_symbols", 50)))
+                rot_cols[3].metric("Bucket Size", str(rotation_cfg.get("rotating_bucket_size", 125)))
+
             st.warning(
                 "**Alpaca IEX data notice:** Alpaca IEX is a single-exchange feed and may differ from "
                 "consolidated SIP market tape. Do not use as sole basis for execution decisions. "
                 "This is market data for research and scanning only — no orders are placed."
             )
             if repo:
-                recent_events = repo.list_tony_events(limit=100)
+                recent_events = repo.list_tony_events(limit=200)
                 fallback_count = 0
                 stale_count = 0
                 all_fallback_count = 0
+                batch_summary_count = 0
+                scaled_count = 0
+                rate_limit_count = 0
                 if not recent_events.empty and "event_type" in recent_events.columns:
                     fallback_count = int(recent_events["event_type"].eq("data_provider_fallback").sum())
                     stale_count = int(recent_events["event_type"].eq("stale_data_warning").sum())
                     all_fallback_count = int(recent_events["event_type"].eq("all_symbol_fallback").sum())
+                    batch_summary_count = int(recent_events["event_type"].eq("batch_fetch_summary").sum())
+                    scaled_count = int(recent_events["event_type"].eq("real_data_scan_scaled").sum())
+                    rate_limit_count = int(recent_events["event_type"].eq("rate_limit_warning").sum())
                 event_cols = st.columns(3)
                 event_cols[0].metric("Fallback Events (recent)", fallback_count)
                 event_cols[1].metric("Stale Data Events (recent)", stale_count)
                 event_cols[2].metric("All-Symbol Fallback Events", all_fallback_count)
+                v9_cols = st.columns(3)
+                v9_cols[0].metric("Batch Fetch Events", batch_summary_count)
+                v9_cols[1].metric("Scaled Scan Events", scaled_count)
+                v9_cols[2].metric("Rate Limit Warnings", rate_limit_count)
                 if all_fallback_count > 0:
                     st.error(
                         f"**{all_fallback_count} all-symbol fallback event(s) recorded.** "
                         "All symbols fell back to demo data in at least one recent cycle. "
                         "Check Alpaca API keys, connectivity, and market hours."
+                    )
+                if rate_limit_count > 0:
+                    st.warning(
+                        f"**{rate_limit_count} rate limit warning(s) recorded.** "
+                        "Scans slowed due to Alpaca rate limits. Consider reducing max_symbols_per_cycle."
                     )
         else:
             detail_cols = st.columns(2)

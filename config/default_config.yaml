@@ -51,7 +51,7 @@ demo_snapshot_seed:
 
 scheduled_watch:
   enabled: true
-  interval_minutes: 15
+  interval_minutes: 5
   run_snapshot_update_after_scan: true
   max_cycles:
   market_hours_only: false
@@ -69,10 +69,30 @@ market_data:
     enabled: true
     feed: iex
     timeframe: 1Day
-    max_symbols_per_scan: 30
+    max_symbols_per_scan: 175
+    max_symbols_per_batch: 175
+    batch_requests_enabled: true
+    max_requests_per_minute: 175
+    request_buffer_percent: 15
+    request_sleep_seconds: 0.25
+    stop_on_rate_limit: false
+    fallback_on_rate_limit: true
     fail_safe_to_demo: true
     stale_data_minutes: 20
     label_single_exchange_warning: true
+
+watch_universe_rotation:
+  enabled: true
+  max_symbols_per_cycle: 175
+  core_symbols:
+    - SPY
+    - QQQ
+    - IWM
+  core_max_symbols: 50
+  rotating_bucket_size: 125
+  rotation_strategy: round_robin
+  keep_previous_candidates: true
+  always_include_open_snapshots: true
 
 tony_stocks:
   enabled: true
@@ -96,6 +116,11 @@ tony_stocks:
     - all_symbol_fallback
     - provider_health_passed
     - provider_health_failed
+    - real_data_scan_scaled
+    - rate_limit_warning
+    - universe_rotation_summary
+    - batch_fetch_summary
+    - provider_fallback_summary
   high_score_threshold: 85
   include_seeded_demo_events: false
-  max_events_per_cycle: 20
+  max_events_per_cycle: 25

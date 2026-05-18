@@ -6,6 +6,104 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V9.1 handoff — Runtime Verification Fix (pytest temp + batch limit)
+
+### Current active task
+
+V9.1 complete. Pytest temp cleanup fixed; batch request count reduced from 23 to 2 for 39 symbols.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V9.1
+
+- `scripts/run_tests.ps1` — Moved test session temp from `.pytest_tmp` (project dir, prone to Windows file-lock PermissionError) to `$env:LOCALAPPDATA\TradingBotTests\<session_id>`. Prunes stale sessions (>2h) silently. Removed `$ErrorActionPreference = "Stop"` from the script header so lock warnings don't abort the run.
+- `pyproject.toml` — Added `tmp_path_retention_policy = "none"` so pytest does not try to delete old session dirs at startup (avoiding double-cleanup PermissionError).
+- `src/trading_bot/data/market_data.py` — Changed batch limit in `_fetch_bars_batch` from `min(lookback_days + 60, 1000)` to `10000` (Alpaca documented max for `/v2/stocks/bars`). Root cause: Alpaca's multi-symbol endpoint interprets `limit` as total bars per page across all symbols; with limit=180 and 39 symbols × 107 bars = 4173 bars needed, that caused ~22 pagination requests. limit=10000 covers the full date range in one request.
+- `tests/test_v9_scaling.py` — Added 7 new tests: `TestBatchLimitAudit` (verifies limit >= 10000 in batch params, independent single-symbol limit), `TestRequestCountMetadata` (verifies 1 HTTP call for N-symbol batch with no pagination, pagination increments both counters, reset clears all counters).
+
+### Tests/checks run in V9.1
+
+- `pytest` (via `run_tests.ps1`) — **106 passed, 0 failures, 0 errors** (up from 75 passed + 26 errors).
+- `python -m trading_bot.cli provider-health` — PASSED. keys_present=True. 3 symbols, 0 fallback, latest bar 2026-05-15.
+- `python -m trading_bot.cli scan` — 39 symbols, 23 scored, batch_fetch_summary: **2 request(s) (1 batch)** — confirmed fix.
+- `python -m trading_bot.cli watch --max-cycles 1` — rotation bucket=0, 39 symbols (core=3, open=20, prev=0, discovery=16). batch_fetch_summary: **2 request(s) (1 batch)**. universe_rotation_summary recorded.
+- `python -m trading_bot.cli tony-events --limit 30` — confirmed `batch_fetch_summary` shows "2 request(s) (1 batch, 0 fallback(s))" post-fix vs "23 request(s) (22 batch)" pre-fix.
+
+### Known issues / risks (V9.1)
+
+- `api_requests_used=2` (not 1) because SPY is filtered from `market_data` by liquidity/price, so `provider.fetch_ohlcv("SPY", ...)` is called separately after the batch as a benchmark fallback. This is expected and correct.
+- Session temp dirs accumulate in `LOCALAPPDATA\TradingBotTests` until the 2-hour prune runs. On very active development sessions this is negligible (< 100MB total).
+- `tmp_path_retention_policy = "none"` means pytest does not clean up after test sessions — this is intentional; the `run_tests.ps1` prune handles cleanup.
+
+### Safe to continue?
+
+Yes. 106 tests pass (0 failures, 0 errors). No broker execution, live trading, paper trades, order placement, API keys exposed, external notifications, or LLM trade decisions were added or changed. Alpaca IEX single-exchange warning preserved. Batch request count confirmed correct.
+
+---
+
+## V9 handoff — Real Data Scaling — 175 Symbols Every 5 Minutes
+
+### Current active task
+
+V9 complete. All 8 tasks implemented and tested.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V9
+
+- `config/default_config.yaml` — added `watch_universe_rotation` config block; updated `interval_minutes: 5`; updated alpaca config for batch + rate-limit settings; added `real_data_scan_scaled`, `rate_limit_warning`, `universe_rotation_summary`, `batch_fetch_summary`, `provider_fallback_summary` to Tony `create_events_for`.
+- `config/universe_swing_research_config.yaml` — added IWM as benchmark symbol.
+- `src/trading_bot/settings.py` — added `watch_universe_rotation: dict[str, Any] | None = None` field to `ScannerSettings`.
+- `src/trading_bot/data/market_data.py` — added `RateLimiter` class (sliding 60s window, buffer%, sleep between calls); added `BATCH_URL` class constant on `AlpacaIEXProvider`; added `batch_requests_enabled`, `max_symbols_per_batch`, `stop_on_rate_limit`, `fallback_on_rate_limit`, `_rate_limiter`, `_requests_this_cycle`, `_batch_requests_this_cycle`, `_rate_limit_warnings_this_cycle` to `AlpacaIEXProvider`; added `reset_cycle_state()` reset for all cycle tracking; added `get_cycle_stats()`; added `fetch_ohlcv_batch()` (multi-symbol endpoint); added `_fetch_bars_batch()` (paginates BATCH_URL); added `_normalize_raw_bars()` (extracted helper used by both single and batch); updated `_build_alpaca_provider()` to wire RateLimiter and batch config; fixed `_normalize_raw_bars` to return empty DataFrame on empty bars.
+- `src/trading_bot/data/universe_rotation.py` — new file: `RotationResult` dataclass + `WatchUniverseRotator` class (core → open snapshots → prev candidates → round-robin discovery, deduplication, max_per_cycle cap).
+- `src/trading_bot/tony/events.py` — added 5 new V9 event types + record methods: `real_data_scan_scaled`, `rate_limit_warning`, `universe_rotation_summary`, `batch_fetch_summary`, `provider_fallback_summary`.
+- `src/trading_bot/cli.py` — imported `RotationResult`, `WatchUniverseRotator`; fixed missing `results: list[Any] = []` initialization in `run_scan()`; updated `run_scan()` to support `override_symbols` from rotation; added batch vs per-symbol fetch path; added `skipped_count`; updated summary dict with `symbols_scanned`, `symbols_skipped`, `high_priority_symbols`, `api_requests_used`, `batch_requests_used`, `rate_limit_warnings`, `batch_mode`; updated post-scan Tony events to fire V9 events (`batch_fetch_summary`, `real_data_scan_scaled`, `provider_fallback_summary`, `rate_limit_warning`); updated `run_watch()` to initialize `WatchUniverseRotator` before the loop when enabled; wired rotation into each cycle (open snapshots → `get_cycle_symbols()` → `override_symbols` on scan_args → `update_previous_candidates()` → `record_universe_rotation_summary()`); added rotation stats to `cycle_summary`; added rotation bucket print in cycle summary output.
+- `src/trading_bot/dashboard/app.py` — updated `render_data_provider_status()` to show batch mode, max RPM, rotation config (enabled, max/cycle, core max, bucket size), plus 3 new Tony event metrics: `batch_fetch_summary`, `real_data_scan_scaled`, `rate_limit_warning` counts; added rate-limit warning alert when count > 0.
+- `tests/test_v9_scaling.py` — new file: 24 mocked tests covering batch normalisation, single-symbol fallback, rate limiter cap/tracking/reset/enforcement, 429 retry, universe rotation core/open/dedup/max, demo mode, safety constraints.
+
+### Tests/checks run in V9
+
+- `pytest tests/test_v9_scaling.py -v` — **24 passed**, 0 failures.
+- `pytest tests/test_alpaca_provider.py -v` — **26 passed**, 0 failures.
+- Full suite `run_tests.ps1` — **75 passed**, 0 failures, 26 pre-existing Windows PermissionError collection errors (not V9 related).
+
+### Safety constraints (in effect, unchanged)
+
+- No broker execution, live trading, paper trades, or order placement added.
+- No options, margin, leverage, or short selling.
+- API keys never printed or committed. Only `keys_present` bool in ProviderHealth.
+- No LLM for trade decisions.
+- Alpaca IEX is a single-exchange feed — warning preserved in all relevant output paths.
+- `fail_safe_to_demo: true` — Alpaca errors fall back to demo, never crash the scan.
+
+### Known issues / risks (V9)
+
+- `_normalize_raw_bars` on empty bars now returns empty DataFrame correctly; `_fetch_bars` already handled this before the call.
+- `fetch_ohlcv_batch` catches all exceptions and falls back to per-symbol demo — safe but not granular.
+- Rate limiter `total_waits` counter is only accurate when a `rate_limiter` is attached to the provider; if `rate_limiter=None`, waits_count=0 in the rate-limit-warning Tony event.
+- Universe rotation bucket index persists within one `run_watch()` session; restarts reset to bucket 0 (expected).
+- `high_priority_symbols` threshold is `score_threshold_high_quality` (default 80); symbols above this carry forward to the next cycle via `update_previous_candidates()`.
+- Dashboard batch/rotation metrics are read from recent Tony events (last 200). If no Alpaca scan has run, counts show 0.
+- Pre-existing Windows PermissionError in pytest tmp-dir cleanup causes 26 test collection ERRORs across `test_database.py`, `test_universe.py`, etc. — not a V9 regression.
+
+### Next recommended task
+
+1. Run `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1` with real Alpaca keys to validate batch fetch at scale.
+2. Check `tony-events --limit 30` for `batch_fetch_summary`, `real_data_scan_scaled`, `universe_rotation_summary` events.
+3. If rate-limit warnings appear, reduce `max_symbols_per_cycle` or increase `request_sleep_seconds`.
+4. Monitor rotation bucket ID across cycles to verify round-robin advances.
+5. Verify `FILE_STRUCTURE.md` includes `universe_rotation.py`.
+
+### Safe to continue?
+
+Yes. 75 tests pass. No broker execution, live trading, paper trades, order placement, hard-coded keys, external notifications, or LLM trade decisions were added. Alpaca IEX single-exchange warning preserved. All demo fallback paths intact.
+
+---
+
 ## V8.5 handoff — Alpaca Real-Data Watch Validation + Tony Data Quality Guardrails
 
 ### Current active task

@@ -39,6 +39,11 @@ class TonyConfig:
         "all_symbol_fallback",
         "provider_health_passed",
         "provider_health_failed",
+        "real_data_scan_scaled",
+        "rate_limit_warning",
+        "universe_rotation_summary",
+        "batch_fetch_summary",
+        "provider_fallback_summary",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -235,6 +240,88 @@ class TonyStocksService:
                 "Snapshot signals may reflect outdated intraday prices."
             ),
             payload={"provider": provider, "stale_symbols": stale_symbols, "stale_minutes": stale_minutes, "count": len(stale_symbols)},
+        )
+
+    def record_real_data_scan_scaled(self, provider: str, symbols_scanned: int, api_requests: int, batch_requests: int) -> None:
+        """Create an info event confirming scaled real-data scan completed."""
+        self.create_event(
+            event_type="real_data_scan_scaled",
+            severity="info",
+            title=f"{self.config.agent_name}: Scaled real-data scan complete",
+            message=(
+                f"{provider} scanned {symbols_scanned} symbols using {api_requests} API request(s) "
+                f"({batch_requests} batch). "
+                "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape."
+            ),
+            payload={
+                "provider": provider,
+                "symbols_scanned": symbols_scanned,
+                "api_requests": api_requests,
+                "batch_requests": batch_requests,
+            },
+        )
+
+    def record_rate_limit_warning(self, provider: str, warnings_count: int, waits_count: int) -> None:
+        """Create a warning event when rate limiting was triggered during a scan."""
+        self.create_event(
+            event_type="rate_limit_warning",
+            severity="warning",
+            title=f"{self.config.agent_name}: Rate limit activity detected",
+            message=(
+                f"{provider} scan triggered {warnings_count} HTTP 429 response(s) and "
+                f"{waits_count} rate-limiter wait(s). "
+                "Consider reducing max_symbols_per_scan or increasing request_buffer_percent."
+            ),
+            payload={"provider": provider, "warnings_count": warnings_count, "waits_count": waits_count},
+        )
+
+    def record_universe_rotation_summary(self, rotation: dict[str, Any]) -> None:
+        """Create a concise universe rotation event after each cycle."""
+        self.create_event(
+            event_type="universe_rotation_summary",
+            severity="info",
+            title=f"{self.config.agent_name}: Universe rotation — bucket {rotation.get('bucket_id', 0)}",
+            message=(
+                f"Cycle selected {rotation.get('total', 0)} symbols: "
+                f"{rotation.get('core_count', 0)} core, "
+                f"{rotation.get('open_snapshot_count', 0)} open-snapshot, "
+                f"{rotation.get('previous_candidate_count', 0)} prior candidates, "
+                f"{rotation.get('discovery_count', 0)} discovery (bucket {rotation.get('bucket_id', 0)})."
+            ),
+            payload=rotation,
+        )
+
+    def record_batch_fetch_summary(self, provider: str, symbols: int, api_requests: int, batch_requests: int, fallbacks: int) -> None:
+        """Create a concise batch fetch summary event."""
+        self.create_event(
+            event_type="batch_fetch_summary",
+            severity="info",
+            title=f"{self.config.agent_name}: Batch fetch summary",
+            message=(
+                f"{provider} fetched {symbols} symbol(s) in {api_requests} request(s) "
+                f"({batch_requests} batch, {fallbacks} fallback(s))."
+            ),
+            payload={
+                "provider": provider,
+                "symbols": symbols,
+                "api_requests": api_requests,
+                "batch_requests": batch_requests,
+                "fallbacks": fallbacks,
+            },
+        )
+
+    def record_provider_fallback_summary(self, provider: str, fallback_count: int, total_scanned: int) -> None:
+        """Create a warning event when a notable portion of symbols fell back to demo."""
+        pct = round(100 * fallback_count / max(total_scanned, 1))
+        self.create_event(
+            event_type="provider_fallback_summary",
+            severity="warning",
+            title=f"{self.config.agent_name}: Provider fallback summary",
+            message=(
+                f"{fallback_count}/{total_scanned} ({pct}%) symbol(s) fell back from {provider} to demo data. "
+                "Results for fallback symbols reflect demo prices, not real market data."
+            ),
+            payload={"provider": provider, "fallback_count": fallback_count, "total_scanned": total_scanned, "fallback_pct": pct},
         )
 
     def record_real_provider_active(self, provider: str, symbols_with_real_data: int) -> None:

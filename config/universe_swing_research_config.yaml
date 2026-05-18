@@ -16,6 +16,13 @@ symbols:
     universe_role: benchmark
     demo_profile: benchmark_index
     notes: Growth/tech market context reference only.
+  - symbol: IWM
+    name: Russell 2000 ETF
+    tags: [etf, benchmark, small_cap]
+    sector: market
+    universe_role: benchmark
+    demo_profile: benchmark_index
+    notes: Small-cap market context reference only.
   - symbol: AAPL
     name: Apple
     tags: [mega_cap, tech]

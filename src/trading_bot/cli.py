@@ -22,6 +22,7 @@ from trading_bot.data.market_data import (
     build_market_data_provider,
     check_provider_health,
 )
+from trading_bot.data.universe_rotation import RotationResult, WatchUniverseRotator
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
 from trading_bot.logging_config import configure_logging
 from trading_bot.risk import RiskManager
@@ -146,11 +147,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     settings.outputs_dir.mkdir(parents=True, exist_ok=True)
     settings.cache_dir.mkdir(parents=True, exist_ok=True)
 
-    manual_symbols = [symbol.strip() for symbol in args.symbols.split(",") if symbol.strip()]
-    symbols = load_universe(settings.universe_config_path, manual_symbols=manual_symbols)
     tags_by_symbol = load_universe_tags(settings.universe_config_path)
     metadata_by_symbol = load_universe_metadata(settings.universe_config_path)
-    symbols = symbols[: settings.max_symbols]
     profiles_by_symbol = {
         symbol: metadata.demo_profile
         for symbol, metadata in metadata_by_symbol.items()
@@ -163,14 +161,25 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         profiles_by_symbol=profiles_by_symbol,
         market_data_config=settings.market_data,
     )
-    # Apply Alpaca per-scan symbol cap if configured
+
+    # Resolve symbol list — rotation result takes priority over universe loading
+    override_symbols = getattr(args, "override_symbols", None)
+    if override_symbols is not None:
+        symbols: list[str] = list(override_symbols)
+    else:
+        manual_symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+        symbols = load_universe(settings.universe_config_path, manual_symbols=manual_symbols)
+        symbols = symbols[: settings.max_symbols]
+
+    # Apply Alpaca per-scan symbol cap and reset cycle state
     if isinstance(provider, AlpacaIEXProvider):
         alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
-        max_alpaca = int(alpaca_cfg.get("max_symbols_per_scan", 30))
+        max_alpaca = int(alpaca_cfg.get("max_symbols_per_scan", 175))
         if len(symbols) > max_alpaca:
             LOGGER.info("Alpaca IEX: limiting scan to %d symbols (was %d)", max_alpaca, len(symbols))
             symbols = symbols[:max_alpaca]
         provider.reset_cycle_state()
+
     scoring_config = load_scoring_config(settings.scoring_config_path)
     engine = ScoreEngine(scoring_config)
     repo = ScannerRepository(settings.database_path)
@@ -178,30 +187,43 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     tony.start_cycle()
     tony.record_scan_started(symbols_loaded=len(symbols), provider=provider.name)
 
+    # --- Fetch OHLCV (batch when available, per-symbol otherwise) ---
+    ohlcv_by_symbol: dict[str, Any] = {}
+    if isinstance(provider, AlpacaIEXProvider) and provider.batch_requests_enabled and len(symbols) > 1:
+        LOGGER.info("Alpaca IEX: batch fetching %d symbols", len(symbols))
+        ohlcv_by_symbol = provider.fetch_ohlcv_batch(symbols, settings.lookback_days, settings.timeframe)
+    else:
+        for symbol in symbols:
+            try:
+                ohlcv_by_symbol[symbol] = provider.fetch_ohlcv(symbol, settings.lookback_days, settings.timeframe)
+            except Exception as exc:
+                LOGGER.warning("Skipping %s: %s", symbol, exc)
+
+    # --- Filter by price / liquidity ---
     market_data: dict[str, object] = {}
     spy_data = None
-    results = []
+    skipped_count = 0
 
     for symbol in symbols:
-        try:
-            data = provider.fetch_ohlcv(symbol, settings.lookback_days, settings.timeframe)
-            if data.empty or len(data) < 60:
-                LOGGER.warning("Skipping %s: not enough data", symbol)
-                continue
-            latest_close = float(data["close"].iloc[-1])
-            avg_volume_20 = float(data["volume"].tail(20).mean())
-            dollar_volume_20 = float((data["close"].tail(20) * data["volume"].tail(20)).mean())
-            if not (settings.min_price <= latest_close <= settings.max_price):
-                LOGGER.info("Skipping %s: latest close outside configured price bounds", symbol)
-                continue
-            if avg_volume_20 < settings.min_avg_volume or dollar_volume_20 < settings.min_dollar_volume:
-                LOGGER.info("Skipping %s: liquidity below configured minimums", symbol)
-                continue
-            market_data[symbol] = data
-            if symbol == "SPY":
-                spy_data = data
-        except Exception as exc:
-            LOGGER.warning("Skipping %s: %s", symbol, exc)
+        data = ohlcv_by_symbol.get(symbol)
+        if data is None or data.empty or len(data) < 60:
+            LOGGER.warning("Skipping %s: not enough data", symbol)
+            skipped_count += 1
+            continue
+        latest_close = float(data["close"].iloc[-1])
+        avg_volume_20 = float(data["volume"].tail(20).mean())
+        dollar_volume_20 = float((data["close"].tail(20) * data["volume"].tail(20)).mean())
+        if not (settings.min_price <= latest_close <= settings.max_price):
+            LOGGER.info("Skipping %s: latest close outside configured price bounds", symbol)
+            skipped_count += 1
+            continue
+        if avg_volume_20 < settings.min_avg_volume or dollar_volume_20 < settings.min_dollar_volume:
+            LOGGER.info("Skipping %s: liquidity below configured minimums", symbol)
+            skipped_count += 1
+            continue
+        market_data[symbol] = data
+        if symbol == "SPY":
+            spy_data = data
 
     if spy_data is None and "SPY" not in market_data:
         try:
@@ -209,6 +231,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         except Exception:
             spy_data = None
 
+    results: list[Any] = []
     for symbol, data in market_data.items():
         try:
             results.append(
@@ -263,21 +286,34 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             f"close={result.latest_close:8.2f} entry={result.suggested_entry:8.2f} "
             f"stop={result.suggested_stop:8.2f} target={result.suggested_target_1:8.2f}{warning_text}"
         )
+    high_priority_symbols = [
+        r.symbol for r in results if r.final_score >= settings.score_threshold_high_quality
+    ]
     summary = {
         "scan_run_id": scan_run_id,
         "provider": provider.name,
         "symbols_loaded": len(symbols),
+        "symbols_scanned": len(market_data),
         "symbols_scored": len(results),
+        "symbols_skipped": skipped_count,
         "csv_path": str(output_path),
         "snapshots_created": len(snapshot_ids),
         "warnings_count": sum(len(result.warnings) for result in results),
+        "high_priority_symbols": high_priority_symbols,
     }
     if isinstance(provider, AlpacaIEXProvider):
         alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
         stale_minutes = int(alpaca_cfg.get("stale_data_minutes", 20))
+        cycle_stats = provider.get_cycle_stats()
         scanned_count = len(symbols)
         fallback_count = len(provider.fallback_symbols)
         real_data_count = scanned_count - fallback_count
+        summary.update({
+            "api_requests_used": cycle_stats.get("api_requests_used", 0),
+            "batch_requests_used": cycle_stats.get("batch_requests_used", 0),
+            "rate_limit_warnings": cycle_stats.get("rate_limit_warnings", 0),
+            "batch_mode": cycle_stats.get("batch_mode", False),
+        })
         if fallback_count > 0 and fallback_count >= scanned_count:
             print(
                 f"\nWARNING: ALL {fallback_count} symbol(s) fell back to demo data from {provider.name}. "
@@ -286,8 +322,28 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             tony.record_all_symbol_fallback(provider.name, fallback_count)
         elif fallback_count > 0:
             tony.record_data_provider_fallback(provider.fallback_symbols, provider.name)
+            tony.record_provider_fallback_summary(provider.name, fallback_count, scanned_count)
         if real_data_count > 0:
             tony.record_real_provider_active(provider.name, real_data_count)
+            if scanned_count >= 50:
+                tony.record_real_data_scan_scaled(
+                    provider.name,
+                    real_data_count,
+                    cycle_stats.get("api_requests_used", 0),
+                    cycle_stats.get("batch_requests_used", 0),
+                )
+        if cycle_stats.get("batch_mode") and scanned_count > 1:
+            tony.record_batch_fetch_summary(
+                provider.name,
+                scanned_count,
+                cycle_stats.get("api_requests_used", 0),
+                cycle_stats.get("batch_requests_used", 0),
+                fallback_count,
+            )
+        if cycle_stats.get("rate_limit_warnings", 0) > 0:
+            rl = provider._rate_limiter
+            waits_count = rl.total_waits if rl is not None else 0
+            tony.record_rate_limit_warning(provider.name, cycle_stats["rate_limit_warnings"], waits_count)
         tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
     tony.record_scan_completed(summary, results=results, snapshot_ids=snapshot_ids)
     return summary
@@ -489,6 +545,19 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Stop file: {stop_file}")
     LOGGER.info("Scheduled Watch Mode started. interval_minutes=%s max_cycles=%s effective_provider=%s", interval_minutes, max_cycles, effective_provider_name)
 
+    # Universe rotation — initialized once; state carries forward across cycles
+    rotation_cfg = settings.watch_universe_rotation or {}
+    rotator: WatchUniverseRotator | None = None
+    if rotation_cfg.get("enabled", False):
+        universe_symbols = load_universe(settings.universe_config_path)
+        rotator = WatchUniverseRotator(universe_symbols, rotation_cfg)
+        LOGGER.info(
+            "Universe rotation enabled: %d symbols available, max %d per cycle",
+            len(universe_symbols),
+            rotation_cfg.get("max_symbols_per_cycle", 175),
+        )
+        print(f"Universe rotation: enabled ({len(universe_symbols)} symbols, max {rotation_cfg.get('max_symbols_per_cycle', 175)}/cycle)")
+
     cycles_completed = 0
     stopped_by = "max_cycles" if max_cycles == 0 else ""
     summaries: list[dict[str, Any]] = []
@@ -514,7 +583,43 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
             tony.start_cycle()
             cycle_started = datetime.now(ZoneInfo(timezone_name))
             print(f"\nWatch cycle {cycle_number} started at {cycle_started.isoformat()}")
-            scan_summary = run_scan(SimpleNamespace(config=args.config, symbols="", save_snapshots=True))
+
+            # Universe rotation: select symbols for this cycle
+            rotation_result: RotationResult | None = None
+            if rotator is not None:
+                open_snapshots_df = repo.list_open_candidate_snapshots(limit=200)
+                open_syms: list[str] = (
+                    list(open_snapshots_df["symbol"].dropna().unique())
+                    if not open_snapshots_df.empty
+                    else []
+                )
+                rotation_result = rotator.get_cycle_symbols(open_snapshot_symbols=open_syms)
+                LOGGER.info(
+                    "Rotation bucket %d: %d symbols (core=%d open=%d prev=%d discovery=%d)",
+                    rotation_result.bucket_id,
+                    rotation_result.total,
+                    rotation_result.core_count,
+                    rotation_result.open_snapshot_count,
+                    rotation_result.previous_candidate_count,
+                    rotation_result.discovery_count,
+                )
+                scan_args = SimpleNamespace(
+                    config=args.config,
+                    symbols="",
+                    save_snapshots=True,
+                    override_symbols=rotation_result.symbols,
+                )
+            else:
+                scan_args = SimpleNamespace(config=args.config, symbols="", save_snapshots=True)
+
+            scan_summary = run_scan(scan_args)
+
+            # Update rotator with high-priority symbols for next cycle's continuity
+            if rotator is not None and rotation_result is not None:
+                high_priority = scan_summary.get("high_priority_symbols", [])
+                rotator.update_previous_candidates(high_priority)
+                tony.record_universe_rotation_summary(rotation_result.to_dict())
+
             update_summary: dict[str, Any] | None = None
             if run_updates:
                 update_summary = run_update_snapshots(SimpleNamespace(config=args.config, limit=500))
@@ -530,6 +635,12 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 "snapshots_created": snapshots_created,
                 "snapshots_updated": snapshots_updated,
                 "warnings_count": warnings_count,
+                "symbols_scanned": scan_summary.get("symbols_scanned", 0),
+                "symbols_skipped": scan_summary.get("symbols_skipped", 0),
+                "api_requests_used": scan_summary.get("api_requests_used", 0),
+                "batch_requests_used": scan_summary.get("batch_requests_used", 0),
+                "rate_limit_warnings": scan_summary.get("rate_limit_warnings", 0),
+                "rotation_bucket_id": rotation_result.bucket_id if rotation_result else None,
                 "next_run_time": next_run.isoformat() if max_cycles is None or cycles_completed < max_cycles else None,
             }
             summaries.append(cycle_summary)
@@ -541,6 +652,13 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 f"snapshots_updated={snapshots_updated} "
                 f"warnings={warnings_count}"
             )
+            if rotation_result is not None:
+                print(
+                    f"  Rotation bucket={rotation_result.bucket_id} "
+                    f"symbols={rotation_result.total} "
+                    f"(core={rotation_result.core_count} open={rotation_result.open_snapshot_count} "
+                    f"prev={rotation_result.previous_candidate_count} discovery={rotation_result.discovery_count})"
+                )
             if cycle_summary["next_run_time"]:
                 print(f"Next run: {cycle_summary['next_run_time']}")
             tony.record_watch_cycle_completed(cycle_summary)

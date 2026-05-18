@@ -43,6 +43,7 @@ class ScannerSettings:
     scheduled_watch: dict[str, Any] | None = None
     tony_stocks: dict[str, Any] | None = None
     market_data: dict[str, Any] | None = None
+    watch_universe_rotation: dict[str, Any] | None = None
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

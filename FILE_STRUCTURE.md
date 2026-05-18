@@ -74,6 +74,7 @@ TradingBotAgentProject/
         __init__.py
         universe.py
         market_data.py
+        universe_rotation.py
         cache.py
       indicators/
         __init__.py

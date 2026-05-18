@@ -5,6 +5,8 @@ import hashlib
 import logging
 import math
 import os
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -160,6 +162,55 @@ class HttpMarketDataProvider(MarketDataProvider):
         )
 
 
+class RateLimiter:
+    """Sliding-window rate limiter for Alpaca API HTTP requests.
+
+    Tracks real request timestamps. Sleeps when the configured safe
+    limit (max_per_minute reduced by buffer_percent) would be exceeded.
+    Does not track symbols — only HTTP request calls.
+    """
+
+    def __init__(
+        self,
+        max_per_minute: int,
+        buffer_percent: int = 15,
+        sleep_seconds: float = 0.25,
+    ) -> None:
+        self.max_per_minute = max(1, int(max_per_minute * (1 - buffer_percent / 100)))
+        self.sleep_seconds = sleep_seconds
+        self._request_times: deque[float] = deque()
+        self.total_requests: int = 0
+        self.total_waits: int = 0
+
+    def acquire(self) -> None:
+        """Block until a request slot is available."""
+        now = time.monotonic()
+        while self._request_times and now - self._request_times[0] > 60.0:
+            self._request_times.popleft()
+        if len(self._request_times) >= self.max_per_minute:
+            oldest = self._request_times[0]
+            wait = max(0.0, 60.0 - (now - oldest) + 0.05)
+            if wait > 0:
+                self.total_waits += 1
+                LOGGER.info(
+                    "Rate limiter: waiting %.1fs (%d/%d requests in window)",
+                    wait, len(self._request_times), self.max_per_minute,
+                )
+                time.sleep(wait)
+                now = time.monotonic()
+                while self._request_times and now - self._request_times[0] > 60.0:
+                    self._request_times.popleft()
+        if self.sleep_seconds > 0:
+            time.sleep(self.sleep_seconds)
+        self._request_times.append(time.monotonic())
+        self.total_requests += 1
+
+    def reset(self) -> None:
+        self._request_times.clear()
+        self.total_requests = 0
+        self.total_waits = 0
+
+
 class AlpacaIEXProvider(MarketDataProvider):
     """Alpaca IEX market data provider for US equities (historical daily bars).
 
@@ -172,6 +223,7 @@ class AlpacaIEXProvider(MarketDataProvider):
 
     name = "alpaca_iex"
     BASE_URL = "https://data.alpaca.markets/v2/stocks"
+    BATCH_URL = "https://data.alpaca.markets/v2/stocks/bars"
 
     _TIMEFRAME_MAP = {
         "daily": "1Day",
@@ -192,6 +244,11 @@ class AlpacaIEXProvider(MarketDataProvider):
         timeout: int = 15,
         fail_safe_to_demo: bool = True,
         stale_data_minutes: int = 20,
+        batch_requests_enabled: bool = True,
+        max_symbols_per_batch: int = 175,
+        stop_on_rate_limit: bool = False,
+        fallback_on_rate_limit: bool = True,
+        rate_limiter: "RateLimiter | None" = None,
         profiles_by_symbol: dict[str, str] | None = None,
         _skip_key_check: bool = False,
     ) -> None:
@@ -208,14 +265,38 @@ class AlpacaIEXProvider(MarketDataProvider):
         self.timeout = timeout
         self.fail_safe_to_demo = fail_safe_to_demo
         self.stale_data_minutes = stale_data_minutes
+        self.batch_requests_enabled = batch_requests_enabled
+        self.max_symbols_per_batch = max_symbols_per_batch
+        self.stop_on_rate_limit = stop_on_rate_limit
+        self.fallback_on_rate_limit = fallback_on_rate_limit
+        self._rate_limiter = rate_limiter
         self._demo = DemoGeneratedProvider(profiles_by_symbol=profiles_by_symbol)
         self.fallback_symbols: list[str] = []
         self.stale_symbols: list[str] = []
+        self._requests_this_cycle: int = 0
+        self._batch_requests_this_cycle: int = 0
+        self._rate_limit_warnings_this_cycle: int = 0
 
     def reset_cycle_state(self) -> None:
-        """Reset per-scan fallback and stale tracking. Call before each scan cycle."""
+        """Reset per-scan tracking. Call before each scan cycle."""
         self.fallback_symbols = []
         self.stale_symbols = []
+        self._requests_this_cycle = 0
+        self._batch_requests_this_cycle = 0
+        self._rate_limit_warnings_this_cycle = 0
+        if self._rate_limiter:
+            self._rate_limiter.reset()
+
+    def get_cycle_stats(self) -> dict[str, Any]:
+        """Return per-cycle API usage stats. Safe to include in Tony events and logs."""
+        return {
+            "api_requests_used": self._requests_this_cycle,
+            "batch_requests_used": self._batch_requests_this_cycle,
+            "rate_limit_warnings": self._rate_limit_warnings_this_cycle,
+            "fallback_count": len(self.fallback_symbols),
+            "stale_count": len(self.stale_symbols),
+            "batch_mode": self.batch_requests_enabled,
+        }
 
     def fetch_ohlcv(self, symbol: str, lookback_days: int, timeframe: str = "daily") -> pd.DataFrame:
         try:
@@ -227,12 +308,38 @@ class AlpacaIEXProvider(MarketDataProvider):
                 return self._demo.fetch_ohlcv(symbol, lookback_days, timeframe)
             raise
 
+    def fetch_ohlcv_batch(
+        self,
+        symbols: list[str],
+        lookback_days: int,
+        timeframe: str = "daily",
+    ) -> dict[str, pd.DataFrame]:
+        """Fetch OHLCV bars for multiple symbols in batched API requests.
+
+        Uses Alpaca's multi-symbol /v2/stocks/bars endpoint. Falls back to
+        per-symbol fetching if the batch request fails and fail_safe_to_demo is True.
+        Returns a dict mapping each symbol to its OHLCV DataFrame.
+        """
+        if not symbols:
+            return {}
+        try:
+            return self._fetch_bars_batch(symbols, lookback_days, timeframe)
+        except Exception as exc:
+            if self.fail_safe_to_demo:
+                LOGGER.warning(
+                    "Alpaca IEX batch fetch failed (%s). Falling back to per-symbol demo.", exc
+                )
+                result: dict[str, pd.DataFrame] = {}
+                for symbol in symbols:
+                    self.fallback_symbols.append(symbol)
+                    result[symbol] = self._demo.fetch_ohlcv(symbol, lookback_days, timeframe)
+                return result
+            raise
+
     def _fetch_bars(self, symbol: str, lookback_days: int, timeframe: str) -> pd.DataFrame:
         alpaca_tf = self._TIMEFRAME_MAP.get(timeframe) or self._TIMEFRAME_MAP.get(self.alpaca_timeframe, "1Day")
         end_date = datetime.now(UTC).date()
-        # Extra buffer for weekends/holidays so we get enough trading days
         start_date = end_date - timedelta(days=lookback_days + 30)
-
         headers = {
             "APCA-API-KEY-ID": self.api_key,
             "APCA-API-SECRET-KEY": self.secret_key,
@@ -245,46 +352,134 @@ class AlpacaIEXProvider(MarketDataProvider):
             "adjustment": self.adjustment,
             "limit": min(lookback_days + 60, 1000),
         }
-
         all_bars: list[dict[str, Any]] = []
         page_token: str | None = None
         while True:
             if page_token:
                 params["page_token"] = page_token
+            if self._rate_limiter:
+                self._rate_limiter.acquire()
             resp = requests.get(
                 f"{self.BASE_URL}/{symbol.upper()}/bars",
                 headers=headers,
                 params=params,
                 timeout=self.timeout,
             )
+            self._requests_this_cycle += 1
+            if resp.status_code == 429:
+                self._rate_limit_warnings_this_cycle += 1
+                LOGGER.warning("Alpaca IEX rate limit (429) for %s. Sleeping 61s.", symbol)
+                time.sleep(61)
+                continue
             if not resp.ok:
-                raise OSError(
-                    f"Alpaca IEX HTTP {resp.status_code} for {symbol}: {resp.text[:200]}"
-                )
+                raise OSError(f"Alpaca IEX HTTP {resp.status_code} for {symbol}: {resp.text[:200]}")
             body = resp.json()
             all_bars.extend(body.get("bars") or [])
             page_token = body.get("next_page_token")
             if not page_token:
                 break
-
         if not all_bars:
             LOGGER.warning("Alpaca IEX returned no bars for %s", symbol)
             return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        return self._normalize_raw_bars(all_bars, lookback_days, symbol, alpaca_tf)
 
-        df = pd.DataFrame(all_bars)
+    def _fetch_bars_batch(
+        self,
+        symbols: list[str],
+        lookback_days: int,
+        timeframe: str,
+    ) -> dict[str, pd.DataFrame]:
+        """Call the multi-symbol Alpaca bars endpoint.
+
+        The BATCH_URL accepts a 'symbols' query param (comma-separated).
+        Response: {"bars": {"PLTR": [...], "AAPL": [...]}, "next_page_token": ...}
+        """
+        alpaca_tf = self._TIMEFRAME_MAP.get(timeframe) or self._TIMEFRAME_MAP.get(self.alpaca_timeframe, "1Day")
+        end_date = datetime.now(UTC).date()
+        start_date = end_date - timedelta(days=lookback_days + 30)
+        headers = {
+            "APCA-API-KEY-ID": self.api_key,
+            "APCA-API-SECRET-KEY": self.secret_key,
+        }
+        upper_symbols = [s.upper() for s in symbols]
+        params: dict[str, Any] = {
+            "symbols": ",".join(upper_symbols),
+            "timeframe": alpaca_tf,
+            "start": start_date.isoformat(),
+            "end": end_date.isoformat(),
+            "feed": self.feed,
+            "adjustment": self.adjustment,
+            "limit": 10000,
+        }
+        bars_by_symbol: dict[str, list[dict[str, Any]]] = {s: [] for s in upper_symbols}
+        page_token: str | None = None
+        while True:
+            if page_token:
+                params["page_token"] = page_token
+            if self._rate_limiter:
+                self._rate_limiter.acquire()
+            resp = requests.get(
+                self.BATCH_URL,
+                headers=headers,
+                params=params,
+                timeout=self.timeout,
+            )
+            self._requests_this_cycle += 1
+            self._batch_requests_this_cycle += 1
+            if resp.status_code == 429:
+                self._rate_limit_warnings_this_cycle += 1
+                LOGGER.warning("Alpaca IEX batch rate limit (429). Sleeping 61s.")
+                time.sleep(61)
+                continue
+            if not resp.ok:
+                raise OSError(f"Alpaca IEX batch HTTP {resp.status_code}: {resp.text[:200]}")
+            body = resp.json()
+            raw = body.get("bars") or {}
+            for sym, bars in raw.items():
+                key = sym.upper()
+                if key in bars_by_symbol:
+                    bars_by_symbol[key].extend(bars or [])
+            page_token = body.get("next_page_token")
+            if not page_token:
+                break
+
+        result: dict[str, pd.DataFrame] = {}
+        for symbol in upper_symbols:
+            bars = bars_by_symbol.get(symbol, [])
+            if not bars:
+                LOGGER.warning("Alpaca IEX batch: no bars for %s", symbol)
+                self.fallback_symbols.append(symbol)
+                if self.fail_safe_to_demo:
+                    result[symbol] = self._demo.fetch_ohlcv(symbol, lookback_days, timeframe)
+                else:
+                    result[symbol] = pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+            else:
+                result[symbol] = self._normalize_raw_bars(bars, lookback_days, symbol, alpaca_tf)
+        return result
+
+    def _normalize_raw_bars(
+        self,
+        bars: list[dict[str, Any]],
+        lookback_days: int,
+        symbol: str,
+        alpaca_tf: str,
+    ) -> pd.DataFrame:
+        """Convert a raw Alpaca bars list to a normalized OHLCV DataFrame."""
+        if not bars:
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+        df = pd.DataFrame(bars)
         df["timestamp"] = pd.to_datetime(df["t"], utc=True)
         df = df.set_index("timestamp").sort_index()
         df = df.rename(columns={"o": "open", "h": "high", "l": "low", "c": "close", "v": "volume"})
         df = df[["open", "high", "low", "close", "volume"]].dropna(subset=["close"]).tail(lookback_days)
-
-        # Staleness check is only meaningful for intraday timeframes during market hours
         if alpaca_tf != "1Day" and not df.empty:
             latest_ts = df.index[-1].to_pydatetime()
             age_minutes = (datetime.now(UTC) - latest_ts).total_seconds() / 60
             if age_minutes > self.stale_data_minutes:
-                LOGGER.warning("Alpaca IEX stale data for %s: latest bar is %.0f minutes old", symbol, age_minutes)
+                LOGGER.warning(
+                    "Alpaca IEX stale data for %s: latest bar is %.0f minutes old", symbol, age_minutes
+                )
                 self.stale_symbols.append(symbol)
-
         return df
 
 
@@ -338,6 +533,11 @@ def _build_alpaca_provider(
     api_key = os.getenv("ALPACA_API_KEY", "")
     secret_key = os.getenv("ALPACA_SECRET_KEY", "")
     feed = os.getenv("ALPACA_DATA_FEED") or str(alpaca_cfg.get("feed", "iex"))
+    max_rpm = int(alpaca_cfg.get("max_requests_per_minute", 175))
+    buffer_pct = int(alpaca_cfg.get("request_buffer_percent", 15))
+    sleep_secs = float(alpaca_cfg.get("request_sleep_seconds", 0.25))
+    batch_enabled = bool(alpaca_cfg.get("batch_requests_enabled", True))
+    rate_limiter = RateLimiter(max_rpm, buffer_pct, sleep_secs) if batch_enabled or max_rpm < 200 else None
     return AlpacaIEXProvider(
         api_key=api_key,
         secret_key=secret_key,
@@ -347,6 +547,11 @@ def _build_alpaca_provider(
         timeout=int(alpaca_cfg.get("request_timeout_seconds", 15)),
         fail_safe_to_demo=bool(alpaca_cfg.get("fail_safe_to_demo", True)),
         stale_data_minutes=int(alpaca_cfg.get("stale_data_minutes", 20)),
+        batch_requests_enabled=batch_enabled,
+        max_symbols_per_batch=int(alpaca_cfg.get("max_symbols_per_batch", 175)),
+        stop_on_rate_limit=bool(alpaca_cfg.get("stop_on_rate_limit", False)),
+        fallback_on_rate_limit=bool(alpaca_cfg.get("fallback_on_rate_limit", True)),
+        rate_limiter=rate_limiter,
         profiles_by_symbol=profiles_by_symbol,
     )
 
