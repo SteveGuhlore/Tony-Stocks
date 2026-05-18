@@ -4,6 +4,8 @@ _Last updated: 2026-05-18_
 
 ## Overall status
 
+**V14.5** - Intraday Watch Activation + Snapshot Verification. Watch/scan cycles now print intraday configuration and per-cycle summary stats, create a concise `intraday_analysis_summary` Tony event, and verify intraday reads attach to Tony hypotheses and candidate snapshots when enabled. Intraday reads are attached to Tony research hypotheses and snapshots, but do not affect scoring yet.
+
 **V14** - Real Intraday Data Mode Foundation. Intraday config, 5Min Alpaca/demo fetch support, deterministic intraday feature extraction, VWAP/opening-range reads, Tony intraday labels, nullable snapshot fields, data-check timeframe support, and dashboard intraday read displays have been added. Intraday reads are research-only and are not entry automation.
 
 **V13** — Tony Hypothesis-to-Outcome Tracking. Tony analyst reads (priority label, recommended action, setup/risk/volume/market-context/data-quality reads, hypothesis, reasons, concerns) stored with candidate snapshots at creation time. Outcome analytics groups by any Tony field. Dashboard Tony Learning panel (early tracking language, no profitability claims). `TONY_ANALYSIS_VERSION = "v1"` on every attached read. 321 tests pass, 0 errors.
@@ -78,6 +80,19 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - `intraday:` config block in `config/default_config.yaml`; disabled for scoring by default and available for Tony research reads.
 - CLI command: `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR`.
 - Data-check supports intraday timeframe checks, for example `--symbols PLTR,SOFI,HOOD --timeframe 5Min`.
+- Watch mode prints intraday enabled/timeframe/Tony/scoring/fallback settings at startup.
+- Scan/watch cycles print intraday symbols requested, symbols with data, missing count, fallback count, VWAP counts, opening-range counts, and sample reads.
+- Tony creates one `intraday_analysis_summary` event per scan cycle when intraday reads are enabled.
+- Command Center shows latest intraday summary event metrics.
+
+## Confirmed in V14.5
+
+- Focused V14.5 tests passed for intraday summary logic, Tony event creation, snapshot storage, and legacy snapshot compatibility.
+- Full test stack passed: **331 tests, 0 failures, 0 errors**.
+- Scanner passed and regenerated `outputs/latest_scan_results.csv`; local Alpaca HTTPS was blocked, so daily and intraday fetches fell back to demo.
+- Watch startup printed intraday config and watch cycle output printed intraday requested/with-data/missing/fallback/VWAP/opening-range counts.
+- `tony-events --limit 50` showed `intraday_analysis_summary`.
+- Snapshot spot check confirmed new rows store `tony_intraday_read` and `intraday_timeframe` when intraday is enabled; in this environment they correctly show missing intraday data because real Alpaca fetch fell back and intraday fallback is disallowed.
 
 ## Confirmed in V14
 

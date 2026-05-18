@@ -11,7 +11,7 @@ _Last updated: 2026-05-17_
 - Run Scheduled Watch Mode during a supervised demo session and review snapshot volume/dedupe behavior.
 - Review Tony Stocks event volume and wording after a supervised watch-mode session.
 - Review Outcome Analytics after collecting several non-seeded watch-mode sessions.
-- Review V14 intraday reads during a supervised market session; confirm VWAP/opening-range labels are understandable.
+- Review V14.5 intraday watch summaries during a supervised market session; confirm VWAP/opening-range labels are understandable and snapshots show Tony intraday fields.
 - Initialize git and make an initial commit after checks pass.
 
 ## V1/V2 follow-ups
@@ -33,6 +33,7 @@ _Last updated: 2026-05-17_
 - Add external Tony notifications later through explicit opt-in channels.
 - Add a stricter seeded-demo cleanup or labeling workflow before any real provider data is introduced.
 - Decide later whether intraday features should influence scoring. For now they are Tony research context only.
+- Review `intraday_analysis_summary` event volume and dashboard wording after several market-hours watch cycles.
 
 ## Alpaca IEX + V9.5 universe — immediate follow-ups
 

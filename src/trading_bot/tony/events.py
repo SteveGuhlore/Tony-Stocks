@@ -48,6 +48,7 @@ class TonyConfig:
         "analyst_market_context",
         "analyst_data_quality",
         "analyst_risk_warning",
+        "intraday_analysis_summary",
         "watch_run_started",
         "watch_run_stopped",
         "watch_run_error",
@@ -445,19 +446,26 @@ class TonyStocksService:
         total_candidates: int,
     ) -> None:
         """Create a data quality summary event once per scan cycle."""
-        real_count = dq_summary.get("alpaca_iex_real_data", 0)
+        real_count = dq_summary.get("daily_real_alpaca", dq_summary.get("alpaca_iex_real_data", 0))
+        intraday_real = dq_summary.get("intraday_real_alpaca", 0)
         demo_count = dq_summary.get("demo_data", 0)
         fallback_count = dq_summary.get("fallback_data", 0)
         stale_count = dq_summary.get("stale_data", 0)
+        intraday_missing = dq_summary.get("intraday_missing", 0)
+        intraday_fallback = dq_summary.get("intraday_fallback_demo", 0)
+        intraday_stale = dq_summary.get("stale_intraday", 0)
         seeded_count = dq_summary.get("seeded_demo_fixture", 0)
-        severity = "warning" if (fallback_count + stale_count) > 0 else "info"
+        severity = "warning" if (fallback_count + stale_count + intraday_missing + intraday_fallback + intraday_stale) > 0 else "info"
         self.create_event(
             event_type="analyst_data_quality",
             severity=severity,
             title=f"{self.config.agent_name}: Data quality summary ({provider_name})",
             message=(
-                f"{total_candidates} candidates: {real_count} real IEX, {demo_count} demo, "
-                f"{fallback_count} fallback, {stale_count} stale, {seeded_count} seeded fixtures. "
+                f"{total_candidates} candidates: {real_count} daily real Alpaca, {intraday_real} intraday real Alpaca, "
+                f"{demo_count} demo, {fallback_count} daily fallback, {stale_count} daily stale, "
+                f"{intraday_missing} intraday missing, {intraday_fallback} intraday demo fallback, "
+                f"{intraday_stale} stale intraday (real Alpaca bars past freshness — often after hours; "
+                f"also counted in intraday real when bars exist), {seeded_count} seeded fixtures. "
                 "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape."
             ),
             payload={
@@ -495,6 +503,35 @@ class TonyStocksService:
         )
 
     # ── Watch run lifecycle events ─────────────────────────────────────────────
+
+    def record_intraday_analysis_summary(self, summary: dict[str, Any]) -> None:
+        """Create one summary event for Tony's intraday research reads."""
+        if not summary.get("enabled", False):
+            return
+        timeframe = str(summary.get("timeframe", "5Min"))
+        provider_used = str(summary.get("intraday_provider", "none"))
+        allow_fallback = bool(summary.get("allow_demo_fallback", False))
+        requested = int(summary.get("symbols_requested", 0) or 0)
+        with_data = int(summary.get("symbols_with_intraday", 0) or 0)
+        real_count = int(summary.get("real_intraday_count", with_data) or 0)
+        missing = int(summary.get("missing_count", 0) or 0)
+        fallback = int(summary.get("intraday_fallback_count", 0) or 0)
+        stale = int(summary.get("intraday_stale_count", 0) or 0)
+        above = int(summary.get("above_vwap_count", 0) or 0)
+        below = int(summary.get("below_vwap_count", 0) or 0)
+        severity = "warning" if missing or fallback or stale else "info"
+        self.create_event(
+            event_type="intraday_analysis_summary",
+            severity=severity,
+            title=f"{self.config.agent_name}: Intraday analysis summary",
+            message=(
+                f"{timeframe} intraday provider={provider_used} allow_demo_fallback={allow_fallback}: "
+                f"{real_count}/{requested} real Alpaca intraday, {missing} missing, {fallback} demo fallback, "
+                f"{stale} stale real Alpaca (past freshness — often after hours). "
+                f"VWAP: {above} above, {below} below. Research-only context; scoring unchanged."
+            ),
+            payload=summary,
+        )
 
     def record_watch_run_started(
         self,

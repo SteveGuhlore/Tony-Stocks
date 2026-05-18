@@ -1,0 +1,27 @@
+
+provider: demo_generated
+database_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_seed_demo_snapshots_creat0/scanner.db
+outputs_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_seed_demo_snapshots_creat0/outputs
+cache_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_seed_demo_snapshots_creat0/cache
+log_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_seed_demo_snapshots_creat0/logs
+lookback_days: 140
+timeframe: daily
+max_symbols: 10
+min_price: 1
+max_price: 1000
+min_avg_volume: 1
+min_dollar_volume: 1
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_seed_demo_snapshots_creat0/universe.yaml
+snapshot_followup:
+  same_bar_target_stop_policy: conservative_stop_first
+  expire_after_trading_days: 20
+demo_snapshot_seed:
+  enabled: true
+  count: 6
+  days_back_start: 25
+  dedupe: true
+  note_prefix: "Demo seeded snapshot test"

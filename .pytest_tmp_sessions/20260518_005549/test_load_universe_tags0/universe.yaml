@@ -1,0 +1,9 @@
+
+symbols:
+  - symbol: SPY
+    tags: [etf, benchmark]
+  - symbol: AAPL
+    tags: [mega_cap, tech]
+csv_path:
+filters:
+  max_universe_size: 10

@@ -1,0 +1,20 @@
+
+provider: demo_generated
+database_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_outcome_analytics_cli_pri0/scanner.db
+outputs_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_outcome_analytics_cli_pri0/outputs
+cache_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_outcome_analytics_cli_pri0/cache
+log_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_outcome_analytics_cli_pri0/logs
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: config/universe_swing_research_config.yaml
+tony_stocks:
+  enabled: true
+  create_events_for: [outcome_analytics_updated]
+  max_events_per_cycle: 5

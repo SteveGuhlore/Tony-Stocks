@@ -1,0 +1,37 @@
+
+provider: demo_generated
+database_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_all_symbol_fallback_fires0/test.db
+outputs_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_all_symbol_fallback_fires0/outputs
+cache_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_all_symbol_fallback_fires0/cache
+log_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_all_symbol_fallback_fires0/logs
+lookback_days: 120
+timeframe: daily
+max_symbols: 2
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_all_symbol_fallback_fires0/universe.yaml
+market_data:
+  provider: alpaca_iex
+  fallback_provider: demo_generated
+  real_provider_enabled: true
+  alpaca:
+    enabled: true
+    feed: iex
+    timeframe: 1Day
+    max_symbols_per_scan: 30
+    fail_safe_to_demo: true
+    stale_data_minutes: 20
+tony_stocks:
+  enabled: true
+  create_events_for:
+    - scan_started
+    - scan_completed
+    - all_symbol_fallback
+    - real_provider_active
+    - data_provider_fallback

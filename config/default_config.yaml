@@ -89,6 +89,7 @@ intraday:
   enabled: true
   timeframe: 5Min
   lookback_days: 5
+  max_symbols_per_cycle: 175
   use_for_scoring: false
   use_for_tony_analysis: true
   require_real_provider: true
@@ -138,6 +139,7 @@ tony_stocks:
     - analyst_market_context
     - analyst_data_quality
     - analyst_risk_warning
+    - intraday_analysis_summary
     - watch_run_started
     - watch_run_stopped
     - watch_run_error

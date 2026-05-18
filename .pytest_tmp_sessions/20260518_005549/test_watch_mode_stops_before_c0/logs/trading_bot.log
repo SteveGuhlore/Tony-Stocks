@@ -1,0 +1,3 @@
+2026-05-18 00:55:57,048 INFO trading_bot.cli - Scheduled Watch Mode started. interval_minutes=0.0 max_cycles=3 effective_provider=demo_generated
+2026-05-18 00:55:57,067 INFO trading_bot.cli - Stop file detected: C:\Users\alexa\Downloads\TradingBotAgentProject\.pytest_tmp_sessions\20260518_005549\test_watch_mode_stops_before_c0\STOP_WATCH_MODE
+2026-05-18 00:55:57,082 INFO trading_bot.cli - Scheduled Watch Mode stopped. cycles_completed=0 stopped_by=stop_file

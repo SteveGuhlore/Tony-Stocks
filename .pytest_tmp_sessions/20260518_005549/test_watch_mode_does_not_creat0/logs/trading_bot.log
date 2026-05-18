@@ -1,0 +1,3 @@
+2026-05-18 00:55:52,678 INFO trading_bot.cli - Scheduled Watch Mode started. interval_minutes=0.0 max_cycles=1 effective_provider=demo_generated
+2026-05-18 00:55:52,845 INFO trading_bot.cli - Watch cycle summary: {'cycle': 1, 'scan_run_id': 1, 'snapshots_created': 1, 'snapshots_updated': 0, 'warnings_count': 1, 'symbols_scanned': 1, 'symbols_skipped': 0, 'api_requests_used': 0, 'batch_requests_used': 0, 'rate_limit_warnings': 0, 'rotation_bucket_id': None, 'intraday_analysis': {}, 'next_run_time': None}
+2026-05-18 00:55:52,877 INFO trading_bot.cli - Scheduled Watch Mode stopped. cycles_completed=1 stopped_by=max_cycles

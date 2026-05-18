@@ -1,0 +1,13 @@
+
+symbols:
+  - symbol: PLTR
+    name: Palantir
+    tags: [mid_cap, software, breakout_candidate]
+    sector: technology
+    industry: software
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+    notes: Static demo metadata.
+csv_path:
+filters:
+  max_universe_size: 10

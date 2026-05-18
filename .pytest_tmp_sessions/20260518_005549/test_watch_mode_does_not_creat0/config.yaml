@@ -1,0 +1,24 @@
+
+provider: demo_generated
+database_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_does_not_creat0/watch.db
+outputs_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_does_not_creat0/outputs
+cache_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_does_not_creat0/cache
+log_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_does_not_creat0/logs
+lookback_days: 120
+timeframe: daily
+max_symbols: 2
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_does_not_creat0/universe.yaml
+scheduled_watch:
+  enabled: true
+  interval_minutes: 0
+  run_snapshot_update_after_scan: false
+  market_hours_only: false
+  stop_file: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_does_not_creat0/STOP

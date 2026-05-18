@@ -88,7 +88,7 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V14 complete.** Intraday data mode foundation added for research-only Tony reads: 5Min fetch support, VWAP/opening-range features, nullable snapshot fields, data-check timeframe override, and dashboard intraday displays. Daily scoring remains the default.
+Status: **V14.5 complete.** Intraday watch activation tightened: watch startup prints intraday config, scan/watch cycles print intraday summary stats, Tony records `intraday_analysis_summary`, and candidate snapshots store intraday reads when enabled. Daily scoring remains the default. 331 tests pass.
 
 V13: Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
 
@@ -108,9 +108,9 @@ Goals:
 - Dashboard Command Center with live watch status: Done (V11/V12).
 - Tony Analyst Engine (deterministic reads, priority labels, no LLM): Done (V10).
 - Dashboard Command Center tab (first/default): Done (V11).
-- Intraday VWAP/opening-range research reads: Initial foundation done (V14). Not entry automation.
+- Intraday VWAP/opening-range research reads: Initial foundation done (V14) and watch/snapshot verification tightened (V14.5). Not entry automation.
 
-**Next validation step:** Run `watch --max-cycles 3` with real Alpaca keys; verify heartbeat resets in Command Center and `tony-events` shows `batch_fetch_summary`, `universe_rotation_summary`, `watch_run_stopped`.
+**Next validation step:** Run `watch --max-cycles 3` with real Alpaca keys and `intraday.enabled: true`; verify heartbeat resets in Command Center and `tony-events` shows `batch_fetch_summary`, `universe_rotation_summary`, `intraday_analysis_summary`, and `watch_run_stopped`.
 
 **Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for research and scanning only. Not for production execution decisions. **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**
 

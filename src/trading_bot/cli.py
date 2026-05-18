@@ -239,6 +239,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         except Exception:
             spy_data = None
 
+    market_data_source = "real" if "alpaca_iex" in provider.name else "demo"
     results: list[Any] = []
     for symbol, data in market_data.items():
         try:
@@ -249,6 +250,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
                     spy_data=spy_data,
                     tags=tags_by_symbol.get(symbol, ()),
                     metadata=metadata_by_symbol.get(symbol),
+                    market_data_source=market_data_source,
                 )
             )
         except Exception as exc:
@@ -329,17 +331,23 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         fallback_syms = list(provider.fallback_symbols) if isinstance(provider, AlpacaIEXProvider) else []
         stale_syms = list(provider.stale_symbols) if isinstance(provider, AlpacaIEXProvider) else []
         effective_provider_name = provider.name
+        intraday_cfg = settings.intraday or {}
+        intraday_tony_enabled = bool(
+            intraday_cfg.get("enabled", False) and intraday_cfg.get("use_for_tony_analysis", True)
+        )
 
         outcome_snaps: Any = None
         try:
             outcome_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
         except Exception:
             pass
-        intraday_features_by_symbol = _fetch_intraday_features_for_tony(
+        intraday_features_by_symbol, intraday_summary = _fetch_intraday_features_for_tony(
             settings=settings,
             provider=provider,
             symbols=[row.symbol for row in candidate_rows],
         )
+        if intraday_summary:
+            summary["intraday_analysis"] = intraday_summary
 
         analyses = analyze_candidates(
             candidates=candidate_rows,
@@ -350,6 +358,9 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             outcome_snapshots=outcome_snaps if (outcome_snaps is not None and not outcome_snaps.empty) else None,
             include_seeded_demo=False,
             intraday_features_by_symbol=intraday_features_by_symbol,
+            intraday_enabled=intraday_tony_enabled,
+            intraday_fallback_symbols=intraday_summary.get("intraday_fallback_symbols", []),
+            intraday_stale_symbols=intraday_summary.get("intraday_stale_symbols", []),
         )
         tony_analyses = {
             a.symbol: {
@@ -371,11 +382,18 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         # Data quality summary event (once per scan)
         from collections import Counter
         dq_counts: Counter[str] = Counter(a.data_quality_read for a in analyses)
+        dq_summary = dict(dq_counts)
+        if intraday_summary:
+            # Stale real Alpaca intraday bars still count as intraday_real_alpaca per candidate;
+            # expose stale count separately so it matches intraday summary real_intraday counts.
+            dq_summary["stale_intraday"] = int(intraday_summary.get("intraday_stale_count", 0) or 0)
         tony.record_analyst_data_quality(
-            dq_summary=dict(dq_counts),
+            dq_summary=dq_summary,
             provider_name=effective_provider_name,
             total_candidates=len(analyses),
         )
+        if intraday_summary:
+            tony.record_intraday_analysis_summary(intraday_summary)
 
         # Risk warning event (once per scan, for symbols with elevated risk)
         risk_symbols = [a.symbol for a in analyses if a.risk_read in ("wide_atr_concern", "high_volatility_concern", "avoid_invalid_plan")]
@@ -418,6 +436,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Symbols loaded: {len(symbols)}")
     print(f"Symbols scored: {len(results)}")
     print(f"CSV export: {output_path}")
+    if summary.get("intraday_analysis"):
+        _print_intraday_summary(summary["intraday_analysis"])
     if getattr(args, "save_snapshots", False):
         _print_snapshot_summary(results=results, snapshot_count=len(snapshot_ids))
     print("\nTop ranked stocks:")
@@ -627,6 +647,12 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
         print(f"Feed: {feed}  Timeframe: {timeframe}  Max symbols/scan: {max_syms}")
         print("NOTE: Alpaca IEX is a single-exchange feed and may differ from consolidated SIP data.")
         print("      Do not treat Alpaca IEX as full market tape. Research and scanning only.")
+    intraday_cfg = settings.intraday or {}
+    print(f"Intraday enabled: {bool(intraday_cfg.get('enabled', False))}")
+    print(f"Intraday timeframe: {intraday_cfg.get('timeframe', '5Min')}")
+    print(f"Intraday use_for_tony_analysis: {bool(intraday_cfg.get('use_for_tony_analysis', True))}")
+    print(f"Intraday use_for_scoring: {bool(intraday_cfg.get('use_for_scoring', False))}")
+    print(f"Intraday fallback allowed: {bool(intraday_cfg.get('allow_demo_fallback', False))}")
     print(f"Interval minutes: {interval_minutes:g}")
     print(f"Snapshot update after scan: {run_updates}")
     print(f"Max cycles: {max_cycles if max_cycles is not None else 'unlimited'}")
@@ -756,6 +782,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 "batch_requests_used": scan_summary.get("batch_requests_used", 0),
                 "rate_limit_warnings": scan_summary.get("rate_limit_warnings", 0),
                 "rotation_bucket_id": rotation_result.bucket_id if rotation_result else None,
+                "intraday_analysis": scan_summary.get("intraday_analysis", {}),
                 "next_run_time": next_run.isoformat() if max_cycles is None or cycles_completed < max_cycles else None,
             }
             summaries.append(cycle_summary)
@@ -774,6 +801,8 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                     f"(core={rotation_result.core_count} open={rotation_result.open_snapshot_count} "
                     f"prev={rotation_result.previous_candidate_count} discovery={rotation_result.discovery_count})"
                 )
+            if cycle_summary["intraday_analysis"]:
+                _print_intraday_summary(cycle_summary["intraday_analysis"], prefix="  ")
             if cycle_summary["next_run_time"]:
                 print(f"Next run: {cycle_summary['next_run_time']}")
             tony.record_watch_cycle_completed(cycle_summary)
@@ -1084,40 +1113,79 @@ def _fetch_intraday_features_for_tony(
     settings: Any,
     provider: Any,
     symbols: list[str],
-) -> dict[str, IntradayFeatures]:
+) -> tuple[dict[str, IntradayFeatures], dict[str, Any]]:
     """Fetch optional intraday bars for Tony analysis without changing scoring."""
+    from collections import Counter
+
     intraday_cfg = settings.intraday or {}
-    if not intraday_cfg.get("enabled", False) or not intraday_cfg.get("use_for_tony_analysis", True):
-        return {}
     timeframe = str(intraday_cfg.get("timeframe", "5Min"))
+    allow_demo_fallback = bool(intraday_cfg.get("allow_demo_fallback", False))
+    require_real = bool(intraday_cfg.get("require_real_provider", True))
+    base_summary = {
+        "enabled": bool(intraday_cfg.get("enabled", False)),
+        "timeframe": timeframe,
+        "use_for_tony_analysis": bool(intraday_cfg.get("use_for_tony_analysis", True)),
+        "use_for_scoring": bool(intraday_cfg.get("use_for_scoring", False)),
+        "allow_demo_fallback": allow_demo_fallback,
+        "require_real_provider": require_real,
+        "intraday_provider": "none",
+        "symbols_requested": 0,
+        "symbols_with_intraday": 0,
+        "real_intraday_count": 0,
+        "missing_count": 0,
+        "intraday_fallback_count": 0,
+        "intraday_stale_count": 0,
+        "intraday_fallback_symbols": [],
+        "intraday_stale_symbols": [],
+        "above_vwap_count": 0,
+        "below_vwap_count": 0,
+        "opening_range_breakout_count": 0,
+        "opening_range_breakdown_count": 0,
+        "sample_reads": [],
+    }
+    if not intraday_cfg.get("enabled", False) or not intraday_cfg.get("use_for_tony_analysis", True):
+        return {}, {}
     lookback_days = int(intraday_cfg.get("lookback_days", 5))
     max_symbols = int(intraday_cfg.get("max_symbols_per_cycle", len(symbols)) or len(symbols))
-    require_real = bool(intraday_cfg.get("require_real_provider", True))
-    allow_demo_fallback = bool(intraday_cfg.get("allow_demo_fallback", False))
-    if require_real and not isinstance(provider, AlpacaIEXProvider):
-        return {
-            symbol: IntradayFeatures(symbol=symbol, timeframe=timeframe, data_available=False, status="intraday_data_missing")
-            for symbol in symbols[:max_symbols]
-        }
     selected = [symbol.upper() for symbol in symbols[:max_symbols]]
+    base_summary["symbols_requested"] = len(selected)
     if not selected:
-        return {}
+        return {}, base_summary
+    if require_real and not isinstance(provider, AlpacaIEXProvider):
+        # Real provider required but not available — mark all as missing, do not use demo
+        base_summary["intraday_provider"] = "skipped_require_real"
+        missing = {
+            symbol: IntradayFeatures(symbol=symbol, timeframe=timeframe, data_available=False, status="intraday_data_missing")
+            for symbol in selected
+        }
+        return missing, _build_intraday_summary(timeframe, selected, missing, base_summary=base_summary)
     bars_by_symbol: dict[str, Any] = {}
+    fallback_before: Counter[str] = Counter()
+    stale_before: Counter[str] = Counter()
+    if isinstance(provider, AlpacaIEXProvider):
+        fallback_before = Counter(provider.fallback_symbols)
+        stale_before = Counter(provider.stale_symbols)
     try:
         if isinstance(provider, AlpacaIEXProvider) and provider.batch_requests_enabled and len(selected) > 1:
             bars_by_symbol = provider.fetch_ohlcv_batch(selected, lookback_days, timeframe)
+            base_summary["intraday_provider"] = "alpaca_iex"
         else:
             bars_by_symbol = {
                 symbol: provider.fetch_ohlcv(symbol, lookback_days, timeframe)
                 for symbol in selected
             }
+            base_summary["intraday_provider"] = provider.name
     except Exception as exc:
         LOGGER.warning("Intraday feature fetch failed: %s", exc)
         if not allow_demo_fallback:
-            return {
+            base_summary["intraday_provider"] = "none_fetch_failed"
+            missing = {
                 symbol: IntradayFeatures(symbol=symbol, timeframe=timeframe, data_available=False, status="intraday_data_missing")
                 for symbol in selected
             }
+            summary = _build_intraday_summary(timeframe, selected, missing, base_summary=base_summary)
+            return missing, summary
+        base_summary["intraday_provider"] = "demo_generated_fallback"
         demo_provider = build_market_data_provider(
             "demo_generated",
             settings.cache_dir,
@@ -1128,10 +1196,134 @@ def _fetch_intraday_features_for_tony(
             symbol: demo_provider.fetch_ohlcv(symbol, lookback_days, timeframe)
             for symbol in selected
         }
-    return {
+    intraday_fallback_symbols: set[str] = set()
+    intraday_stale_symbols: set[str] = set()
+    if isinstance(provider, AlpacaIEXProvider):
+        fallback_after = Counter(provider.fallback_symbols)
+        stale_after = Counter(provider.stale_symbols)
+        for symbol in selected:
+            if fallback_after[symbol] > fallback_before[symbol]:
+                intraday_fallback_symbols.add(symbol)
+            if stale_after[symbol] > stale_before[symbol]:
+                intraday_stale_symbols.add(symbol)
+    elif base_summary.get("intraday_provider") == "demo_generated_fallback":
+        intraday_fallback_symbols = set(selected)
+
+    features = {
         symbol: calculate_intraday_features(symbol, bars_by_symbol.get(symbol), timeframe=timeframe)
         for symbol in selected
     }
+    if not allow_demo_fallback:
+        for symbol in intraday_fallback_symbols:
+            features[symbol] = IntradayFeatures(
+                symbol=symbol,
+                timeframe=timeframe,
+                data_available=False,
+                status="intraday_data_missing",
+            )
+    summary = _build_intraday_summary(
+        timeframe=timeframe,
+        requested_symbols=selected,
+        features_by_symbol=features,
+        fallback_count=len(intraday_fallback_symbols),
+        stale_count=len(intraday_stale_symbols),
+        base_summary=base_summary,
+    )
+    summary["intraday_fallback_symbols"] = sorted(intraday_fallback_symbols)
+    summary["intraday_stale_symbols"] = sorted(intraday_stale_symbols)
+    return features, summary
+
+
+def _build_intraday_summary(
+    timeframe: str,
+    requested_symbols: list[str],
+    features_by_symbol: dict[str, IntradayFeatures],
+    fallback_count: int = 0,
+    stale_count: int = 0,
+    base_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Summarize intraday reads for console, Tony events, and dashboard."""
+    summary = dict(base_summary or {})
+    summary.update(
+        {
+            "timeframe": timeframe,
+            "symbols_requested": len(requested_symbols),
+            "intraday_fallback_count": int(fallback_count),
+        }
+    )
+    reads: list[dict[str, Any]] = []
+    with_data = 0
+    above_vwap = 0
+    below_vwap = 0
+    or_breakout = 0
+    or_breakdown = 0
+    for symbol in requested_symbols:
+        features = features_by_symbol.get(symbol)
+        if features is None or not features.data_available:
+            reads.append({"symbol": symbol, "read": "intraday_data_missing", "status": "intraday_data_missing"})
+            continue
+        with_data += 1
+        if features.price_above_vwap is True:
+            above_vwap += 1
+        elif features.price_above_vwap is False:
+            below_vwap += 1
+        if features.opening_range_breakout_candidate:
+            or_breakout += 1
+        if features.opening_range_breakdown_warning:
+            or_breakdown += 1
+        reads.append(
+            {
+                "symbol": symbol,
+                "read": _tony_intraday_label_from_features(features),
+                "status": features.status,
+                "above_vwap": features.price_above_vwap,
+                "opening_range_status": _opening_range_status_from_features(features),
+            }
+        )
+    summary.update(
+        {
+            "symbols_with_intraday": with_data,
+            "real_intraday_count": with_data,
+            "missing_count": max(0, len(requested_symbols) - with_data),
+            "intraday_stale_count": stale_count,
+            "above_vwap_count": above_vwap,
+            "below_vwap_count": below_vwap,
+            "opening_range_breakout_count": or_breakout,
+            "opening_range_breakdown_count": or_breakdown,
+            "sample_reads": reads[:5],
+        }
+    )
+    return summary
+
+
+def _opening_range_status_from_features(features: IntradayFeatures) -> str:
+    if features.opening_range_breakout_candidate:
+        return "opening_range_breakout_watch"
+    if features.opening_range_breakdown_warning:
+        return "opening_range_breakdown_warning"
+    return features.status
+
+
+def _print_intraday_summary(summary: dict[str, Any], prefix: str = "") -> None:
+    """Print compact intraday scan/watch statistics."""
+    provider_used = summary.get("intraday_provider", "unknown")
+    allow_fallback = summary.get("allow_demo_fallback", False)
+    print(
+        f"{prefix}Intraday summary: provider={provider_used} allow_demo_fallback={allow_fallback} "
+        f"requested={summary.get('symbols_requested', 0)} "
+        f"real_intraday={summary.get('real_intraday_count', summary.get('symbols_with_intraday', 0))} "
+        f"missing={summary.get('missing_count', 0)} "
+        f"demo_fallback={summary.get('intraday_fallback_count', 0)} "
+        f"stale={summary.get('intraday_stale_count', 0)} "
+        f"above_vwap={summary.get('above_vwap_count', 0)} "
+        f"below_vwap={summary.get('below_vwap_count', 0)} "
+        f"or_breakout={summary.get('opening_range_breakout_count', 0)} "
+        f"or_breakdown={summary.get('opening_range_breakdown_count', 0)}"
+    )
+    sample_reads = summary.get("sample_reads") or []
+    if sample_reads:
+        sample_text = ", ".join(f"{item.get('symbol')}: {item.get('read')}" for item in sample_reads)
+        print(f"{prefix}Sample intraday reads: {sample_text}")
 
 
 def _intraday_snapshot_fields(features: IntradayFeatures | None) -> dict[str, Any]:

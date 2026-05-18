@@ -50,7 +50,7 @@ Required test areas:
 - V11 dashboard helpers (event age, fallback detection, hypothesis counting, snapshot counting),
 - V12 watch run state (table CRUD, heartbeat staleness, market-hours guard, watch status labels, no-broker behavior),
 - V13 Tony hypothesis-to-outcome tracking (schema columns, Tony field storage, null-safe legacy compat, analysis version constant, outcome analytics grouping, learning event, no-broker guards).
-- V14 intraday data mode foundation (config parsing, 5Min fetch mocks, VWAP, opening range, insufficient data, Tony intraday labels, nullable snapshot fields, no order behavior).
+- V14/V14.5 intraday data mode foundation (config parsing, 5Min fetch mocks, VWAP, opening range, insufficient data, Tony intraday labels, watch-mode summary, `intraday_analysis_summary` event, nullable snapshot fields, no order behavior).
 
 ## Scanner smoke test
 
@@ -124,6 +124,8 @@ Expected:
 - no crash,
 - one scan cycle runs,
 - eligible candidate snapshots are created or skipped by dedupe cleanly,
+- when `intraday.enabled: true`, watch startup prints intraday config and scan/watch output includes intraday summary counts,
+- Tony events include `intraday_analysis_summary` when intraday reads are enabled,
 - snapshot follow-up update runs if enabled,
 - no paper trades or orders are created.
 
@@ -266,7 +268,7 @@ Expected:
 - Scheduled Watch Mode is scanning/snapshot collection only. It does not place paper trades or live trades.
 - Tony Stocks is currently a watcher/analyst event layer only. It does not paper trade, execute broker orders, place live trades, or use an LLM for trade decisions.
 - Outcome analytics are for model evaluation and research. Seeded demo fixture results are excluded by default and are not proof of strategy quality.
-- Intraday reads are research-only and are not entry automation.
+- Intraday reads are attached to Tony research hypotheses and snapshots when enabled, but do not affect scoring yet and are not entry automation.
 
 ## V12 watch run state tests
 

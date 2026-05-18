@@ -1,0 +1,21 @@
+
+symbols:
+  - symbol: SPY
+    tags: [etf, benchmark]
+    universe_role: benchmark
+    demo_profile: benchmark_index
+  - symbol: PLTR
+    tags: [mid_cap, software, breakout_candidate]
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: RIVN
+    tags: [speculative, high_beta]
+    universe_role: speculative_candidate
+    demo_profile: overextended_runner
+  - symbol: WEAK
+    tags: [watchlist]
+    universe_role: excluded_by_default
+    demo_profile: weak_downtrend
+csv_path:
+filters:
+  max_universe_size: 10

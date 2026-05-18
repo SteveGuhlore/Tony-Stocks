@@ -62,11 +62,18 @@ MKT_WEAK = "market_weak"
 MKT_MISSING = "benchmark_data_missing"
 
 # ── Data quality labels ───────────────────────────────────────────────────────
-DQ_ALPACA_IEX = "alpaca_iex_real_data"
+DQ_DAILY_REAL = "daily_real_alpaca"
+DQ_ALPACA_IEX = DQ_DAILY_REAL  # backward-compatible alias
 DQ_DEMO = "demo_data"
 DQ_FALLBACK = "fallback_data"
 DQ_STALE = "stale_data"
 DQ_SEEDED = "seeded_demo_fixture"
+
+# ── Intraday-specific data quality labels ─────────────────────────────────────
+DQ_INTRADAY_REAL = "intraday_real_alpaca"
+DQ_INTRADAY_MISSING = "intraday_missing"
+DQ_INTRADAY_FALLBACK = "intraday_fallback_demo"
+DQ_INTRADAY_STALE = "stale_intraday"
 
 # ── Outcome context labels ────────────────────────────────────────────────────
 OC_NOT_ENOUGH = "not_enough_history"
@@ -197,6 +204,9 @@ def analyze_candidates(
     outcome_snapshots: pd.DataFrame | None = None,
     include_seeded_demo: bool = False,
     intraday_features_by_symbol: dict[str, IntradayFeatures] | None = None,
+    intraday_enabled: bool = False,
+    intraday_fallback_symbols: list[str] | None = None,
+    intraday_stale_symbols: list[str] | None = None,
 ) -> list[CandidateAnalysis]:
     """Return one CandidateAnalysis per candidate.
 
@@ -209,6 +219,8 @@ def analyze_candidates(
     ctx_desc = market.description()
     fallback_set = set(fallback_symbols or [])
     stale_set = set(stale_symbols or [])
+    intraday_fallback_set = set(intraday_fallback_symbols or [])
+    intraday_stale_set = set(intraday_stale_symbols or [])
     outcome_cache: dict[tuple[str, str, str], str] = {}
 
     results: list[CandidateAnalysis] = []
@@ -224,6 +236,9 @@ def analyze_candidates(
             outcome_cache=outcome_cache,
             include_seeded_demo=include_seeded_demo,
             intraday_features=(intraday_features_by_symbol or {}).get(stock.symbol),
+            intraday_enabled=intraday_enabled,
+            intraday_fallback_set=intraday_fallback_set,
+            intraday_stale_set=intraday_stale_set,
         )
         results.append(analysis)
     return results
@@ -242,11 +257,23 @@ def _analyze_one(
     outcome_cache: dict[tuple[str, str, str], str],
     include_seeded_demo: bool,
     intraday_features: IntradayFeatures | None = None,
+    intraday_enabled: bool = False,
+    intraday_fallback_set: set[str] | None = None,
+    intraday_stale_set: set[str] | None = None,
 ) -> CandidateAnalysis:
     reasons: list[str] = []
     concerns: list[str] = []
 
-    dq_label, dq_text = _data_quality(stock, provider_name, fallback_set, stale_set)
+    dq_label, dq_text = _data_quality(
+        stock,
+        provider_name,
+        fallback_set,
+        stale_set,
+        intraday_features=intraday_features,
+        intraday_enabled=intraday_enabled,
+        intraday_fallback_set=intraday_fallback_set or set(),
+        intraday_stale_set=intraday_stale_set or set(),
+    )
     setup_label, technical_text = _setup_read(stock)
     vol_label, vol_text = _volume_read(stock)
     risk_label, risk_text = _risk_read(stock)
@@ -280,7 +307,20 @@ def _analyze_one(
     # build concerns from scanner warnings + analysis
     for w in stock.warnings[:4]:
         concerns.append(w)
-    if dq_label in (DQ_FALLBACK, DQ_STALE, DQ_SEEDED):
+    intraday_stale_real = (
+        intraday_enabled
+        and (intraday_stale_set or set())
+        and stock.symbol.upper() in (intraday_stale_set or set())
+        and intraday_features is not None
+        and intraday_features.data_available
+        and dq_label == DQ_INTRADAY_REAL
+    )
+    if intraday_stale_real:
+        concerns.append(
+            "Real Alpaca IEX intraday data is stale — latest bar is older than the freshness threshold, "
+            "often because the market is closed."
+        )
+    elif dq_label in (DQ_FALLBACK, DQ_STALE, DQ_SEEDED, DQ_INTRADAY_FALLBACK, DQ_INTRADAY_MISSING, DQ_INTRADAY_STALE):
         concerns.append(f"Data quality flag: {dq_label}. Signals may not reflect real market prices.")
     if ctx_label == MKT_WEAK:
         concerns.append("Broad market is weak; setup faces headwinds.")
@@ -289,7 +329,18 @@ def _analyze_one(
     if intraday_label in {"intraday_data_missing", "intraday_trend_down", "below_vwap", "fading_from_high", "opening_range_breakdown_warning"}:
         concerns.append(intraday_text)
 
-    hypothesis = _build_hypothesis(stock, setup_label, vol_label, risk_label, ctx_label, oc_label, dq_label, priority, intraday_label)
+    hypothesis = _build_hypothesis(
+        stock,
+        setup_label,
+        vol_label,
+        risk_label,
+        ctx_label,
+        oc_label,
+        dq_label,
+        priority,
+        intraday_label,
+        intraday_stale=intraday_stale_real,
+    )
 
     return CandidateAnalysis(
         symbol=stock.symbol,
@@ -450,7 +501,14 @@ def _data_quality(
     provider_name: str,
     fallback_set: set[str],
     stale_set: set[str],
+    intraday_features: IntradayFeatures | None = None,
+    intraday_enabled: bool = False,
+    intraday_fallback_set: set[str] | None = None,
+    intraday_stale_set: set[str] | None = None,
 ) -> tuple[str, str]:
+    symbol = stock.symbol.upper()
+    intraday_fallback_set = intraday_fallback_set or set()
+    intraday_stale_set = intraday_stale_set or set()
     is_seeded = (
         "demo_seeded" in stock.tags
         or "outcome_fixture" in stock.tags
@@ -462,17 +520,51 @@ def _data_quality(
             f"{stock.symbol} is a seeded demo fixture. Results are for testing and research only. "
             "Not a real market signal."
         )
-    if stock.symbol in stale_set:
+    if symbol in stale_set:
         return DQ_STALE, (
-            f"{stock.symbol} returned stale data from {provider_name}. "
+            f"{stock.symbol} returned stale daily data from {provider_name}. "
             "The most recent bar may be older than the configured freshness threshold. "
             "Signals may not reflect current market conditions."
         )
-    if stock.symbol in fallback_set:
+    if symbol in fallback_set:
         return DQ_FALLBACK, (
-            f"{stock.symbol} data fell back from {provider_name} to demo-generated prices. "
+            f"{stock.symbol} daily data fell back from {provider_name} to demo-generated prices. "
             "This is a synthetic approximation — not real market data. "
             "Do not act on this signal until real data is confirmed."
+        )
+    if intraday_enabled:
+        if symbol in intraday_fallback_set:
+            return DQ_INTRADAY_FALLBACK, (
+                f"{stock.symbol} intraday bars fell back to demo-generated data. "
+                "Intraday Tony reads are not based on real Alpaca prices."
+            )
+        if intraday_features is None or not intraday_features.data_available:
+            return DQ_INTRADAY_MISSING, (
+                f"{stock.symbol} intraday data is unavailable for Tony analysis. "
+                "Real intraday provider is required and demo fallback is disabled."
+            )
+    # Real-provider check must come BEFORE the demo-warning check.
+    # demo_profile metadata can still add warnings even when real Alpaca IEX daily bars were used.
+    if "alpaca_iex" in provider_name:
+        if intraday_enabled and intraday_features is not None and intraday_features.data_available:
+            if symbol in intraday_stale_set:
+                return DQ_INTRADAY_REAL, (
+                    f"{stock.symbol} daily and intraday data are from Alpaca IEX ({provider_name}). "
+                    "Real Alpaca IEX intraday data is stale because the latest bar is older than the "
+                    "freshness threshold — often when the market is closed. "
+                    "Bars are real Alpaca IEX prices, not synthetic demo approximations. "
+                    "IEX is a single-exchange feed — "
+                    "not full SIP consolidated tape. For research and scanning only."
+                )
+            return DQ_INTRADAY_REAL, (
+                f"{stock.symbol} daily and intraday data are from Alpaca IEX ({provider_name}). "
+                "IEX is a single-exchange feed — not full SIP consolidated tape. "
+                "Prices may differ from other venues. For research and scanning only."
+            )
+        return DQ_DAILY_REAL, (
+            f"{stock.symbol} daily data is from Alpaca IEX ({provider_name}). "
+            "IEX is a single-exchange feed — not full SIP consolidated tape. "
+            "Prices may differ from other venues. For research and scanning only."
         )
     is_demo = any("demo data only" in w.lower() for w in stock.warnings) or provider_name == "demo_generated"
     if is_demo:
@@ -480,12 +572,6 @@ def _data_quality(
             f"{stock.symbol} is using demo-generated price data. "
             "Signals are deterministic approximations for research and testing, "
             "not real market prices. Do not use for real trade decisions."
-        )
-    if "alpaca_iex" in provider_name:
-        return DQ_ALPACA_IEX, (
-            f"{stock.symbol} data is from Alpaca IEX ({provider_name}). "
-            "IEX is a single-exchange feed — not full SIP consolidated tape. "
-            "Prices may differ from other venues. For research and scanning only."
         )
     return DQ_DEMO, f"{stock.symbol} data quality is unconfirmed (provider: {provider_name})."
 
@@ -540,7 +626,7 @@ def _priority_and_action(
     if setup_label in (SETUP_OVEREXTENDED, SETUP_WEAK, SETUP_INSUFFICIENT, SETUP_REFERENCE):
         return PRI_AVOID, ACTION_AVOID
 
-    if dq_label in (DQ_FALLBACK, DQ_STALE):
+    if dq_label in (DQ_FALLBACK, DQ_STALE, DQ_INTRADAY_FALLBACK, DQ_INTRADAY_MISSING):
         return PRI_LOW, ACTION_NEEDS_DATA
 
     if dq_label == DQ_SEEDED:
@@ -590,6 +676,7 @@ def _build_hypothesis(
     dq_label: str,
     priority: str,
     intraday_label: str = "intraday_not_requested",
+    intraday_stale: bool = False,
 ) -> str:
     if priority == PRI_REFERENCE:
         return (
@@ -654,12 +741,21 @@ def _build_hypothesis(
 
     dq_notes = {
         DQ_DEMO: "Note: demo-generated data — not real market prices.",
-        DQ_FALLBACK: "Caution: data fell back to demo this cycle.",
-        DQ_STALE: "Caution: data may be stale.",
+        DQ_FALLBACK: "Caution: daily data fell back to demo this cycle.",
+        DQ_STALE: "Caution: daily data may be stale.",
         DQ_SEEDED: "Seeded fixture only — not a real market signal.",
-        DQ_ALPACA_IEX: "Data: Alpaca IEX (single-exchange feed, not full SIP tape).",
+        DQ_DAILY_REAL: "Data: Alpaca IEX daily bars (single-exchange feed, not full SIP tape).",
+        DQ_INTRADAY_REAL: "Intraday: real Alpaca IEX 5Min bars (research only).",
+        DQ_INTRADAY_MISSING: "Intraday read unavailable; real intraday data required.",
+        DQ_INTRADAY_FALLBACK: "Caution: intraday fell back to demo-generated bars.",
+        DQ_INTRADAY_STALE: "Caution: intraday bars may be stale.",
     }
-    if dq_label in dq_notes:
+    if dq_label == DQ_INTRADAY_REAL and intraday_stale:
+        parts.append(
+            "Real Alpaca IEX intraday data is stale because the market is closed or the latest bar "
+            "is older than the freshness threshold — still real Alpaca IEX prices, not synthetic demo data."
+        )
+    elif dq_label in dq_notes:
         parts.append(dq_notes[dq_label])
 
     intraday_notes = {

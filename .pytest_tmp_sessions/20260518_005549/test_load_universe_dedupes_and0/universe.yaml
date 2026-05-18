@@ -1,0 +1,8 @@
+
+symbols:
+  - AAPL
+  - aapl
+  - MSFT
+csv_path:
+filters:
+  max_universe_size: 2

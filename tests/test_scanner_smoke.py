@@ -3,7 +3,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from trading_bot.cli import run_data_check, run_outcome_analytics, run_scan, run_seed_demo_snapshots, run_update_snapshots, run_watch
+from trading_bot.cli import (
+    _build_intraday_summary,
+    run_data_check,
+    run_outcome_analytics,
+    run_scan,
+    run_seed_demo_snapshots,
+    run_update_snapshots,
+    run_watch,
+)
+from trading_bot.intraday.features import IntradayFeatures
 from trading_bot.settings import load_scanner_settings
 
 
@@ -383,7 +392,7 @@ tony_stocks:
   enabled: true
   agent_name: "Tony Stocks"
   mode: "watcher"
-  create_events_for: [scan_started, scan_completed, snapshots_created, snapshots_updated, high_score_candidate, outcome_updated, warning_summary, watch_cycle_completed]
+  create_events_for: [scan_started, scan_completed, snapshots_created, snapshots_updated, high_score_candidate, outcome_updated, warning_summary, watch_cycle_completed, intraday_analysis_summary]
   high_score_threshold: 60
   include_seeded_demo_events: false
   max_events_per_cycle: 20
@@ -556,3 +565,131 @@ intraday:
     assert "Requested timeframe: 5Min" in output
     assert "Intraday read:" in output
     assert "VWAP:" in output
+
+
+def test_scan_intraday_enabled_attaches_tony_reads_to_snapshots(tmp_path: Path):
+    database_path = tmp_path / "scanner.db"
+    universe_path = tmp_path / "universe.yaml"
+    config_path = tmp_path / "default_config.yaml"
+    universe_path.write_text(
+        """
+symbols:
+  - symbol: PLTR
+    tags: [mid_cap, software, breakout_candidate]
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+csv_path:
+filters:
+  max_universe_size: 5
+""",
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        f"""
+provider: demo_generated
+database_path: {database_path.as_posix()}
+outputs_dir: {(tmp_path / "outputs").as_posix()}
+cache_dir: {(tmp_path / "cache").as_posix()}
+log_dir: {(tmp_path / "logs").as_posix()}
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: {universe_path.as_posix()}
+candidate_snapshots:
+  enabled: true
+  min_score: 60
+  include_roles: [primary_candidate]
+  include_categories: [Breakout Watch, Pullback Watch, Momentum Continuation]
+  exclude_categories: [Weak / Avoid, Overextended / Wait, ETF / Benchmark Reference, Invalid Trade Plan]
+  include_benchmarks: false
+  include_references: false
+  allow_invalid_trade_plans: false
+  dedupe_minutes: 0
+intraday:
+  enabled: true
+  timeframe: 5Min
+  lookback_days: 2
+  max_symbols_per_cycle: 5
+  use_for_scoring: false
+  use_for_tony_analysis: true
+  require_real_provider: false
+  allow_demo_fallback: true
+tony_stocks:
+  enabled: true
+  agent_name: "Tony Stocks"
+  mode: "watcher"
+  create_events_for: [scan_started, scan_completed, snapshots_created, analyst_candidate_hypothesis, intraday_analysis_summary]
+  high_score_threshold: 60
+  include_seeded_demo_events: false
+  max_events_per_cycle: 20
+""",
+        encoding="utf-8",
+    )
+
+    summary = run_scan(Namespace(config=str(config_path), symbols="", save_snapshots=True))
+
+    from trading_bot.storage.repositories import ScannerRepository
+
+    repo = ScannerRepository(database_path)
+    snapshots = repo.latest_candidate_snapshots()
+    assert len(snapshots) == 1
+    row = snapshots.iloc[0]
+    assert row["tony_intraday_read"] not in (None, "", "nan")
+    assert row["intraday_timeframe"] == "5Min"
+    assert row["intraday_close"] is not None
+    assert summary["intraday_analysis"]["symbols_requested"] == 1
+    assert summary["intraday_analysis"]["symbols_with_intraday"] == 1
+    events = repo.list_tony_events(event_type="intraday_analysis_summary", limit=5)
+    assert len(events) == 1
+    assert repo.paper_trades().empty
+
+
+def test_intraday_summary_counts_reads_without_orders():
+    features = {
+        "PLTR": IntradayFeatures(
+            symbol="PLTR",
+            timeframe="5Min",
+            data_available=True,
+            status="ok",
+            latest_close=105,
+            day_open=100,
+            high_of_day=105,
+            low_of_day=99,
+            vwap=102,
+            price_above_vwap=True,
+            opening_range_breakout_candidate=True,
+        ),
+        "SOFI": IntradayFeatures(
+            symbol="SOFI",
+            timeframe="5Min",
+            data_available=True,
+            status="ok",
+            latest_close=95,
+            day_open=100,
+            high_of_day=101,
+            low_of_day=94,
+            vwap=98,
+            price_above_vwap=False,
+            opening_range_breakdown_warning=True,
+        ),
+        "HOOD": IntradayFeatures(symbol="HOOD", timeframe="5Min", data_available=False, status="intraday_data_missing"),
+    }
+
+    summary = _build_intraday_summary("5Min", ["PLTR", "SOFI", "HOOD"], features, fallback_count=1)
+
+    assert summary["symbols_requested"] == 3
+    assert summary["symbols_with_intraday"] == 2
+    assert summary["missing_count"] == 1
+    assert summary["intraday_fallback_count"] == 1
+    assert summary["above_vwap_count"] == 1
+    assert summary["below_vwap_count"] == 1
+    assert summary["opening_range_breakout_count"] == 1
+    assert summary["opening_range_breakdown_count"] == 1

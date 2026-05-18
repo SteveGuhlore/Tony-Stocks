@@ -1,0 +1,45 @@
+
+provider: demo_generated
+database_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_scan_intraday_enabled_att0/scanner.db
+outputs_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_scan_intraday_enabled_att0/outputs
+cache_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_scan_intraday_enabled_att0/cache
+log_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_scan_intraday_enabled_att0/logs
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_scan_intraday_enabled_att0/universe.yaml
+candidate_snapshots:
+  enabled: true
+  min_score: 60
+  include_roles: [primary_candidate]
+  include_categories: [Breakout Watch, Pullback Watch, Momentum Continuation]
+  exclude_categories: [Weak / Avoid, Overextended / Wait, ETF / Benchmark Reference, Invalid Trade Plan]
+  include_benchmarks: false
+  include_references: false
+  allow_invalid_trade_plans: false
+  dedupe_minutes: 0
+intraday:
+  enabled: true
+  timeframe: 5Min
+  lookback_days: 2
+  max_symbols_per_cycle: 5
+  use_for_scoring: false
+  use_for_tony_analysis: true
+  require_real_provider: false
+  allow_demo_fallback: true
+tony_stocks:
+  enabled: true
+  agent_name: "Tony Stocks"
+  mode: "watcher"
+  create_events_for: [scan_started, scan_completed, snapshots_created, analyst_candidate_hypothesis, intraday_analysis_summary]
+  high_score_threshold: 60
+  include_seeded_demo_events: false
+  max_events_per_cycle: 20

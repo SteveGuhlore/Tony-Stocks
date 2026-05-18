@@ -1,0 +1,50 @@
+
+provider: demo_generated
+database_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_one_cycle_crea0/watch.db
+outputs_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_one_cycle_crea0/outputs
+cache_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_one_cycle_crea0/cache
+log_dir: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_one_cycle_crea0/logs
+lookback_days: 120
+timeframe: daily
+max_symbols: 5
+min_price: 1
+max_price: 1000
+min_avg_volume: 100000
+min_dollar_volume: 1000000
+score_threshold_watchlist: 70
+score_threshold_high_quality: 80
+live_trading_enabled: false
+scoring_config_path: config/scoring_config.yaml
+universe_config_path: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_one_cycle_crea0/universe.yaml
+candidate_snapshots:
+  enabled: true
+  min_score: 60
+  include_roles: [primary_candidate]
+  include_categories: [Breakout Watch, Pullback Watch, Momentum Continuation]
+  exclude_categories: [Weak / Avoid, Overextended / Wait, ETF / Benchmark Reference, Invalid Trade Plan]
+  include_benchmarks: false
+  include_references: false
+  allow_invalid_trade_plans: false
+  dedupe_minutes: 0
+snapshot_followup:
+  same_bar_target_stop_policy: conservative_stop_first
+  expire_after_trading_days: 20
+scheduled_watch:
+  enabled: true
+  interval_minutes: 0
+  run_snapshot_update_after_scan: true
+  max_cycles: 1
+  market_hours_only: false
+  start_time: "09:35"
+  end_time: "16:10"
+  timezone: "America/New_York"
+  write_heartbeat_log: true
+  stop_file: C:/Users/alexa/Downloads/TradingBotAgentProject/.pytest_tmp_sessions/20260518_005549/test_watch_mode_one_cycle_crea0/STOP_WATCH_MODE
+tony_stocks:
+  enabled: true
+  agent_name: "Tony Stocks"
+  mode: "watcher"
+  create_events_for: [scan_started, scan_completed, snapshots_created, snapshots_updated, high_score_candidate, outcome_updated, warning_summary, watch_cycle_completed, intraday_analysis_summary]
+  high_score_threshold: 60
+  include_seeded_demo_events: false
+  max_events_per_cycle: 20

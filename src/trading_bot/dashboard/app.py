@@ -1044,7 +1044,7 @@ def render_data_quality_panel(repo: ScannerRepository) -> None:
     dq_provider = effective_provider
     if dq_event:
         dp = json.loads(dq_event.get("payload_json") or "{}")
-        real_count = dp.get("alpaca_iex_real_data", 0)
+        real_count = dp.get("daily_real_alpaca", dp.get("alpaca_iex_real_data", 0))
         demo_count = dp.get("demo_data", 0)
         fallback_count = dp.get("fallback_data", 0)
         stale_count = dp.get("stale_data", 0)
@@ -1246,24 +1246,28 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
 
     # ── Risk warning ───────────────────────────────────────────────────────────
     intraday_cfg = settings.intraday or {}
-    intraday_reads: list[str] = []
-    if not analyst_events.empty:
-        for _, ev in analyst_events.head(20).iterrows():
-            try:
-                payload = json.loads(ev.get("payload_json") or "{}")
-                read = payload.get("intraday_read")
-                if read:
-                    intraday_reads.append(str(read))
-            except Exception:
-                pass
-    intraday_counts = pd.Series(intraday_reads).value_counts().to_dict() if intraday_reads else {}
-    st.markdown(
-        "**Intraday Read:** "
-        f"{'enabled' if intraday_cfg.get('enabled', False) else 'disabled'} | "
-        f"timeframe `{intraday_cfg.get('timeframe', '5Min')}` | "
-        f"recent reads: {intraday_counts or 'none yet'}"
+    intraday_event = latest_event_of_type(events, "intraday_analysis_summary")
+    intraday_payload = json.loads(intraday_event.get("payload_json") or "{}") if intraday_event else {}
+    st.markdown("**Intraday Read Summary**")
+    intraday_cols = st.columns(7)
+    intraday_cols[0].metric("Enabled", "yes" if intraday_cfg.get("enabled", False) else "no")
+    intraday_cols[1].metric("Timeframe", str(intraday_payload.get("timeframe") or intraday_cfg.get("timeframe", "5Min")))
+    intraday_cols[2].metric("With Data", int(intraday_payload.get("symbols_with_intraday", 0) or 0))
+    intraday_cols[3].metric("Missing", int(intraday_payload.get("missing_count", 0) or 0))
+    intraday_cols[4].metric("Above VWAP", int(intraday_payload.get("above_vwap_count", 0) or 0))
+    intraday_cols[5].metric("Below VWAP", int(intraday_payload.get("below_vwap_count", 0) or 0))
+    intraday_cols[6].metric(
+        "OR B/O-B/D",
+        f"{int(intraday_payload.get('opening_range_breakout_count', 0) or 0)}/"
+        f"{int(intraday_payload.get('opening_range_breakdown_count', 0) or 0)}",
     )
-    st.caption("Intraday reads are research-only context and are not entry automation.")
+    if intraday_event:
+        st.caption(
+            f"Latest intraday summary: {event_age_label(intraday_event.get('created_at'))}. "
+            "Intraday reads are research-only context and are not entry automation."
+        )
+    else:
+        st.caption("No intraday summary event yet. Intraday reads are research-only context and are not entry automation.")
 
     risk_row = latest_event_of_type(risk_events, "analyst_risk_warning")
     if risk_row:

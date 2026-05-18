@@ -216,6 +216,7 @@ class ScoreEngine:
         spy_data: pd.DataFrame | None = None,
         tags: list[str] | tuple[str, ...] | None = None,
         metadata: Any | None = None,
+        market_data_source: str = "demo",
     ) -> ScoredStock:
         """Score one stock from recent OHLCV data."""
         if len(data) < 60:
@@ -255,7 +256,7 @@ class ScoreEngine:
             warnings.append("Speculative candidate; manually review liquidity, volatility, and news risk.")
         if universe_role == "excluded_by_default":
             warnings.append("Excluded-by-default research name; hidden from the primary dashboard view.")
-        if self.config.mode == "swing":
+        if self.config.mode == "swing" and market_data_source != "real":
             warnings.append("Demo data only; do not use for real trade decisions.")
 
         trend_score = 0.0

@@ -595,6 +595,7 @@ class TestTonyAnalystEvents:
                 "analyst_market_context",
                 "analyst_data_quality",
                 "analyst_risk_warning",
+                "intraday_analysis_summary",
             ],
         })
 
@@ -620,6 +621,20 @@ class TestTonyAnalystEvents:
             risk_types=["wide_atr_concern"],
             provider_name="alpaca_iex",
         )
+        tony.record_intraday_analysis_summary(
+            {
+                "enabled": True,
+                "timeframe": "5Min",
+                "symbols_requested": 3,
+                "symbols_with_intraday": 2,
+                "missing_count": 1,
+                "intraday_fallback_count": 0,
+                "above_vwap_count": 1,
+                "below_vwap_count": 1,
+                "opening_range_breakout_count": 1,
+                "opening_range_breakdown_count": 0,
+            }
+        )
 
         events = repo.list_tony_events(limit=20)
         event_types = set(events["event_type"])
@@ -627,6 +642,7 @@ class TestTonyAnalystEvents:
         assert "analyst_market_context" in event_types
         assert "analyst_data_quality" in event_types
         assert "analyst_risk_warning" in event_types
+        assert "intraday_analysis_summary" in event_types
 
     def test_analyst_risk_warning_skips_empty_list(self, tmp_path):
         from trading_bot.storage.repositories import ScannerRepository

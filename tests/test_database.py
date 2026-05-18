@@ -145,6 +145,8 @@ def test_create_and_list_candidate_snapshots(tmp_path):
     assert len(snapshots) == 1
     assert snapshots.iloc[0]["symbol"] == "AAPL"
     assert snapshots.iloc[0]["trade_plan_valid"] == 1
+    assert snapshots.iloc[0]["tony_intraday_read"] is None
+    assert snapshots.iloc[0]["intraday_vwap"] is None
     assert repo.count_open_candidate_snapshots() == 1
     assert repo.count_triggered_candidate_snapshots() == 0
     assert repo.count_candidate_snapshots_by_category().iloc[0]["setup_category"] == "Breakout Watch"
@@ -246,7 +248,7 @@ def test_candidate_snapshot_stores_optional_intraday_tony_fields(tmp_path):
                 "volume_read": "volume_confirmation",
                 "risk_read": "acceptable_risk",
                 "market_context_read": "market_supportive",
-                "data_quality_read": "alpaca_iex_real_data",
+                "data_quality_read": "daily_real_alpaca",
                 "outcome_context": "not_enough_history",
                 "tony_hypothesis": "PLTR intraday context stored. Tony is analyzing, not trading.",
                 "reasons": ["above VWAP"],
