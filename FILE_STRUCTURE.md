@@ -1,6 +1,6 @@
 # Trading Bot Project - File Structure
 
-_Last updated: 2026-05-18 (V14)_
+_Last updated: 2026-05-18 (V15)_
 
 ```text
 TradingBotAgentProject/
@@ -91,6 +91,7 @@ TradingBotAgentProject/
         score_models.py
       snapshots/
         __init__.py
+        entry_triggers.py
         followup.py
         seeding.py
       tony/

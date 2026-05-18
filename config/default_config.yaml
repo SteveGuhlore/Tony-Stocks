@@ -47,6 +47,13 @@ snapshot_followup:
   same_bar_target_stop_policy: conservative_stop_first
   expire_after_trading_days: 20
 
+entry_trigger_simulation:
+  enabled: true
+  default_buffer_pct: 0.001
+  expire_after_trading_days: 1
+  use_planned_price_as_fill: true
+  intraday_timeframe: 5Min
+
 demo_snapshot_seed:
   enabled: false
   count: 12
@@ -152,6 +159,7 @@ tony_stocks:
     - watch_heartbeat_stale
     - watch_waiting_for_market_open
     - tony_learning_updated
+    - entry_trigger_summary
   high_score_threshold: 85
   include_seeded_demo_events: false
   max_events_per_cycle: 30

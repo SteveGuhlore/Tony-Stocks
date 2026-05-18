@@ -4,6 +4,8 @@ _Last updated: 2026-05-18_
 
 ## Overall status
 
+**V15** - Intraday Entry Trigger Simulation (research-only). Candidate snapshots store `snapshot_price`, planned intraday trigger levels, and simulated `actual_entry_*` fields from real Alpaca 5Min bars after snapshot time. V15 adds research-only intraday trigger simulation. It does not create paper trades or broker orders.
+
 **V14.7** - Real-Data-Only Enforcement. First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring. Active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series. Outcome analytics now defaults to real-data rows only and excludes demo, missing-real-data, and legacy rows unless explicitly included for review.
 
 **V14.5** - Intraday Watch Activation + Snapshot Verification. Watch/scan cycles now print intraday configuration and per-cycle summary stats, create a concise `intraday_analysis_summary` Tony event, and verify intraday reads attach to Tony hypotheses and candidate snapshots when enabled. Intraday reads are attached to Tony research hypotheses and snapshots, but do not affect scoring yet.
@@ -204,9 +206,20 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Advanced backtesting and automatic paper-trade creation.
 - Intraday scoring automation. V14 stores optional research reads only; daily scoring remains the scanner default.
 
+## Confirmed in V15
+
+- Nullable snapshot fields: `snapshot_price`, `snapshot_bar_time`, `planned_entry_price`, `planned_entry_rule`, `planned_entry_buffer_pct`, `actual_entry_price`, `actual_entry_time`, `entry_status`, `entry_trigger_source`, `entry_trigger_timeframe`, `entry_trigger_notes`.
+- Deterministic planned-entry rules for Breakout Watch, Momentum Continuation, and Pullback Watch in `src/trading_bot/snapshots/entry_triggers.py`.
+- Trigger simulation during `update-snapshots` uses only real Alpaca 5Min bars strictly after snapshot time (no lookahead, no EOD-close entry).
+- Outcome follow-up evaluates target/stop from `actual_entry_time` when `entry_status=triggered`.
+- CLI prints planned/triggered/pending/expired/missing-real-data trigger counts; Tony `entry_trigger_summary` event added.
+- Dashboard Candidate Snapshots and Command Center show trigger fields and compact metrics.
+- Legacy snapshots without V15 fields still load; new scans show planned entry above snapshot price when intraday context exists.
+
 ## Next recommended work
 
-1. Review `outcome-analytics --real-only --today --provider alpaca_iex` and `eod-report` after the next market-hours run before adding intraday scoring.
+1. Run `watch --max-cycles 1` during market hours and confirm `update-snapshots` marks same-day triggers from live 5Min bars.
+2. Review `outcome-analytics --real-only --today --provider alpaca_iex` and `eod-report` after the next market-hours run before adding intraday scoring.
 2. Quarantine, disable, or replace repeated fallback/no-bar symbols only after manual review; current repeated symbols are `HCP`, `SAMSF`, `SMAR`, and `SQ`.
 3. Add `watch_run_id` FK to `candidate_snapshots` so each snapshot can be correlated to a watch session.
 4. Add `tony_analysis_version` grouping to the CLI `--group-by` outcome table output so Tony v1 vs future v2 reads can be compared directly.

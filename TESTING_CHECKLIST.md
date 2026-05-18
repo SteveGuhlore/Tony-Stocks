@@ -52,6 +52,7 @@ Required test areas:
 - V13 Tony hypothesis-to-outcome tracking (schema columns, Tony field storage, null-safe legacy compat, analysis version constant, outcome analytics grouping, learning event, no-broker guards).
 - V14/V14.5 intraday data mode foundation (config parsing, 5Min fetch mocks, VWAP, opening range, insufficient data, Tony intraday labels, watch-mode summary, `intraday_analysis_summary` event, nullable snapshot fields, no order behavior).
 - V14.7 real-data-only enforcement (snapshot data-source classification, default real-only analytics, `--include-demo`, today/provider filters, missing-real-data aggregation, EOD report structure, legacy row compatibility, no order behavior).
+- V15 intraday entry trigger simulation (planned entry above snapshot price, trigger uses post-snapshot 5Min bars only, no lookahead, first-bar trigger time, pending/expired/missing-real-data statuses, legacy snapshot load, `entry_trigger_summary` event, no broker/order behavior).
 
 Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
 
@@ -100,6 +101,8 @@ Expected:
 - no crash,
 - open/watch snapshots are checked,
 - follow-up fields are updated when future bars exist,
+- prints planned triggers, triggered entries, pending, expired/no-trigger, and missing real-data trigger counts,
+- intraday trigger simulation uses real Alpaca 5Min bars only when `real_data_only` is enabled,
 - same-day daily demo snapshots may be labeled `insufficient_future_data`,
 - no paper trades or orders are created.
 

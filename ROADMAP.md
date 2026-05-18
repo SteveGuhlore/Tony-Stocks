@@ -89,7 +89,7 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V14.7 complete.** First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring. Outcome analytics now separates `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshots, and the CLI/dashboard include market-day review tooling. Daily scoring remains the default.
+Status: **V15 complete** for research-only intraday entry trigger simulation on candidate snapshots. **V14.7 complete** for real-data-only enforcement. V15 adds research-only intraday trigger simulation. It does not create paper trades or broker orders. Outcome analytics now separates `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshots, and the CLI/dashboard include market-day review tooling. Daily scoring remains the default.
 
 V13: Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
 

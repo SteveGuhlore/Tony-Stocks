@@ -63,7 +63,8 @@ def calculate_snapshot_followup(
     expire_after_trading_days: int = 20,
 ) -> SnapshotFollowupResult:
     """Compare a candidate snapshot's long trade plan with future OHLCV bars."""
-    future = _future_bars(snapshot, ohlcv)
+    outcome_start = _outcome_reference_time(snapshot)
+    future = _future_bars(snapshot, ohlcv, after=outcome_start)
     if future.empty:
         return SnapshotFollowupResult(
             highest_price_seen=None,
@@ -75,30 +76,45 @@ def calculate_snapshot_followup(
             result_5d=None,
             result_10d=None,
             result_20d=None,
-            entry_triggered=False,
-            entry_triggered_at=None,
+            entry_triggered=_legacy_entry_triggered(snapshot),
+            entry_triggered_at=snapshot.get("entry_triggered_at") or snapshot.get("actual_entry_time"),
             outcome_label=OUTCOME_INSUFFICIENT_FUTURE_DATA,
         )
 
     close = float(snapshot.get("close") or 0)
-    entry = float(snapshot.get("entry") or 0)
+    entry = _effective_entry_price(snapshot)
     stop = float(snapshot.get("stop") or 0)
     target = float(snapshot.get("target") or 0)
     highest = float(future["high"].max())
     lowest = float(future["low"].min())
-    entry_rows = future[future["high"] >= entry] if entry > 0 else future.iloc[0:0]
-    entry_triggered = not entry_rows.empty
-    entry_triggered_at = _index_to_iso(entry_rows.index[0]) if entry_triggered else None
+    intraday_triggered = _intraday_trigger_active(snapshot)
+    if intraday_triggered:
+        entry_triggered = True
+        entry_triggered_at = snapshot.get("actual_entry_time") or snapshot.get("entry_triggered_at")
+        entry_at = pd.Timestamp(entry_triggered_at) if entry_triggered_at else None
+        if entry_at is not None and entry_at in future.index:
+            pass
+        elif entry_at is not None:
+            after_entry = future[future.index > entry_at]
+            entry_at = after_entry.index[0] if not after_entry.empty else future.index[0]
+        else:
+            entry_at = future.index[0]
+    else:
+        entry_rows = future[future["high"] >= entry] if entry > 0 else future.iloc[0:0]
+        entry_triggered = not entry_rows.empty
+        entry_triggered_at = _index_to_iso(entry_rows.index[0]) if entry_triggered else None
+        entry_at = entry_rows.index[0] if entry_triggered else None
     outcome = _outcome_label(
         future=future,
         entry_triggered=entry_triggered,
-        entry_at=entry_rows.index[0] if entry_triggered else None,
+        entry_at=entry_at,
         entry=entry,
         stop=stop,
         target=target,
         highest=highest,
         same_bar_target_stop_policy=same_bar_target_stop_policy,
         expire_after_trading_days=expire_after_trading_days,
+        intraday_trigger_pending=_intraday_trigger_pending(snapshot),
     )
     status = "expired" if outcome == OUTCOME_EXPIRED_NO_TRIGGER else None
     return SnapshotFollowupResult(
@@ -118,10 +134,14 @@ def calculate_snapshot_followup(
     )
 
 
-def _future_bars(snapshot: dict[str, Any], ohlcv: pd.DataFrame) -> pd.DataFrame:
+def _future_bars(
+    snapshot: dict[str, Any],
+    ohlcv: pd.DataFrame,
+    after: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     if ohlcv.empty:
         return ohlcv
-    snapshot_time = pd.Timestamp(snapshot["snapshot_time"])
+    snapshot_time = after or pd.Timestamp(snapshot["snapshot_time"])
     if snapshot_time.tzinfo is not None:
         snapshot_time = snapshot_time.tz_convert(None)
     data = ohlcv.copy()
@@ -129,6 +149,45 @@ def _future_bars(snapshot: dict[str, Any], ohlcv: pd.DataFrame) -> pd.DataFrame:
     if getattr(data.index, "tz", None) is not None:
         data.index = data.index.tz_convert(None)
     return data[data.index > snapshot_time].sort_index()
+
+
+def _outcome_reference_time(snapshot: dict[str, Any]) -> pd.Timestamp | None:
+    """Use actual intraday entry time for outcomes when V15 trigger simulation fired."""
+    if _intraday_trigger_active(snapshot):
+        raw = snapshot.get("actual_entry_time") or snapshot.get("entry_triggered_at")
+        if raw:
+            ts = pd.Timestamp(raw)
+            return ts.tz_convert(None) if ts.tzinfo is not None else ts
+    return None
+
+
+def _effective_entry_price(snapshot: dict[str, Any]) -> float:
+    if _intraday_trigger_active(snapshot):
+        actual = snapshot.get("actual_entry_price")
+        if actual not in (None, ""):
+            return float(actual)
+        planned = snapshot.get("planned_entry_price")
+        if planned not in (None, ""):
+            return float(planned)
+    return float(snapshot.get("entry") or 0)
+
+
+def _intraday_trigger_active(snapshot: dict[str, Any]) -> bool:
+    status = str(snapshot.get("entry_status") or "")
+    if status == "triggered":
+        return True
+    return bool(snapshot.get("entry_triggered")) and snapshot.get("actual_entry_time") not in (None, "")
+
+
+def _intraday_trigger_pending(snapshot: dict[str, Any]) -> bool:
+    status = str(snapshot.get("entry_status") or "")
+    return status in ("pending", "missing_real_data", "no_intraday_trigger")
+
+
+def _legacy_entry_triggered(snapshot: dict[str, Any]) -> bool:
+    if _intraday_trigger_active(snapshot):
+        return True
+    return bool(snapshot.get("entry_triggered"))
 
 
 def _outcome_label(
@@ -141,8 +200,11 @@ def _outcome_label(
     highest: float,
     same_bar_target_stop_policy: str,
     expire_after_trading_days: int,
+    intraday_trigger_pending: bool = False,
 ) -> str:
     if not entry_triggered:
+        if intraday_trigger_pending:
+            return OUTCOME_ENTRY_NOT_TRIGGERED
         if len(future) >= expire_after_trading_days:
             return OUTCOME_EXPIRED_NO_TRIGGER
         return OUTCOME_ENTRY_NOT_TRIGGERED

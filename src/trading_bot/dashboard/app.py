@@ -454,6 +454,16 @@ def render_candidate_snapshots(repo: ScannerRepository) -> None:
     role_counts = repo.count_candidate_snapshots_by_role()
     outcome_counts = repo.count_candidate_snapshots_by_outcome()
 
+    planned_today = repo.count_planned_triggers_today(today) if hasattr(repo, "count_planned_triggers_today") else 0
+    triggered_today = repo.count_entry_trigger_status("triggered", today) if hasattr(repo, "count_entry_trigger_status") else 0
+    pending_entries = repo.count_entry_trigger_status("pending") if hasattr(repo, "count_entry_trigger_status") else 0
+    expired_entries = (
+        repo.count_entry_trigger_status("expired")
+        + repo.count_entry_trigger_status("not_triggered")
+        if hasattr(repo, "count_entry_trigger_status")
+        else 0
+    )
+
     cols = st.columns(6)
     cols[0].metric("Snapshots Today", today_count)
     cols[1].metric("Open/Watch", open_count)
@@ -461,6 +471,12 @@ def render_candidate_snapshots(repo: ScannerRepository) -> None:
     cols[3].metric("Target Hit", _count_outcome(outcome_counts, ["target_hit", "target_before_stop"]))
     cols[4].metric("Stop Hit", _count_outcome(outcome_counts, ["stop_hit", "stop_before_target"]))
     cols[5].metric("Insufficient Data", _count_outcome(outcome_counts, ["insufficient_future_data"]))
+
+    trigger_cols = st.columns(4)
+    trigger_cols[0].metric("Planned Triggers Today", planned_today)
+    trigger_cols[1].metric("Triggered Entries Today", triggered_today)
+    trigger_cols[2].metric("Pending Entries", pending_entries)
+    trigger_cols[3].metric("Expired / No Trigger", expired_entries)
 
     status_cols = st.columns(3)
     status_cols[0].metric("Still Open", _count_outcome(outcome_counts, ["still_open"]))
@@ -530,6 +546,12 @@ def render_candidate_snapshots(repo: ScannerRepository) -> None:
         st.write(
             {
                 "snapshot_time": row["snapshot_time"],
+                "snapshot_price": row.get("snapshot_price"),
+                "planned_entry_price": row.get("planned_entry_price"),
+                "planned_entry_rule": row.get("planned_entry_rule"),
+                "entry_status": row.get("entry_status"),
+                "actual_entry_price": row.get("actual_entry_price"),
+                "actual_entry_time": row.get("actual_entry_time"),
                 "close": row["close"],
                 "entry": row["entry"],
                 "stop": row["stop"],
@@ -810,6 +832,12 @@ def _snapshot_columns(snapshots: pd.DataFrame) -> pd.DataFrame:
         "total_score",
         "setup_category",
         "universe_role",
+        "snapshot_price",
+        "planned_entry_price",
+        "planned_entry_rule",
+        "entry_status",
+        "actual_entry_price",
+        "actual_entry_time",
         "close",
         "entry",
         "stop",
@@ -843,6 +871,12 @@ def _snapshot_columns(snapshots: pd.DataFrame) -> pd.DataFrame:
             "total_score": "Score",
             "setup_category": "Setup Category",
             "universe_role": "Role",
+            "snapshot_price": "Snapshot Price",
+            "planned_entry_price": "Planned Entry",
+            "planned_entry_rule": "Planned Rule",
+            "entry_status": "Entry Status",
+            "actual_entry_price": "Actual Entry",
+            "actual_entry_time": "Actual Entry Time",
             "close": "Close",
             "entry": "Entry",
             "stop": "Stop",
@@ -1263,10 +1297,17 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
     row2 = st.columns(6)
     row2[0].metric("Fallback Events", fallback_count)
     row2[1].metric("Rate-Limit Warnings", rate_limit_count)
+    today_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%d")
     row2[2].metric("Snapshots Today", snapshots_today_count(repo))
     row2[3].metric("Open Snapshots", repo.count_open_candidate_snapshots())
     row2[4].metric("High-Priority Reads", high_pri_count)
     row2[5].metric("Watch Reads", watch_count)
+
+    row2b = st.columns(4)
+    row2b[0].metric("Planned Triggers Today", repo.count_planned_triggers_today(today_utc))
+    row2b[1].metric("Triggered Entries Today", repo.count_entry_trigger_status("triggered", today_utc))
+    row2b[2].metric("Pending Entries", repo.count_entry_trigger_status("pending"))
+    row2b[3].metric("Expired / No Trigger", repo.count_entry_trigger_status("expired") + repo.count_entry_trigger_status("not_triggered"))
 
     # ── Banners ────────────────────────────────────────────────────────────────
     if is_fallback_provider(effective_provider):

@@ -1,9 +1,11 @@
 # Trading Bot Project - Known Backlog
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-18_
 
 ## Immediate
 
+- Review V15 planned/triggered entry fields on new candidate snapshots after a market-hours watch session (`entry_status`, `planned_entry_price`, `actual_entry_time`).
+- Backfill planned entry fields for older open snapshots is not automatic; only new snapshots get plans at creation time.
 - Review the trade-plan validation fields in `outputs/latest_scan_results.csv`, scan results, and candidate snapshots.
 - Review the Candidate Snapshots dashboard section.
 - Review snapshot follow-up outcome labels after future bars exist.

@@ -264,6 +264,7 @@ class ScannerRepository:
         results: list[ScoredStock],
         snapshot_config: dict[str, Any] | None = None,
         tony_analyses: dict[str, Any] | None = None,
+        entry_plans: dict[str, dict[str, Any]] | None = None,
     ) -> list[int]:
         """Create candidate snapshots from scored scan results.
 
@@ -314,6 +315,8 @@ class ScannerRepository:
                 ):
                     continue
                 ta: dict[str, Any] | None = (tony_analyses or {}).get(result.symbol)
+                ep: dict[str, Any] = (entry_plans or {}).get(result.symbol, {})
+                planned_entry = ep.get("planned_entry_price")
                 cursor = conn.execute(
                     """
                     INSERT INTO candidate_snapshots (
@@ -322,6 +325,9 @@ class ScannerRepository:
                         relative_volume, atr_percent, trade_plan_valid, trade_plan_status,
                         reasons_json, warnings_json, candidate_summary,
                         status, entry_trigger_price, entry_triggered,
+                        snapshot_price, snapshot_bar_time, planned_entry_price, planned_entry_rule,
+                        planned_entry_buffer_pct, actual_entry_price, actual_entry_time, entry_status,
+                        entry_trigger_source, entry_trigger_timeframe, entry_trigger_notes,
                         tony_priority_label, tony_recommended_action, tony_setup_read,
                         tony_volume_read, tony_risk_read, tony_market_context_read,
                         tony_data_quality_read, tony_outcome_context, tony_hypothesis,
@@ -333,7 +339,7 @@ class ScannerRepository:
                         real_data_only_run, missing_real_data_reason
                     )
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         scan_run_id,
@@ -357,8 +363,19 @@ class ScannerRepository:
                         json.dumps(result.warnings),
                         result.candidate_summary,
                         "open/watch",
-                        result.suggested_entry,
+                        planned_entry if planned_entry is not None else result.suggested_entry,
                         0,
+                        ep.get("snapshot_price"),
+                        ep.get("snapshot_bar_time"),
+                        planned_entry,
+                        ep.get("planned_entry_rule"),
+                        ep.get("planned_entry_buffer_pct"),
+                        ep.get("actual_entry_price"),
+                        ep.get("actual_entry_time"),
+                        ep.get("entry_status"),
+                        ep.get("entry_trigger_source"),
+                        ep.get("entry_trigger_timeframe"),
+                        ep.get("entry_trigger_notes"),
                         ta.get("priority_label") if ta else None,
                         ta.get("recommended_action") if ta else None,
                         ta.get("setup_read") if ta else None,
@@ -558,6 +575,17 @@ class ScannerRepository:
             "entry_trigger_price",
             "entry_triggered",
             "entry_triggered_at",
+            "snapshot_price",
+            "snapshot_bar_time",
+            "planned_entry_price",
+            "planned_entry_rule",
+            "planned_entry_buffer_pct",
+            "actual_entry_price",
+            "actual_entry_time",
+            "entry_status",
+            "entry_trigger_source",
+            "entry_trigger_timeframe",
+            "entry_trigger_notes",
             "highest_price_seen",
             "lowest_price_seen",
             "last_checked_at",
@@ -601,6 +629,36 @@ class ScannerRepository:
         """Count candidate snapshots with entry_triggered set."""
         with connect(self.database_path) as conn:
             row = conn.execute("SELECT COUNT(*) AS count FROM candidate_snapshots WHERE entry_triggered = 1").fetchone()
+            return int(row["count"])
+
+    def count_entry_trigger_status(self, status: str, date: str | None = None) -> int:
+        """Count snapshots by V15 entry_status, optionally filtered to one UTC date prefix."""
+        with connect(self.database_path) as conn:
+            if date:
+                row = conn.execute(
+                    """
+                    SELECT COUNT(*) AS count FROM candidate_snapshots
+                    WHERE entry_status = ? AND substr(snapshot_time, 1, 10) = ?
+                    """,
+                    (status, date),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    "SELECT COUNT(*) AS count FROM candidate_snapshots WHERE entry_status = ?",
+                    (status,),
+                ).fetchone()
+            return int(row["count"])
+
+    def count_planned_triggers_today(self, today: str) -> int:
+        """Count snapshots today with a planned entry trigger price."""
+        with connect(self.database_path) as conn:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS count FROM candidate_snapshots
+                WHERE substr(snapshot_time, 1, 10) = ? AND planned_entry_price IS NOT NULL
+                """,
+                (today,),
+            ).fetchone()
             return int(row["count"])
 
     def count_candidate_snapshots_by_category(self) -> pd.DataFrame:

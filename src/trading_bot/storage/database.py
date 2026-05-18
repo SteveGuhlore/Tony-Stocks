@@ -236,6 +236,17 @@ CANDIDATE_SNAPSHOT_MIGRATIONS = (
     "ALTER TABLE candidate_snapshots ADD COLUMN used_fallback_data INTEGER",
     "ALTER TABLE candidate_snapshots ADD COLUMN real_data_only_run INTEGER",
     "ALTER TABLE candidate_snapshots ADD COLUMN missing_real_data_reason TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN snapshot_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN snapshot_bar_time TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN planned_entry_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN planned_entry_rule TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN planned_entry_buffer_pct REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN actual_entry_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN actual_entry_time TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN entry_status TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN entry_trigger_source TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN entry_trigger_timeframe TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN entry_trigger_notes TEXT",
 )
 
 WATCH_RUN_MIGRATIONS: tuple[str, ...] = ()  # reserved for future additive columns

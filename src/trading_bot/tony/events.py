@@ -55,6 +55,7 @@ class TonyConfig:
         "watch_heartbeat_stale",
         "watch_waiting_for_market_open",
         "tony_learning_updated",
+        "entry_trigger_summary",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -507,6 +508,31 @@ class TonyStocksService:
         )
 
     # ── Watch run lifecycle events ─────────────────────────────────────────────
+
+    def record_entry_trigger_summary(self, summary: dict[str, Any]) -> None:
+        """Create one event summarizing V15 research-only intraday entry trigger simulation."""
+        status_counts = summary.get("entry_status_counts") or {}
+        self.create_event(
+            event_type="entry_trigger_summary",
+            severity="info",
+            title=f"{self.config.agent_name}: Entry trigger summary",
+            message=(
+                f"Planned triggers: {summary.get('planned_triggers', 0)}. "
+                f"Triggered entries: {summary.get('entry_triggered', 0)}. "
+                f"Pending: {summary.get('pending_triggers', 0)}. "
+                f"Expired/no-trigger: {summary.get('expired_no_trigger', 0)}. "
+                f"Missing real data: {summary.get('missing_real_data_triggers', 0)}. "
+                "Research-only intraday triggers; no paper trades or broker orders."
+            ),
+            payload={
+                "planned_triggers": summary.get("planned_triggers", 0),
+                "triggered_entries": summary.get("entry_triggered", 0),
+                "pending_triggers": summary.get("pending_triggers", 0),
+                "expired_no_trigger": summary.get("expired_no_trigger", 0),
+                "missing_real_data_triggers": summary.get("missing_real_data_triggers", 0),
+                "entry_status_counts": status_counts,
+            },
+        )
 
     def record_intraday_analysis_summary(self, summary: dict[str, Any]) -> None:
         """Create one summary event for Tony's intraday research reads."""

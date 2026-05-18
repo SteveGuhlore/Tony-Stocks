@@ -44,6 +44,7 @@ class ScannerSettings:
     universe_config_path: Path = Path("config/universe_config.yaml")
     candidate_snapshots: dict[str, Any] | None = None
     snapshot_followup: dict[str, Any] | None = None
+    entry_trigger_simulation: dict[str, Any] | None = None
     demo_snapshot_seed: dict[str, Any] | None = None
     scheduled_watch: dict[str, Any] | None = None
     tony_stocks: dict[str, Any] | None = None

@@ -82,6 +82,19 @@ def test_candidate_snapshot_table_exists(tmp_path):
         "real_data_only_run",
         "missing_real_data_reason",
     }.issubset(columns)
+    assert {
+        "snapshot_price",
+        "snapshot_bar_time",
+        "planned_entry_price",
+        "planned_entry_rule",
+        "planned_entry_buffer_pct",
+        "actual_entry_price",
+        "actual_entry_time",
+        "entry_status",
+        "entry_trigger_source",
+        "entry_trigger_timeframe",
+        "entry_trigger_notes",
+    }.issubset(columns)
 
 
 def test_tony_event_table_exists(tmp_path):

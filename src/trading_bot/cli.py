@@ -31,13 +31,20 @@ from trading_bot.intraday import IntradayFeatures, calculate_intraday_features
 from trading_bot.logging_config import configure_logging
 from trading_bot.risk import RiskManager
 from trading_bot.scoring import ScoreEngine, load_scoring_config
-from trading_bot.snapshots import calculate_snapshot_followup
+from trading_bot.snapshots import (
+    ENTRY_STATUS_MISSING_REAL_DATA,
+    EntryTriggerSimulationResult,
+    calculate_snapshot_followup,
+    compute_planned_entry_at_snapshot,
+    simulate_entry_trigger,
+)
 from trading_bot.snapshots.seeding import build_demo_seed_snapshots
 from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
 from trading_bot.settings import load_scanner_settings, real_data_only_enabled, resolve_effective_provider
 from trading_bot.tony import TonyStocksService
 from trading_bot.tony.analysis import TONY_ANALYSIS_VERSION, MarketContext, analyze_candidates
+from trading_bot.utils.time_utils import utc_now_iso
 
 
 LOGGER = logging.getLogger(__name__)
@@ -365,16 +372,17 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     # ── Tony analyst reads — run BEFORE snapshot creation so reads attach to new snapshots ──
     # No LLMs, no paper trades, no orders. Tony is analyzing, not trading.
     tony_analyses: dict[str, Any] = {}
+    intraday_features_by_symbol: dict[str, IntradayFeatures] = {}
+    intraday_cfg = settings.intraday or {}
+    intraday_tony_enabled = bool(
+        intraday_cfg.get("enabled", False) and intraday_cfg.get("use_for_tony_analysis", True)
+    )
     if results and tony.enabled:
         benchmark_rows = [r for r in results if r.universe_role in ("benchmark", "reference")]
         candidate_rows = [r for r in results if r.universe_role not in ("benchmark", "reference")]
         fallback_syms = [] if real_only else (list(provider.fallback_symbols) if isinstance(provider, AlpacaIEXProvider) else [])
         stale_syms = list(provider.stale_symbols) if isinstance(provider, AlpacaIEXProvider) else []
         effective_provider_name = provider.name
-        intraday_cfg = settings.intraday or {}
-        intraday_tony_enabled = bool(
-            intraday_cfg.get("enabled", False) and intraday_cfg.get("use_for_tony_analysis", True)
-        )
 
         outcome_snaps: Any = None
         try:
@@ -458,14 +466,37 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     snapshot_ids = []
     if getattr(args, "save_snapshots", False):
         source_fields = _snapshot_data_source_fields(provider.name, real_only)
+        entry_trigger_cfg = settings.entry_trigger_simulation or {}
+        entry_plans: dict[str, dict[str, Any]] = {}
         for result in results:
             tony_analyses.setdefault(result.symbol, {}).update(source_fields)
+            if entry_trigger_cfg.get("enabled", True):
+                ta = tony_analyses.get(result.symbol, {})
+                features = intraday_features_by_symbol.get(result.symbol) if intraday_tony_enabled else None
+                plan = compute_planned_entry_at_snapshot(
+                    {
+                        "setup_category": result.setup_category,
+                        "close": result.latest_close,
+                        "intraday_close": ta.get("intraday_close"),
+                        "data_source": ta.get("data_source"),
+                        "missing_real_data_reason": ta.get("missing_real_data_reason"),
+                    },
+                    features,
+                    None,
+                    default_buffer_pct=float(entry_trigger_cfg.get("default_buffer_pct", 0.001)),
+                    real_data_only=real_only,
+                    data_source=ta.get("data_source"),
+                )
+                entry_plans[result.symbol] = plan.to_snapshot_fields()
         snapshot_ids = repo.create_candidate_snapshots(
             scan_run_id=scan_run_id,
             results=results,
             snapshot_config=settings.candidate_snapshots or {},
             tony_analyses=tony_analyses,
+            entry_plans=entry_plans,
         )
+        if entry_plans:
+            _print_entry_trigger_planned_summary(entry_plans)
 
     export_rows = [result.to_dict() for result in results]
     output_path = Path(settings.outputs_dir) / "latest_scan_results.csv"
@@ -503,6 +534,7 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     """Update open candidate snapshots from configured OHLCV provider data."""
     settings = load_scanner_settings(args.config)
     configure_logging(settings.log_dir)
+    real_only = real_data_only_enabled(settings)
     metadata_by_symbol = load_universe_metadata(settings.universe_config_path)
     profiles_by_symbol = {
         symbol: metadata.demo_profile
@@ -520,8 +552,13 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     tony.start_cycle()
     snapshots = repo.list_open_candidate_snapshots(limit=args.limit)
     followup_config = settings.snapshot_followup or {}
+    entry_trigger_cfg = settings.entry_trigger_simulation or {}
     same_bar_policy = str(followup_config.get("same_bar_target_stop_policy", "conservative_stop_first"))
     expire_after = int(followup_config.get("expire_after_trading_days", 20))
+    intraday_timeframe = str(entry_trigger_cfg.get("intraday_timeframe", "5Min"))
+    trigger_expire = int(entry_trigger_cfg.get("expire_after_trading_days", 1))
+    use_planned_fill = bool(entry_trigger_cfg.get("use_planned_price_as_fill", True))
+    intraday_lookback = int((settings.intraday or {}).get("lookback_days", 5))
 
     checked = 0
     updated = 0
@@ -531,13 +568,65 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     stop_count = 0
     insufficient_count = 0
     still_open_count = 0
+    entry_status_counts: Counter[str] = Counter()
+    planned_with_trigger = 0
+    pending_triggers = 0
+    expired_no_trigger = 0
+    missing_real_trigger = 0
 
     for snapshot in snapshots.to_dict("records"):
         checked += 1
         try:
+            working = dict(snapshot)
+            if entry_trigger_cfg.get("enabled", True):
+                intraday_bars = None
+                if not real_only or provider.name == "alpaca_iex":
+                    try:
+                        intraday_bars = provider.fetch_ohlcv(
+                            str(snapshot["symbol"]),
+                            max(intraday_lookback, 5),
+                            intraday_timeframe,
+                        )
+                    except Exception as intraday_exc:
+                        LOGGER.warning(
+                            "Intraday trigger bars unavailable for %s: %s",
+                            snapshot.get("symbol"),
+                            intraday_exc,
+                        )
+                if real_only and provider.name != "alpaca_iex":
+                    trigger_result = EntryTriggerSimulationResult(
+                        entry_status=ENTRY_STATUS_MISSING_REAL_DATA,
+                        actual_entry_price=None,
+                        actual_entry_time=None,
+                        entry_triggered=False,
+                        entry_triggered_at=None,
+                        entry_trigger_source=working.get("entry_trigger_source"),
+                        entry_trigger_timeframe=intraday_timeframe,
+                        entry_trigger_notes="Real Alpaca 5Min bars required; demo provider skipped.",
+                        last_checked_at=utc_now_iso(),
+                    )
+                else:
+                    trigger_result = simulate_entry_trigger(
+                        working,
+                        intraday_bars,
+                        expire_after_trading_days=trigger_expire,
+                        use_planned_price_as_fill=use_planned_fill,
+                    )
+                repo.update_candidate_snapshot_followup(int(snapshot["id"]), **trigger_result.to_update_fields())
+                working.update(trigger_result.to_update_fields())
+                entry_status_counts[trigger_result.entry_status] += 1
+                if working.get("planned_entry_price") not in (None, ""):
+                    planned_with_trigger += 1
+                if trigger_result.entry_status == "pending":
+                    pending_triggers += 1
+                if trigger_result.entry_status in ("expired", "not_triggered"):
+                    expired_no_trigger += 1
+                if trigger_result.entry_status == "missing_real_data":
+                    missing_real_trigger += 1
+
             data = provider.fetch_ohlcv(str(snapshot["symbol"]), max(settings.lookback_days, 140, expire_after + 40), settings.timeframe)
             result = calculate_snapshot_followup(
-                snapshot=snapshot,
+                snapshot=working,
                 ohlcv=data,
                 same_bar_target_stop_policy=same_bar_policy,
                 expire_after_trading_days=expire_after,
@@ -545,7 +634,7 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
             repo.update_candidate_snapshot_followup(int(snapshot["id"]), **result.to_update_fields())
             updated += 1
             outcomes[result.outcome_label] = outcomes.get(result.outcome_label, 0) + 1
-            if result.entry_triggered:
+            if result.entry_triggered or working.get("entry_status") == "triggered":
                 triggered_count += 1
             if "target" in result.outcome_label:
                 target_count += 1
@@ -563,7 +652,11 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Provider: {provider.name}")
     print(f"Snapshots checked: {checked}")
     print(f"Snapshots updated: {updated}")
-    print(f"Entry triggered: {triggered_count}")
+    print(f"Planned triggers (with price): {planned_with_trigger}")
+    print(f"Triggered entries: {triggered_count}")
+    print(f"Pending triggers: {pending_triggers}")
+    print(f"Expired/no-trigger: {expired_no_trigger}")
+    print(f"Missing real-data triggers: {missing_real_trigger}")
     print(f"Target hit: {target_count}")
     print(f"Stop hit: {stop_count}")
     print(f"Insufficient future data: {insufficient_count}")
@@ -574,6 +667,11 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
         "checked": checked,
         "updated": updated,
         "entry_triggered": triggered_count,
+        "planned_triggers": planned_with_trigger,
+        "pending_triggers": pending_triggers,
+        "expired_no_trigger": expired_no_trigger,
+        "missing_real_data_triggers": missing_real_trigger,
+        "entry_status_counts": dict(entry_status_counts),
         "target_hit": target_count,
         "stop_hit": stop_count,
         "insufficient_future_data": insufficient_count,
@@ -581,6 +679,8 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
         "outcomes": outcomes,
     }
     tony.record_snapshot_update(summary)
+    if entry_trigger_cfg.get("enabled", True):
+        tony.record_entry_trigger_summary(summary)
     return summary
 
 
@@ -1595,6 +1695,28 @@ def main() -> None:
         run_provider_health(args)
     else:
         parser.error(f"Unknown command: {args.command}")
+
+
+def _print_entry_trigger_planned_summary(entry_plans: dict[str, dict[str, Any]]) -> None:
+    """Print research-only planned intraday trigger summary at snapshot creation."""
+    with_planned = sum(1 for plan in entry_plans.values() if plan.get("planned_entry_price") not in (None, ""))
+    pending = sum(1 for plan in entry_plans.values() if plan.get("entry_status") == "pending")
+    missing = sum(1 for plan in entry_plans.values() if plan.get("entry_status") == "missing_real_data")
+    no_trigger = sum(1 for plan in entry_plans.values() if plan.get("entry_status") == "no_intraday_trigger")
+    print(
+        f"Entry trigger plans: planned={with_planned} pending={pending} "
+        f"missing_real_data={missing} no_intraday_trigger={no_trigger}"
+    )
+    samples = [
+        (symbol, plan)
+        for symbol, plan in entry_plans.items()
+        if plan.get("planned_entry_price") not in (None, "")
+    ][:5]
+    for symbol, plan in samples:
+        print(
+            f"  {symbol}: snapshot={plan.get('snapshot_price')} "
+            f"planned={plan.get('planned_entry_price')} rule={plan.get('planned_entry_rule')}"
+        )
 
 
 def _print_snapshot_summary(results: list[object], snapshot_count: int) -> None:
