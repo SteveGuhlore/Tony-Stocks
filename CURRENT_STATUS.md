@@ -4,7 +4,9 @@ _Last updated: 2026-05-17_
 
 ## Overall status
 
-V8 Alpaca IEX Market Data Provider Foundation has been added on top of V7 Outcome Analytics. The project now has a real-market-data adapter for Alpaca IEX historical bars. The provider is disabled by default (demo_generated is still active). When enabled, it reads US equity bars for a limited symbol list (max 30 per scan by default) and falls back to demo data if Alpaca is unreachable. Tony Stocks creates internal events for fallback and stale-data conditions. A CLI data-check command lets users test provider connectivity before running watch mode. No broker execution, no trading, no order placement.
+**V9.5** — Universe expanded to 171 symbols across 14 sectors/themes. Batch fetching (multi-symbol Alpaca endpoint) retrieves all symbols in 1–2 HTTP requests. Universe rotation selects core benchmarks + open snapshots + previous high-priority candidates + rotating discovery pool (round-robin) up to 175 symbols per 5-minute watch cycle. 121 tests pass, 0 errors.
+
+V8 Alpaca IEX Market Data Provider Foundation: real-market-data adapter for Alpaca IEX historical bars. Provider disabled by default (demo_generated is still active). When enabled, reads US equity bars and falls back to demo data if Alpaca is unreachable. Tony Stocks creates internal events for fallback and stale-data conditions. No broker execution, no trading, no order placement.
 
 V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The project can now summarize candidate snapshot outcomes by setup category, universe role, score bucket, warning type, tags, and seeded-demo status. Tony Stocks remains a watcher/analyst event layer only; it does not paper trade, execute broker orders, or place live trades.
 
@@ -90,6 +92,15 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Demo snapshot outcomes now include `target_hit`, `stop_hit`, `partial_move`, `failed_setup`, `entry_not_triggered`, `expired_no_trigger`, and `insufficient_future_data` examples.
 - Programmatic CSV validation confirmed eligible non-reference/non-avoid rows have `stop < entry`, `target > entry`, positive risk/reward, and valid trade-plan flags.
 
+## Confirmed in V9.5
+
+- `pytest` passed with 121 tests, 0 errors (15 new universe tests + 31 V9 scaling/batch tests + 75 prior).
+- Universe config loads 171 symbols; duplicates removed; roles validated; benchmarks present.
+- Batch limit fix: `_fetch_bars_batch` uses `limit=10000` — 39 symbols now fetch in 2 requests (vs 23 before).
+- Windows pytest temp fix: `$env:LOCALAPPDATA\TradingBotTests\<session_id>` per-session dir, no project-dir file locks.
+- `python -m compileall src` passed.
+- No Alpaca API keys are required for any test or demo scan.
+
 ## Confirmed in V8
 
 - `pytest` passed with 67 tests (16 new Alpaca provider tests + 51 existing).
@@ -116,9 +127,12 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 
 ## Next recommended work
 
-1. Add Alpaca API keys to `.env` and set `provider: alpaca_iex` in `config/default_config.yaml`.
-2. Run `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR` with real keys to confirm connectivity.
-3. Run watch mode one cycle with Alpaca enabled: `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1`.
-4. Review Tony Stocks events for any fallback or stale-data warnings.
-5. Review Outcome Analytics after collecting real-data watch-mode snapshots.
-6. Initialize git and commit a known-good baseline.
+1. Add Alpaca API keys to `.env` and set `real_provider_enabled: true` + `provider: alpaca_iex` under `market_data:` in `config/universe_swing_research_config.yaml`.
+2. Run `python -m trading_bot.cli data-check --config config/universe_swing_research_config.yaml --symbol PLTR` with real keys.
+3. Run `python -m trading_bot.cli watch --config config/universe_swing_research_config.yaml --max-cycles 1` to validate batch fetch at 171-symbol scale.
+4. Run `python -m trading_bot.cli tony-events --limit 30` — look for `batch_fetch_summary`, `real_data_scan_scaled`, `universe_rotation_summary`.
+5. If rate-limit warnings appear, reduce `max_symbols_per_cycle` or increase `request_sleep_seconds`.
+6. Monitor rotation `bucket_id` across cycles to verify round-robin advances.
+7. Initialize git and commit a known-good baseline.
+
+**Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**

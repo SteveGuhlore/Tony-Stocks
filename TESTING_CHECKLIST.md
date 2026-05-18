@@ -42,10 +42,11 @@ Required test areas:
 - scoring engine,
 - long trade-plan validation,
 - snapshot follow-up outcome calculation,
-- universe loader,
+- universe loader (including production universe size, roles, tags, benchmarks),
 - database,
 - risk manager,
-- backtester.
+- backtester,
+- V9 scaling (batch fetch, rate limiter, universe rotation, request count audit).
 
 ## Scanner smoke test
 
@@ -197,6 +198,39 @@ Expected:
 - missing-key test raises EnvironmentError with helpful message,
 - fallback-to-demo test produces demo data and records fallback_symbols,
 - HTTP error test raises OSError without fallback when fail_safe_to_demo=False.
+
+## V9 scaling tests (batch fetch, rate limiter, universe rotation)
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m pytest tests/test_v9_scaling.py tests/test_universe.py -v
+```
+
+Expected:
+
+- 31 V9 scaling tests pass (batch normalization, rate limiter, rotation, request count audit).
+- 20 universe tests pass (5 original + 15 V9.5 production universe tests).
+- `test_batch_request_uses_high_limit` confirms `limit=10000` in batch HTTP params.
+- `test_batch_of_n_symbols_counts_as_one_http_request` confirms 1 batch call for N symbols.
+- Production universe tests confirm ≥150 symbols, valid roles, core benchmarks, discovery pool.
+- No real HTTP requests — all mocked.
+- No broker, order, or paper-trade behavior.
+
+## V9 watch-mode validation (requires real Alpaca keys)
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m trading_bot.cli watch --config config/universe_swing_research_config.yaml --max-cycles 1
+python -m trading_bot.cli tony-events --config config/universe_swing_research_config.yaml --limit 30
+```
+
+Expected (with real keys):
+
+- Scan cycles over up to 175 symbols using rotation.
+- `batch_fetch_summary` Tony event shows 175 symbols in 1–2 HTTP requests.
+- `universe_rotation_summary` Tony event shows bucket_id, core/discovery/open-snapshot counts.
+- No rate-limit warnings at default RPM=175 with buffer.
+- No broker calls, no orders, no paper trades.
 
 ## Dashboard smoke test
 

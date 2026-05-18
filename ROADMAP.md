@@ -88,17 +88,21 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: V8 Alpaca IEX provider foundation added. Historical daily bars, fallback-to-demo, stale-data detection, CLI data-check command, and Tony events implemented. Provider is disabled by default; activate by setting `provider: alpaca_iex` and adding keys to `.env`.
+Status: **V9.5 complete.** Alpaca IEX provider with batch fetch, rate limiting, and universe rotation operational. Universe expanded to 171 symbols. 121 tests pass.
 
 Goals:
 
 - Add provider adapters for Polygon, Alpaca, Finnhub, Financial Modeling Prep, and/or Twelve Data.
-- Alpaca IEX (free tier): Done for historical daily bars. Intraday timeframes supported by adapter but scanner uses daily bars.
-- Add rate-limit and retry/backoff handling.
-- Improve large-universe ingestion (current Alpaca cap: 30 symbols/scan).
-- Keep all keys in environment variables only.
+- Alpaca IEX (free tier): Done for historical daily bars + multi-symbol batch endpoint. Intraday timeframes supported by adapter but scanner uses daily bars.
+- Rate-limit handling (sliding 60s window, buffer%, sleep): Done.
+- Large-universe ingestion (175 symbols/cycle with rotation): Done.
+- Universe rotation (core → open snapshots → prev candidates → round-robin discovery): Done.
+- Batch fetch (`limit=10000`, 1–2 HTTP calls for 175 symbols): Done.
+- Keep all keys in environment variables only: Done.
 
-**Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for testing the real-data pipeline only. Not for production execution decisions.
+**Next validation step:** Run `watch --max-cycles 1` with real Alpaca keys and check `tony-events` for `batch_fetch_summary` and `universe_rotation_summary`.
+
+**Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for research and scanning only. Not for production execution decisions. **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**
 
 ## Phase 3 - Paper execution integration
 

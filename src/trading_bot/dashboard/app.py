@@ -13,7 +13,7 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from trading_bot.data.market_data import build_market_data_provider
-from trading_bot.data.universe import load_universe_metadata
+from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
 from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.indicators import simple_moving_average
 from trading_bot.settings import load_scanner_settings, resolve_effective_provider
@@ -96,6 +96,22 @@ def render_data_provider_status(repo: ScannerRepository | None = None) -> None:
                 rot_cols[1].metric("Max/Cycle", str(rotation_cfg.get("max_symbols_per_cycle", 175)))
                 rot_cols[2].metric("Core Max", str(rotation_cfg.get("core_max_symbols", 50)))
                 rot_cols[3].metric("Bucket Size", str(rotation_cfg.get("rotating_bucket_size", 125)))
+
+            try:
+                universe_cfg_path = settings.universe_config_path
+                all_syms = load_universe(universe_cfg_path)
+                universe_tags = load_universe_tags(universe_cfg_path)
+                universe_meta = load_universe_metadata(universe_cfg_path)
+                core_syms = [s for s, t in universe_tags.items() if "watchlist_core" in t]
+                discovery_syms = [s for s, t in universe_tags.items() if "discovery" in t]
+                active_syms = [s for s, m in universe_meta.items() if m.universe_role != "excluded_by_default"]
+                univ_cols = st.columns(4)
+                univ_cols[0].metric("Universe Total", len(all_syms))
+                univ_cols[1].metric("Active (non-excluded)", len(active_syms))
+                univ_cols[2].metric("Watchlist Core", len(core_syms))
+                univ_cols[3].metric("Discovery Pool", len(discovery_syms))
+            except Exception:
+                pass
 
             st.warning(
                 "**Alpaca IEX data notice:** Alpaca IEX is a single-exchange feed and may differ from "

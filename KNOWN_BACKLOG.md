@@ -32,16 +32,17 @@ _Last updated: 2026-05-17_
 - Add external Tony notifications later through explicit opt-in channels.
 - Add a stricter seeded-demo cleanup or labeling workflow before any real provider data is introduced.
 
-## Alpaca IEX — immediate follow-ups
+## Alpaca IEX + V9.5 universe — immediate follow-ups
 
 - Add Alpaca API keys to `.env` and test `data-check` with real keys.
-- Run one watch-mode cycle with Alpaca enabled and review Tony events for fallback/stale warnings.
-- Review snapshot quality after first real-data scan.
-- Add rate-limit / backoff / retry handling for Alpaca requests.
+- Run `watch --max-cycles 1` with `config/universe_swing_research_config.yaml` and review Tony events for `batch_fetch_summary`, `universe_rotation_summary`, fallback/stale warnings.
+- Review snapshot quality after first real-data scan at 171-symbol scale.
+- If rate-limit warnings appear, reduce `max_symbols_per_cycle` or increase `request_sleep_seconds`.
+- Monitor rotation `bucket_id` across watch cycles to verify round-robin discovery advances.
 - Add market-hours awareness so watch mode skips Alpaca fetches when the market is closed.
-- Add pagination test if lookback_days > 1000 bars is ever needed.
-- Expand max_symbols_per_scan beyond 30 once rate-limit handling is confirmed.
+- Periodically review and prune universe symbols (delist risk, liquidity changes).
 - NOTE: Alpaca IEX is a single-exchange feed. Do not treat as consolidated SIP tape.
+- NOTE: Universe symbols are curated for research/scanning only — not buy/sell recommendations.
 
 ## Future provider/data work
 

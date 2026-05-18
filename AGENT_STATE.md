@@ -6,6 +6,51 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V9.5 handoff — Universe Expansion to 171 Symbols
+
+### Current active task
+
+V9.5 complete. Universe expanded from 39 to 171 symbols with full metadata. 121 tests pass.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V9.5
+
+- `config/universe_swing_research_config.yaml` — Expanded from 39 to 171 symbols across 14 sectors/themes: benchmarks (5), mega-cap references (13), semiconductors (9), software/cloud/SaaS (27), fintech/payments (10), consumer/e-commerce (20), healthcare/biotech (12), energy/cleantech (10), crypto-linked (5), AI/data infra (7), industrials/defense (10), financials (5), materials (4), med-tech (5), discovery pool (34). `max_universe_size: 200`. Each symbol has `name`, `universe_role`, `tags`, `sector`. Universe roles: `benchmark`, `reference`, `primary_candidate`, `speculative_candidate`, `excluded_by_default`. Tags include `watchlist_core` (9 symbols), `discovery` (34 symbols).
+- `tests/test_universe.py` — Added 15 V9.5 production universe tests in 5 new classes: `TestProductionUniverseSize` (≥150 symbols, no duplicates, uppercase), `TestProductionUniverseBenchmarks` (SPY/QQQ/IWM present, roles), `TestProductionUniverseRoles` (all roles valid, ≥50 primary, ≥10 speculative), `TestProductionUniverseTags` (watchlist_core, discovery, no cross-contamination), `TestProductionUniverseRotationBudget` (core ≤50, active ≤200).
+- `src/trading_bot/dashboard/app.py` — Added universe size metrics row (Universe Total, Active non-excluded, Watchlist Core, Discovery Pool) inside `render_data_provider_status()`. Added `load_universe` and `load_universe_tags` imports.
+- `CURRENT_STATUS.md` — Updated to V9.5, added confirmed test results, updated next steps.
+- `ROADMAP.md` — Updated Phase 2 status to V9.5 complete with detail on what was done.
+- `TESTING_CHECKLIST.md` — Added production universe test area; added V9 scaling tests section; added V9 watch-mode validation section.
+
+### Tests/checks run in V9.5
+
+- `pytest` (via `run_tests.ps1`) — **121 passed, 0 failures, 0 errors** (up from 106).
+- 15 new universe tests green: size, dedup, benchmarks, roles, tags, rotation budget.
+- Universe loads 171 symbols: 5 benchmark, 13 reference, 104 primary_candidate, 46 speculative_candidate, 3 excluded_by_default.
+- 9 watchlist_core symbols; 34 discovery-tagged symbols.
+
+### Known issues / risks (V9.5)
+
+- Dashboard universe metrics block (`render_data_provider_status`) silently skips if `universe_config_path` doesn't exist or YAML is malformed — uses bare `except Exception: pass`. This is intentional to avoid crashing the dashboard.
+- Universe symbols are research/scanning universe only — not recommendations to buy or trade.
+- Alpaca IEX single-exchange warning preserved in dashboard and all docs.
+
+### Safe to continue?
+
+Yes. 121 tests pass (0 failures, 0 errors). No broker execution, live trading, paper trades, order placement, API keys exposed, external notifications, or LLM trade decisions were added or changed.
+
+### Next recommended steps
+
+1. Run `watch --max-cycles 1` with real Alpaca keys to validate batch fetch at 171-symbol scale.
+2. Check `tony-events --limit 30` for `batch_fetch_summary` (expect 1–2 requests), `universe_rotation_summary` (bucket_id, core/discovery counts).
+3. If rate-limit warnings appear, reduce `max_symbols_per_cycle` or increase `request_sleep_seconds`.
+4. Monitor rotation `bucket_id` across cycles to verify round-robin advances.
+
+---
+
 ## V9.1 handoff — Runtime Verification Fix (pytest temp + batch limit)
 
 ### Current active task
