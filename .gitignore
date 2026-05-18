@@ -41,3 +41,6 @@ agent_scratch/
 
 
 .claude/
+*_3d.csv
+*.tmp.csv
+
