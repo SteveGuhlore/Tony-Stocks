@@ -1,4 +1,4 @@
-provider: demo_generated
+provider: alpaca_iex
 database_path: data/trading_bot.db
 outputs_dir: outputs
 cache_dir: data/cache
@@ -61,6 +61,18 @@ scheduled_watch:
   write_heartbeat_log: true
   stop_file: "data/STOP_WATCH_MODE"
 
+market_data:
+  provider: alpaca_iex
+  fallback_provider: demo_generated
+  real_provider_enabled: true
+  alpaca:
+    enabled: true
+    feed: iex
+    timeframe: 1Day
+    max_symbols_per_scan: 30
+    fail_safe_to_demo: true
+    stale_data_minutes: 20
+
 tony_stocks:
   enabled: true
   agent_name: "Tony Stocks"
@@ -76,6 +88,8 @@ tony_stocks:
     - warning_summary
     - watch_cycle_completed
     - outcome_analytics_updated
+    - data_provider_fallback
+    - stale_data_warning
     - system_warning
   high_score_threshold: 85
   include_seeded_demo_events: false

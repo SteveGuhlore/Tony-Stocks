@@ -122,4 +122,5 @@ TradingBotAgentProject/
     test_scanner_smoke.py
     test_snapshot_followup.py
     test_outcome_analytics.py
+    test_alpaca_provider.py
 ```

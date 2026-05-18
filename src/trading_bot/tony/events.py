@@ -32,6 +32,8 @@ class TonyConfig:
         "warning_summary",
         "watch_cycle_completed",
         "outcome_analytics_updated",
+        "data_provider_fallback",
+        "stale_data_warning",
         "system_warning",
     )
     high_score_threshold: float = 85.0
@@ -197,6 +199,38 @@ class TonyStocksService:
                 f"Next scan: {next_run}."
             ),
             payload=cycle_summary,
+        )
+
+    def record_data_provider_fallback(self, fallback_symbols: list[str], provider: str) -> None:
+        """Create an event when the Alpaca provider falls back to demo data for one or more symbols."""
+        if not fallback_symbols:
+            return
+        self.create_event(
+            event_type="data_provider_fallback",
+            severity="warning",
+            title=f"{self.config.agent_name}: Provider fallback occurred",
+            message=(
+                f"{len(fallback_symbols)} symbol(s) fell back from {provider} to demo data: "
+                f"{', '.join(sorted(fallback_symbols)[:10])}. "
+                "Alpaca IEX data may be unavailable. Check API keys and market hours."
+            ),
+            payload={"provider": provider, "fallback_symbols": fallback_symbols, "count": len(fallback_symbols)},
+        )
+
+    def record_stale_data_warning(self, stale_symbols: list[str], provider: str, stale_minutes: int) -> None:
+        """Create an event when intraday data is older than the stale threshold."""
+        if not stale_symbols:
+            return
+        self.create_event(
+            event_type="stale_data_warning",
+            severity="warning",
+            title=f"{self.config.agent_name}: Stale intraday data detected",
+            message=(
+                f"{len(stale_symbols)} symbol(s) returned intraday bars older than {stale_minutes} minutes "
+                f"from {provider}: {', '.join(sorted(stale_symbols)[:10])}. "
+                "Snapshot signals may reflect outdated intraday prices."
+            ),
+            payload={"provider": provider, "stale_symbols": stale_symbols, "stale_minutes": stale_minutes, "count": len(stale_symbols)},
         )
 
     def record_outcome_analytics(self, analytics_summary: dict[str, Any]) -> None:

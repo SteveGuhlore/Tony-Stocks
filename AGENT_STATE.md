@@ -4,7 +4,64 @@ _Last updated: 2026-05-17_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
 
-## Current active task
+---
+
+## V8 handoff — Alpaca IEX Market Data Provider Foundation
+
+### Current active task
+
+V8 Alpaca IEX Market Data Provider Foundation — complete and tested locally.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V8
+
+- `config/default_config.yaml` — added `market_data:` block with Alpaca config; added `data_provider_fallback` and `stale_data_warning` to Tony `create_events_for`.
+- `.env.example` — added `ALPACA_DATA_FEED=iex`.
+- `src/trading_bot/data/market_data.py` — added `AlpacaIEXProvider` class, `_build_alpaca_provider` helper; updated `build_market_data_provider` with `market_data_config` parameter.
+- `src/trading_bot/settings.py` — added `market_data: dict[str, Any] | None = None` field.
+- `src/trading_bot/cli.py` — imported `AlpacaIEXProvider`; added `data-check` command (`run_data_check`); updated scan/update-snapshots/seed-demo-snapshots to pass `market_data_config`; added Alpaca symbol cap; added Tony fallback/stale events after scan.
+- `src/trading_bot/tony/events.py` — added `record_data_provider_fallback` and `record_stale_data_warning` methods; updated default `create_events_for`.
+- `src/trading_bot/dashboard/app.py` — added `render_data_provider_status` section in Overview tab.
+- `tests/test_alpaca_provider.py` — new file: 16 tests, all mocked, no real API calls.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `FILE_STRUCTURE.md`, `AGENT_STATE.md` — updated for V8.
+
+### Tests/checks run in V8
+
+- `pytest` — 67 passed (16 new Alpaca + 51 existing). No failures.
+- `python -m compileall src` — passed.
+- Scanner smoke test — passed with demo_generated provider.
+- `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR` — passed in demo mode, printed bars.
+- Dashboard syntax verified clean.
+
+### Known issues / risks (V8)
+
+- Alpaca provider is disabled by default. User must set `provider: alpaca_iex` and add keys to `.env`.
+- Alpaca IEX is a single-exchange feed; may differ from consolidated SIP tape. Not for production execution.
+- Rate-limit/backoff not yet implemented — keep `max_symbols_per_scan: 30`.
+- Market-hours awareness for Alpaca fetches not yet implemented.
+- Intraday timeframe scanning (5Min/15Min) is supported by the adapter but the scanner still uses daily bars.
+
+### Next recommended task
+
+1. Add real Alpaca API keys to `.env`.
+2. Run `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR` with real keys.
+3. If passes, run one watch cycle: `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1`.
+4. Review Tony Stocks events for any fallback or stale-data warnings.
+5. Add rate-limit/backoff handling before increasing max_symbols_per_scan.
+6. Commit a known-good baseline once first real-data cycle is reviewed.
+
+### Safe to continue?
+
+Yes. Default config still uses demo_generated. All existing tests pass. No live trading, broker execution, order placement, hard-coded keys, external notifications, or LLM trade decisions were added.
+
+---
+
+## V7 handoff — Outcome Analytics (previous)
+
+### Current active task
 
 V7 Outcome Analytics by setup category, role, score bucket, warning type, and seeded-demo status completed and tested locally.
 

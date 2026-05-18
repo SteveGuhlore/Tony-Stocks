@@ -56,6 +56,36 @@ def latest_results(repo: ScannerRepository) -> pd.DataFrame:
     return results
 
 
+def render_data_provider_status() -> None:
+    """Show a compact data provider status card in the Overview tab."""
+    settings = load_scanner_settings()
+    provider = settings.provider
+    market_data_cfg = settings.market_data or {}
+    alpaca_cfg = market_data_cfg.get("alpaca") or {}
+
+    with st.expander("Data Provider Status", expanded=False):
+        status_cols = st.columns(4)
+        status_cols[0].metric("Active Provider", provider)
+        if provider == "alpaca_iex":
+            feed = alpaca_cfg.get("feed", "iex")
+            timeframe = alpaca_cfg.get("timeframe", "1Day")
+            max_symbols = alpaca_cfg.get("max_symbols_per_scan", 30)
+            status_cols[1].metric("Feed", str(feed).upper())
+            status_cols[2].metric("Timeframe", str(timeframe))
+            status_cols[3].metric("Max Symbols/Scan", str(max_symbols))
+            st.warning(
+                "**Alpaca IEX data notice:** Alpaca IEX is a single-exchange feed and may differ from "
+                "consolidated SIP market tape. Do not use as sole basis for execution decisions. "
+                "This is market data for research and scanning only — no orders are placed."
+            )
+        else:
+            status_cols[1].metric("Feed", "demo")
+            status_cols[2].metric("Timeframe", settings.timeframe)
+            status_cols[3].metric("Mode", "research/testing")
+            if provider == "demo_generated":
+                st.info("Provider is demo_generated. Set provider to alpaca_iex in config and add API keys to .env to use real market data.")
+
+
 def render_overview(repo: ScannerRepository, results: pd.DataFrame) -> None:
     run = repo.latest_scan_run()
     primary = results[results["universe_role"].eq("primary_candidate")] if not results.empty else results
@@ -67,6 +97,7 @@ def render_overview(repo: ScannerRepository, results: pd.DataFrame) -> None:
     cols[3].metric("Primary candidates", len(primary))
     cols[4].metric("Mid/small-cap candidates", len(mid_small))
     cols[5].metric("Warnings", int(results["warning_count"].sum()) if not results.empty else 0)
+    render_data_provider_status()
     render_watch_status(repo, run)
     if not results.empty:
         chart_cols = st.columns(3)

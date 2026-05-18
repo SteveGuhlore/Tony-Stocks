@@ -32,13 +32,24 @@ _Last updated: 2026-05-17_
 - Add external Tony notifications later through explicit opt-in channels.
 - Add a stricter seeded-demo cleanup or labeling workflow before any real provider data is introduced.
 
+## Alpaca IEX — immediate follow-ups
+
+- Add Alpaca API keys to `.env` and test `data-check` with real keys.
+- Run one watch-mode cycle with Alpaca enabled and review Tony events for fallback/stale warnings.
+- Review snapshot quality after first real-data scan.
+- Add rate-limit / backoff / retry handling for Alpaca requests.
+- Add market-hours awareness so watch mode skips Alpaca fetches when the market is closed.
+- Add pagination test if lookback_days > 1000 bars is ever needed.
+- Expand max_symbols_per_scan beyond 30 once rate-limit handling is confirmed.
+- NOTE: Alpaca IEX is a single-exchange feed. Do not treat as consolidated SIP tape.
+
 ## Future provider/data work
 
-- Real provider adapters.
-- Larger market universe ingestion.
-- Rate-limit/backoff support.
+- Rate-limit/backoff support (needed before large universe with Alpaca).
+- Polygon, Finnhub, FMP, or Twelve Data adapters.
 - Corporate action and split/dividend adjustment checks.
 - Sector/industry metadata.
+- Larger market universe ingestion (post rate-limit handling).
 
 ## Future scoring/research work
 

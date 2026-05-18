@@ -38,3 +38,6 @@ Thumbs.db
 # Agent scratch
 .ai_runs/
 agent_scratch/
+
+
+.claude/

@@ -4,6 +4,8 @@ _Last updated: 2026-05-17_
 
 ## Overall status
 
+V8 Alpaca IEX Market Data Provider Foundation has been added on top of V7 Outcome Analytics. The project now has a real-market-data adapter for Alpaca IEX historical bars. The provider is disabled by default (demo_generated is still active). When enabled, it reads US equity bars for a limited symbol list (max 30 per scan by default) and falls back to demo data if Alpaca is unreachable. Tony Stocks creates internal events for fallback and stale-data conditions. A CLI data-check command lets users test provider connectivity before running watch mode. No broker execution, no trading, no order placement.
+
 V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The project can now summarize candidate snapshot outcomes by setup category, universe role, score bucket, warning type, tags, and seeded-demo status. Tony Stocks remains a watcher/analyst event layer only; it does not paper trade, execute broker orders, or place live trades.
 
 ## Implemented
@@ -55,6 +57,17 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Dashboard Outcome Analytics tab with setup-category, score-bucket, universe-role, outcome-label, and warning-type summaries.
 - Tony event integration for outcome analytics runs.
 - PowerShell helper scripts for tests, scanner, and dashboard.
+- Alpaca IEX market data provider adapter in `src/trading_bot/data/market_data.py` (disabled by default).
+- `market_data:` config block in `config/default_config.yaml` with Alpaca settings (feed, timeframe, max_symbols_per_scan, fail_safe_to_demo, stale_data_minutes).
+- CLI command: `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR`.
+- Data-check prints active provider, feed, timeframe, latest bar timestamp, close, and volume. Works in demo mode without keys.
+- Alpaca per-scan symbol cap applied automatically from `market_data.alpaca.max_symbols_per_scan` (default: 30).
+- Tony events for `data_provider_fallback` and `stale_data_warning` when using Alpaca IEX.
+- Dashboard Data Provider Status section in Overview tab showing active provider, feed, timeframe, and Alpaca IEX disclaimer.
+- `ALPACA_DATA_FEED=iex` added to `.env.example`.
+- 16 new Alpaca provider tests in `tests/test_alpaca_provider.py`; all mocked, no real API calls.
+
+**Alpaca IEX notice (in all relevant docs):** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for testing the real-data pipeline only. Do not use as sole basis for execution decisions. No orders are placed.
 
 ## Confirmed in this environment
 
@@ -77,6 +90,15 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Demo snapshot outcomes now include `target_hit`, `stop_hit`, `partial_move`, `failed_setup`, `entry_not_triggered`, `expired_no_trigger`, and `insufficient_future_data` examples.
 - Programmatic CSV validation confirmed eligible non-reference/non-avoid rows have `stop < entry`, `target > entry`, positive risk/reward, and valid trade-plan flags.
 
+## Confirmed in V8
+
+- `pytest` passed with 67 tests (16 new Alpaca provider tests + 51 existing).
+- `python -m compileall src` passed.
+- Scanner still runs correctly with demo_generated provider.
+- `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR` ran in demo mode and printed bar data.
+- Dashboard syntax verified clean.
+- No Alpaca API keys are required for any existing test or demo scan.
+
 ## Git notes
 
 - `git status --short` and `git diff --check` run in this shell, but Git prints a permission warning for `C:\Users\alexa/.config/git/ignore`.
@@ -86,13 +108,17 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 
 - Live trading.
 - Broker execution.
-- Real provider API requests.
+- Alpaca broker/trading endpoints (only data API is wired).
 - External Tony notifications such as email, SMS, Discord, or Telegram.
 - Margin, leverage, short selling, or options logic.
 - Advanced backtesting and automatic paper-trade creation.
+- Intraday (5Min/15Min) scanning logic (provider supports it; scanner still uses daily bars).
 
 ## Next recommended work
 
-1. Review the Tony Stocks dashboard tab after a supervised watch-mode session.
-2. Review Outcome Analytics with non-seeded watch-mode snapshots after several supervised sessions.
-3. Initialize/clean up git ignore permissions and commit a known-good baseline.
+1. Add Alpaca API keys to `.env` and set `provider: alpaca_iex` in `config/default_config.yaml`.
+2. Run `python -m trading_bot.cli data-check --config config/default_config.yaml --symbol PLTR` with real keys to confirm connectivity.
+3. Run watch mode one cycle with Alpaca enabled: `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1`.
+4. Review Tony Stocks events for any fallback or stale-data warnings.
+5. Review Outcome Analytics after collecting real-data watch-mode snapshots.
+6. Initialize git and commit a known-good baseline.

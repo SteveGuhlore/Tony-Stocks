@@ -88,12 +88,17 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
+Status: V8 Alpaca IEX provider foundation added. Historical daily bars, fallback-to-demo, stale-data detection, CLI data-check command, and Tony events implemented. Provider is disabled by default; activate by setting `provider: alpaca_iex` and adding keys to `.env`.
+
 Goals:
 
 - Add provider adapters for Polygon, Alpaca, Finnhub, Financial Modeling Prep, and/or Twelve Data.
+- Alpaca IEX (free tier): Done for historical daily bars. Intraday timeframes supported by adapter but scanner uses daily bars.
 - Add rate-limit and retry/backoff handling.
-- Improve large-universe ingestion.
+- Improve large-universe ingestion (current Alpaca cap: 30 symbols/scan).
 - Keep all keys in environment variables only.
+
+**Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for testing the real-data pipeline only. Not for production execution decisions.
 
 ## Phase 3 - Paper execution integration
 

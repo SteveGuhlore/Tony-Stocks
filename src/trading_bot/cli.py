@@ -16,7 +16,7 @@ from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance
-from trading_bot.data.market_data import build_market_data_provider
+from trading_bot.data.market_data import AlpacaIEXProvider, build_market_data_provider
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
 from trading_bot.logging_config import configure_logging
 from trading_bot.risk import RiskManager
@@ -85,6 +85,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Grouping to print. Can be repeated.",
     )
     outcome_analytics.add_argument("--min-score", type=float, default=None, help="Optional minimum snapshot score.")
+
+    data_check = subparsers.add_parser("data-check", help="Test market data provider for one symbol. Does not scan or trade.")
+    data_check.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    data_check.add_argument("--symbol", default="PLTR", help="Symbol to test fetch (default: PLTR).")
+    data_check.add_argument("--lookback-days", type=int, default=5, help="Lookback days for the test fetch (default: 5).")
+
     return parser
 
 
@@ -138,7 +144,20 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         for symbol, metadata in metadata_by_symbol.items()
         if metadata.demo_profile
     }
-    provider = build_market_data_provider(settings.provider, settings.cache_dir, profiles_by_symbol=profiles_by_symbol)
+    provider = build_market_data_provider(
+        settings.provider,
+        settings.cache_dir,
+        profiles_by_symbol=profiles_by_symbol,
+        market_data_config=settings.market_data,
+    )
+    # Apply Alpaca per-scan symbol cap if configured
+    if isinstance(provider, AlpacaIEXProvider):
+        alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
+        max_alpaca = int(alpaca_cfg.get("max_symbols_per_scan", 30))
+        if len(symbols) > max_alpaca:
+            LOGGER.info("Alpaca IEX: limiting scan to %d symbols (was %d)", max_alpaca, len(symbols))
+            symbols = symbols[:max_alpaca]
+        provider.reset_cycle_state()
     scoring_config = load_scoring_config(settings.scoring_config_path)
     engine = ScoreEngine(scoring_config)
     repo = ScannerRepository(settings.database_path)
@@ -240,6 +259,11 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         "snapshots_created": len(snapshot_ids),
         "warnings_count": sum(len(result.warnings) for result in results),
     }
+    if isinstance(provider, AlpacaIEXProvider):
+        alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
+        stale_minutes = int(alpaca_cfg.get("stale_data_minutes", 20))
+        tony.record_data_provider_fallback(provider.fallback_symbols, provider.name)
+        tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
     tony.record_scan_completed(summary, results=results, snapshot_ids=snapshot_ids)
     return summary
 
@@ -254,7 +278,12 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
         for symbol, metadata in metadata_by_symbol.items()
         if metadata.demo_profile
     }
-    provider = build_market_data_provider(settings.provider, settings.cache_dir, profiles_by_symbol=profiles_by_symbol)
+    provider = build_market_data_provider(
+        settings.provider,
+        settings.cache_dir,
+        profiles_by_symbol=profiles_by_symbol,
+        market_data_config=settings.market_data,
+    )
     repo = ScannerRepository(settings.database_path)
     tony = TonyStocksService(repo, settings.tony_stocks)
     tony.start_cycle()
@@ -338,7 +367,12 @@ def run_seed_demo_snapshots(args: argparse.Namespace) -> None:
         for symbol, metadata in metadata_by_symbol.items()
         if metadata.demo_profile
     }
-    provider = build_market_data_provider(settings.provider, settings.cache_dir, profiles_by_symbol=profiles_by_symbol)
+    provider = build_market_data_provider(
+        settings.provider,
+        settings.cache_dir,
+        profiles_by_symbol=profiles_by_symbol,
+        market_data_config=settings.market_data,
+    )
     repo = ScannerRepository(settings.database_path)
     scan_run_id = repo.create_scan_run(
         universe_count=int(seed_config.get("count", 12)),
@@ -565,6 +599,72 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
     )
 
 
+def run_data_check(args: argparse.Namespace) -> None:
+    """Test the configured market data provider for one symbol. Does not scan or trade."""
+    settings = load_scanner_settings(args.config)
+    symbol = args.symbol.upper().strip()
+    lookback_days = getattr(args, "lookback_days", 5)
+    market_data_cfg = settings.market_data or {}
+    alpaca_cfg = market_data_cfg.get("alpaca") or {}
+
+    print("Data provider check")
+    print("Does not scan, trade, or place orders.")
+    print(f"Config:   {args.config}")
+    print(f"Provider: {settings.provider}")
+    print(f"Symbol:   {symbol}")
+
+    if settings.provider == "alpaca_iex":
+        feed = str(alpaca_cfg.get("feed", "iex"))
+        timeframe = str(alpaca_cfg.get("timeframe", "1Day"))
+        print(f"Feed:      {feed}")
+        print(f"Timeframe: {timeframe}")
+        print("NOTE: Alpaca IEX is a single-exchange feed. It may differ from consolidated SIP data.")
+
+    try:
+        metadata_by_symbol = load_universe_metadata(settings.universe_config_path)
+        profiles_by_symbol = {
+            sym: meta.demo_profile
+            for sym, meta in metadata_by_symbol.items()
+            if meta.demo_profile
+        }
+        provider = build_market_data_provider(
+            settings.provider,
+            settings.cache_dir,
+            profiles_by_symbol=profiles_by_symbol,
+            market_data_config=settings.market_data,
+        )
+    except EnvironmentError as exc:
+        print(f"\nConfiguration error: {exc}")
+        return
+
+    try:
+        data = provider.fetch_ohlcv(symbol, lookback_days, settings.timeframe)
+    except EnvironmentError as exc:
+        print(f"\n{exc}")
+        return
+    except Exception as exc:
+        print(f"\nFetch failed: {exc}")
+        return
+
+    if data.empty:
+        print("No bars returned. The symbol may not be in the IEX data set or the date range returned nothing.")
+        return
+
+    latest_ts = data.index[-1]
+    latest_close = float(data["close"].iloc[-1])
+    latest_volume = int(data["volume"].iloc[-1])
+
+    print(f"\nBars returned: {len(data)}")
+    print(f"Latest bar:    {latest_ts}")
+    print(f"Close:         {latest_close:.4f}")
+    print(f"Volume:        {latest_volume:,}")
+
+    if isinstance(provider, AlpacaIEXProvider) and symbol in provider.fallback_symbols:
+        print(f"\nWARNING: {symbol} used demo fallback. Check Alpaca key and connectivity.")
+    else:
+        print(f"\nProvider responded successfully for {symbol}.")
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -585,6 +685,8 @@ def main() -> None:
         run_tony_events(args)
     elif args.command == "outcome-analytics":
         run_outcome_analytics(args)
+    elif args.command == "data-check":
+        run_data_check(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 
