@@ -72,6 +72,7 @@ market_data:
     max_symbols_per_scan: 30
     fail_safe_to_demo: true
     stale_data_minutes: 20
+    label_single_exchange_warning: true
 
 tony_stocks:
   enabled: true
@@ -91,6 +92,10 @@ tony_stocks:
     - data_provider_fallback
     - stale_data_warning
     - system_warning
+    - real_provider_active
+    - all_symbol_fallback
+    - provider_health_passed
+    - provider_health_failed
   high_score_threshold: 85
   include_seeded_demo_events: false
   max_events_per_cycle: 20

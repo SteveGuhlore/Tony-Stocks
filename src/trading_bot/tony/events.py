@@ -35,6 +35,10 @@ class TonyConfig:
         "data_provider_fallback",
         "stale_data_warning",
         "system_warning",
+        "real_provider_active",
+        "all_symbol_fallback",
+        "provider_health_passed",
+        "provider_health_failed",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -231,6 +235,63 @@ class TonyStocksService:
                 "Snapshot signals may reflect outdated intraday prices."
             ),
             payload={"provider": provider, "stale_symbols": stale_symbols, "stale_minutes": stale_minutes, "count": len(stale_symbols)},
+        )
+
+    def record_real_provider_active(self, provider: str, symbols_with_real_data: int) -> None:
+        """Create an info event confirming a real data provider returned data this cycle."""
+        self.create_event(
+            event_type="real_provider_active",
+            severity="info",
+            title=f"{self.config.agent_name}: Real provider returned data",
+            message=(
+                f"{provider} returned real market data for {symbols_with_real_data} symbol(s) this cycle. "
+                "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape."
+            ),
+            payload={"provider": provider, "symbols_with_real_data": symbols_with_real_data},
+        )
+
+    def record_all_symbol_fallback(self, provider: str, fallback_count: int) -> None:
+        """Create a critical warning when every scanned symbol fell back to demo data."""
+        self.create_event(
+            event_type="all_symbol_fallback",
+            severity="critical",
+            title=f"{self.config.agent_name}: ALL symbols fell back to demo data",
+            message=(
+                f"All {fallback_count} symbol(s) fell back from {provider} to demo data this cycle. "
+                "Scan results reflect demo-generated prices, not real market data. "
+                "Check Alpaca API keys, connectivity, and market hours before acting on any signals."
+            ),
+            payload={"provider": provider, "fallback_count": fallback_count},
+        )
+
+    def record_provider_health_passed(self, health: dict[str, Any]) -> None:
+        """Create an info event when a provider health check confirms data is flowing."""
+        self.create_event(
+            event_type="provider_health_passed",
+            severity="info",
+            title=f"{self.config.agent_name}: Provider health check passed",
+            message=(
+                f"{health.get('effective_provider')} returned data for "
+                f"{health.get('symbols_with_data', 0)}/{health.get('symbols_requested', 0)} test symbol(s). "
+                f"Latest bar: {health.get('latest_bar_time', 'unknown')}."
+            ),
+            payload=health,
+        )
+
+    def record_provider_health_failed(self, health: dict[str, Any]) -> None:
+        """Create a warning event when a provider health check returns no real data."""
+        errors = health.get("provider_errors") or []
+        error_summary = "; ".join(errors[:3]) if errors else "no bars returned"
+        self.create_event(
+            event_type="provider_health_failed",
+            severity="warning",
+            title=f"{self.config.agent_name}: Provider health check failed",
+            message=(
+                f"{health.get('effective_provider')} health check: "
+                f"{health.get('symbols_with_data', 0)}/{health.get('symbols_requested', 0)} symbol(s) returned data. "
+                f"Errors: {error_summary}."
+            ),
+            payload=health,
         )
 
     def record_outcome_analytics(self, analytics_summary: dict[str, Any]) -> None:

@@ -5,6 +5,7 @@ import hashlib
 import logging
 import math
 import os
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -348,3 +349,120 @@ def _build_alpaca_provider(
         stale_data_minutes=int(alpaca_cfg.get("stale_data_minutes", 20)),
         profiles_by_symbol=profiles_by_symbol,
     )
+
+
+@dataclass
+class ProviderHealth:
+    """Summary of a provider health check.
+
+    Keys are never stored — only a boolean indicating presence.
+    This object is safe to log and pass to Tony events.
+    """
+
+    configured_provider: str
+    effective_provider: str
+    fallback_provider: str
+    keys_present: bool
+    feed: str
+    timeframe: str
+    using_fallback: bool = False
+    symbols_requested: int = 0
+    symbols_with_data: int = 0
+    symbols_fallback: int = 0
+    symbols_stale: int = 0
+    latest_bar_time: str | None = None
+    provider_errors: list[str] = field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        return self.symbols_with_data > 0 and not self.using_fallback
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "configured_provider": self.configured_provider,
+            "effective_provider": self.effective_provider,
+            "fallback_provider": self.fallback_provider,
+            "keys_present": self.keys_present,
+            "feed": self.feed,
+            "timeframe": self.timeframe,
+            "using_fallback": self.using_fallback,
+            "symbols_requested": self.symbols_requested,
+            "symbols_with_data": self.symbols_with_data,
+            "symbols_fallback": self.symbols_fallback,
+            "symbols_stale": self.symbols_stale,
+            "latest_bar_time": self.latest_bar_time,
+            "provider_errors": self.provider_errors,
+            "passed": self.passed,
+        }
+
+
+def check_provider_health(
+    effective_provider: str,
+    configured_provider: str,
+    market_data_config: dict[str, Any] | None,
+    test_symbols: list[str] | None = None,
+    lookback_days: int = 5,
+    profiles_by_symbol: dict[str, str] | None = None,
+) -> ProviderHealth:
+    """Run a quick provider health check against a small set of symbols.
+
+    No keys or secret values are stored in the returned object — only a
+    boolean indicating whether the required keys are present.
+    """
+    market_data = market_data_config or {}
+    alpaca_cfg = market_data.get("alpaca") or {}
+    fallback_provider = str(market_data.get("fallback_provider", "demo_generated"))
+
+    if effective_provider == "alpaca_iex":
+        feed = str(alpaca_cfg.get("feed", "iex"))
+        timeframe = str(alpaca_cfg.get("timeframe", "1Day"))
+        keys_present = bool(os.getenv("ALPACA_API_KEY")) and bool(os.getenv("ALPACA_SECRET_KEY"))
+    else:
+        feed = "n/a"
+        timeframe = "daily"
+        keys_present = False
+
+    health = ProviderHealth(
+        configured_provider=configured_provider,
+        effective_provider=effective_provider,
+        fallback_provider=fallback_provider,
+        keys_present=keys_present,
+        feed=feed,
+        timeframe=timeframe,
+    )
+
+    symbols = test_symbols or ["PLTR", "AAPL", "SPY"]
+    health.symbols_requested = len(symbols)
+
+    try:
+        provider = build_market_data_provider(
+            effective_provider,
+            Path("."),
+            profiles_by_symbol=profiles_by_symbol,
+            market_data_config=market_data_config,
+        )
+    except EnvironmentError as exc:
+        health.provider_errors.append(str(exc))
+        health.using_fallback = True
+        return health
+
+    bar_times: list[str] = []
+    for symbol in symbols:
+        try:
+            data = provider.fetch_ohlcv(symbol, lookback_days, "daily")
+            if not data.empty:
+                health.symbols_with_data += 1
+                bar_times.append(str(data.index[-1]))
+        except Exception as exc:
+            health.provider_errors.append(f"{symbol}: {exc}")
+
+    if isinstance(provider, AlpacaIEXProvider):
+        health.symbols_fallback = len(provider.fallback_symbols)
+        health.symbols_stale = len(provider.stale_symbols)
+        if health.symbols_fallback >= health.symbols_requested and health.symbols_requested > 0:
+            health.using_fallback = True
+
+    if bar_times:
+        health.latest_bar_time = max(bar_times)
+
+    return health

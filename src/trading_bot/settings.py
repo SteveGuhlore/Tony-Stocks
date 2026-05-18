@@ -89,3 +89,17 @@ def configured_api_keys() -> dict[str, bool]:
     """Return which supported provider key environment variables are present."""
     load_dotenv_if_present()
     return {name: bool(os.getenv(name)) for name in API_KEY_ENV_VARS}
+
+
+def resolve_effective_provider(settings: ScannerSettings) -> str:
+    """Return the effective provider, respecting market_data.real_provider_enabled.
+
+    When market_data.real_provider_enabled is true and market_data.provider is set,
+    that provider wins over the legacy top-level settings.provider field.
+    This allows the config to have a safe demo fallback at the top level while
+    activating a real provider through the market_data block.
+    """
+    market_data = settings.market_data or {}
+    if market_data.get("real_provider_enabled", False) and market_data.get("provider"):
+        return str(market_data["provider"])
+    return settings.provider

@@ -6,6 +6,63 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V8.5 handoff — Alpaca Real-Data Watch Validation + Tony Data Quality Guardrails
+
+### Current active task
+
+V8.5 complete and tested locally.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V8.5
+
+- `src/trading_bot/settings.py` — added `resolve_effective_provider(settings)` helper; `market_data.real_provider_enabled: true` + `market_data.provider` now wins over legacy top-level `provider:` field.
+- `src/trading_bot/data/market_data.py` — added `dataclass` import; added `ProviderHealth` dataclass (keys_present bool only, never values; `passed` property; `to_dict()`); added `check_provider_health()` function.
+- `src/trading_bot/tony/events.py` — added `real_provider_active`, `all_symbol_fallback`, `provider_health_passed`, `provider_health_failed` to default `create_events_for`; added four corresponding record methods.
+- `src/trading_bot/cli.py` — imported `resolve_effective_provider`, `ProviderHealth`, `check_provider_health`; updated all `build_market_data_provider(settings.provider, ...)` call sites to use `resolve_effective_provider(settings)`; added all-symbol fallback detection + Tony events in `run_scan()`; added provider status startup banner in `run_watch()`; updated `data-check` to support `--symbols` multi-symbol and show configured vs effective + `keys_present` bool; added new `provider-health` command and `run_provider_health()`.
+- `src/trading_bot/dashboard/app.py` — imported `resolve_effective_provider`; updated `render_data_provider_status()` to show configured vs effective provider, `real_provider_enabled`, last scan provider from DB, fallback/stale/all-symbol-fallback Tony event counts; updated `render_detail()` to use `resolve_effective_provider` and pass `market_data_config`.
+- `config/default_config.yaml` — added `real_provider_active`, `all_symbol_fallback`, `provider_health_passed`, `provider_health_failed` to Tony `create_events_for`; added `label_single_exchange_warning: true` to alpaca config.
+- `tests/test_alpaca_provider.py` — added 10 new V8.5 tests: provider precedence (4 cases), keys_present bool, demo health check pass, all-symbol fallback Tony event, check_provider_health with mocked Alpaca, check_provider_health no keys.
+- `AGENT_STATE.md` — updated for V8.5.
+
+### Tests/checks run in V8.5
+
+- `pytest tests/test_alpaca_provider.py -v` — 26 passed (16 V8 + 10 new V8.5).
+- `pytest -q` — 77 passed total. No failures.
+- `python -m compileall src -q` — clean.
+- `python -m trading_bot.cli scan --config config/default_config.yaml` — passed. Effective provider = alpaca_iex (from real_provider_enabled). All 30 symbols fell back to demo (expected — no real keys). All-symbol fallback warning printed and Tony `all_symbol_fallback` critical event recorded.
+- `python -m trading_bot.cli data-check --config config/default_config.yaml --symbols PLTR,SOFI,HOOD` — passed. Shows configured vs effective, keys_present bool, fallback warning per symbol.
+- `python -m trading_bot.cli provider-health --config config/default_config.yaml --symbols PLTR,SPY` — passed. Shows FAILED (all fallback, no real keys). keys_present=True (keys exist in env, but invalid).
+- `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1` — passed. Startup banner shows configured/effective provider, feed, timeframe, max symbols, IEX warning.
+- `python -m trading_bot.cli tony-events --config config/default_config.yaml --limit 15` — passed. `all_symbol_fallback` critical event visible.
+
+### Known issues / risks (V8.5)
+
+- `keys_present: True` reflects env var presence, not validity. A 401 from Alpaca means the key is wrong/invalid even when keys_present is True.
+- Provider health check shows FAILED when all symbols fall back (all-symbol fallback = using_fallback=True = passed=False). This is correct behavior.
+- All-symbol fallback warning is expected until real valid Alpaca API keys are added to `.env`.
+- Alpaca IEX is a single-exchange feed; not full SIP consolidated tape.
+- Rate-limit/backoff not yet implemented — keep `max_symbols_per_scan: 30`.
+
+### Next recommended task
+
+1. Add real valid Alpaca API keys to `.env`.
+2. Re-run `python -m trading_bot.cli provider-health --config config/default_config.yaml` — expect PASSED with real keys.
+3. Re-run `python -m trading_bot.cli data-check --config config/default_config.yaml --symbols PLTR,SOFI,HOOD` — expect real bars (no fallback warnings).
+4. Run `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1` with real keys.
+5. Check `tony-events` for `real_provider_active` event instead of `all_symbol_fallback`.
+6. Review snapshot quality after first real-data cycle.
+7. Add rate-limit/backoff handling before increasing max_symbols_per_scan beyond 30.
+8. Commit a known-good baseline once first real-data cycle is reviewed.
+
+### Safe to continue?
+
+Yes. Default config still activates Alpaca IEX through `real_provider_enabled: true`, but falls back cleanly to demo without real keys. All 77 tests pass. No live trading, broker execution, order placement, hard-coded keys, external notifications, or LLM trade decisions were added. Keys are never printed or stored — only `keys_present` bool.
+
+---
+
 ## V8 handoff — Alpaca IEX Market Data Provider Foundation
 
 ### Current active task

@@ -16,7 +16,12 @@ from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance
-from trading_bot.data.market_data import AlpacaIEXProvider, build_market_data_provider
+from trading_bot.data.market_data import (
+    AlpacaIEXProvider,
+    ProviderHealth,
+    build_market_data_provider,
+    check_provider_health,
+)
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
 from trading_bot.logging_config import configure_logging
 from trading_bot.risk import RiskManager
@@ -25,7 +30,7 @@ from trading_bot.snapshots import calculate_snapshot_followup
 from trading_bot.snapshots.seeding import build_demo_seed_snapshots
 from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
-from trading_bot.settings import load_scanner_settings
+from trading_bot.settings import load_scanner_settings, resolve_effective_provider
 from trading_bot.tony import TonyStocksService
 
 
@@ -86,10 +91,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     outcome_analytics.add_argument("--min-score", type=float, default=None, help="Optional minimum snapshot score.")
 
-    data_check = subparsers.add_parser("data-check", help="Test market data provider for one symbol. Does not scan or trade.")
+    data_check = subparsers.add_parser("data-check", help="Test market data provider for one or more symbols. Does not scan or trade.")
     data_check.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
-    data_check.add_argument("--symbol", default="PLTR", help="Symbol to test fetch (default: PLTR).")
+    data_check.add_argument("--symbol", default="PLTR", help="Single symbol to test (default: PLTR). Ignored when --symbols is provided.")
+    data_check.add_argument("--symbols", default="", help="Comma-separated symbols to test, e.g. PLTR,SOFI,HOOD.")
     data_check.add_argument("--lookback-days", type=int, default=5, help="Lookback days for the test fetch (default: 5).")
+
+    provider_health = subparsers.add_parser("provider-health", help="Run a provider health check. Does not scan or trade.")
+    provider_health.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    provider_health.add_argument("--symbols", default="", help="Comma-separated test symbols (default: PLTR,AAPL,SPY).")
+    provider_health.add_argument("--lookback-days", type=int, default=5, help="Lookback days for the health check (default: 5).")
+    provider_health.add_argument("--record-event", action="store_true", help="Record the health check result as a Tony Stocks event.")
 
     return parser
 
@@ -144,8 +156,9 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         for symbol, metadata in metadata_by_symbol.items()
         if metadata.demo_profile
     }
+    effective_provider = resolve_effective_provider(settings)
     provider = build_market_data_provider(
-        settings.provider,
+        effective_provider,
         settings.cache_dir,
         profiles_by_symbol=profiles_by_symbol,
         market_data_config=settings.market_data,
@@ -262,7 +275,19 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     if isinstance(provider, AlpacaIEXProvider):
         alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
         stale_minutes = int(alpaca_cfg.get("stale_data_minutes", 20))
-        tony.record_data_provider_fallback(provider.fallback_symbols, provider.name)
+        scanned_count = len(symbols)
+        fallback_count = len(provider.fallback_symbols)
+        real_data_count = scanned_count - fallback_count
+        if fallback_count > 0 and fallback_count >= scanned_count:
+            print(
+                f"\nWARNING: ALL {fallback_count} symbol(s) fell back to demo data from {provider.name}. "
+                "Scan results reflect demo prices. Check Alpaca keys and connectivity."
+            )
+            tony.record_all_symbol_fallback(provider.name, fallback_count)
+        elif fallback_count > 0:
+            tony.record_data_provider_fallback(provider.fallback_symbols, provider.name)
+        if real_data_count > 0:
+            tony.record_real_provider_active(provider.name, real_data_count)
         tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
     tony.record_scan_completed(summary, results=results, snapshot_ids=snapshot_ids)
     return summary
@@ -279,7 +304,7 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
         if metadata.demo_profile
     }
     provider = build_market_data_provider(
-        settings.provider,
+        resolve_effective_provider(settings),
         settings.cache_dir,
         profiles_by_symbol=profiles_by_symbol,
         market_data_config=settings.market_data,
@@ -368,7 +393,7 @@ def run_seed_demo_snapshots(args: argparse.Namespace) -> None:
         if metadata.demo_profile
     }
     provider = build_market_data_provider(
-        settings.provider,
+        resolve_effective_provider(settings),
         settings.cache_dir,
         profiles_by_symbol=profiles_by_symbol,
         market_data_config=settings.market_data,
@@ -440,15 +465,29 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     if not stop_file.is_absolute():
         stop_file = Path.cwd() / stop_file
 
+    effective_provider_name = resolve_effective_provider(settings)
+    market_data_cfg = settings.market_data or {}
+    alpaca_cfg_watch = market_data_cfg.get("alpaca") or {}
+    real_enabled = bool(market_data_cfg.get("real_provider_enabled", False))
+
     print("Scheduled Watch Mode")
     print("Research mode only: no paper trades, broker execution, or live trading.")
     print(f"Config: {args.config}")
+    print(f"Configured provider: {settings.provider}")
+    print(f"Effective provider:  {effective_provider_name} (real_provider_enabled={real_enabled})")
+    if effective_provider_name == "alpaca_iex":
+        feed = str(alpaca_cfg_watch.get("feed", "iex")).upper()
+        timeframe = str(alpaca_cfg_watch.get("timeframe", "1Day"))
+        max_syms = int(alpaca_cfg_watch.get("max_symbols_per_scan", 30))
+        print(f"Feed: {feed}  Timeframe: {timeframe}  Max symbols/scan: {max_syms}")
+        print("NOTE: Alpaca IEX is a single-exchange feed and may differ from consolidated SIP data.")
+        print("      Do not treat Alpaca IEX as full market tape. Research and scanning only.")
     print(f"Interval minutes: {interval_minutes:g}")
     print(f"Snapshot update after scan: {run_updates}")
     print(f"Max cycles: {max_cycles if max_cycles is not None else 'unlimited'}")
     print(f"Market hours only: {market_hours_only}")
     print(f"Stop file: {stop_file}")
-    LOGGER.info("Scheduled Watch Mode started. interval_minutes=%s max_cycles=%s", interval_minutes, max_cycles)
+    LOGGER.info("Scheduled Watch Mode started. interval_minutes=%s max_cycles=%s effective_provider=%s", interval_minutes, max_cycles, effective_provider_name)
 
     cycles_completed = 0
     stopped_by = "max_cycles" if max_cycles == 0 else ""
@@ -600,24 +639,36 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
 
 
 def run_data_check(args: argparse.Namespace) -> None:
-    """Test the configured market data provider for one symbol. Does not scan or trade."""
+    """Test the configured market data provider for one or more symbols. Does not scan or trade."""
     settings = load_scanner_settings(args.config)
-    symbol = args.symbol.upper().strip()
-    lookback_days = getattr(args, "lookback_days", 5)
+    effective_provider = resolve_effective_provider(settings)
     market_data_cfg = settings.market_data or {}
     alpaca_cfg = market_data_cfg.get("alpaca") or {}
+    real_enabled = bool(market_data_cfg.get("real_provider_enabled", False))
+    lookback_days = getattr(args, "lookback_days", 5)
+
+    # Resolve symbols: --symbols takes precedence over --symbol
+    raw_symbols_arg = getattr(args, "symbols", "")
+    if raw_symbols_arg.strip():
+        symbols = [s.strip().upper() for s in raw_symbols_arg.split(",") if s.strip()]
+    else:
+        symbols = [args.symbol.upper().strip()]
 
     print("Data provider check")
     print("Does not scan, trade, or place orders.")
-    print(f"Config:   {args.config}")
-    print(f"Provider: {settings.provider}")
-    print(f"Symbol:   {symbol}")
+    print(f"Config:              {args.config}")
+    print(f"Configured provider: {settings.provider}")
+    print(f"Effective provider:  {effective_provider} (real_provider_enabled={real_enabled})")
+    print(f"Symbols:             {', '.join(symbols)}")
 
-    if settings.provider == "alpaca_iex":
+    if effective_provider == "alpaca_iex":
         feed = str(alpaca_cfg.get("feed", "iex"))
         timeframe = str(alpaca_cfg.get("timeframe", "1Day"))
-        print(f"Feed:      {feed}")
-        print(f"Timeframe: {timeframe}")
+        import os as _os
+        keys_present = bool(_os.getenv("ALPACA_API_KEY")) and bool(_os.getenv("ALPACA_SECRET_KEY"))
+        print(f"Feed:                {feed}")
+        print(f"Timeframe:           {timeframe}")
+        print(f"Keys present:        {keys_present}")
         print("NOTE: Alpaca IEX is a single-exchange feed. It may differ from consolidated SIP data.")
 
     try:
@@ -628,7 +679,7 @@ def run_data_check(args: argparse.Namespace) -> None:
             if meta.demo_profile
         }
         provider = build_market_data_provider(
-            settings.provider,
+            effective_provider,
             settings.cache_dir,
             profiles_by_symbol=profiles_by_symbol,
             market_data_config=settings.market_data,
@@ -637,32 +688,109 @@ def run_data_check(args: argparse.Namespace) -> None:
         print(f"\nConfiguration error: {exc}")
         return
 
-    try:
-        data = provider.fetch_ohlcv(symbol, lookback_days, settings.timeframe)
-    except EnvironmentError as exc:
-        print(f"\n{exc}")
-        return
-    except Exception as exc:
-        print(f"\nFetch failed: {exc}")
-        return
+    any_success = False
+    any_fallback = False
+    for symbol in symbols:
+        print(f"\n--- {symbol} ---")
+        try:
+            data = provider.fetch_ohlcv(symbol, lookback_days, settings.timeframe)
+        except EnvironmentError as exc:
+            print(f"  Error: {exc}")
+            continue
+        except Exception as exc:
+            print(f"  Fetch failed: {exc}")
+            continue
 
-    if data.empty:
-        print("No bars returned. The symbol may not be in the IEX data set or the date range returned nothing.")
-        return
+        if data.empty:
+            print("  No bars returned. Symbol may not be in the data set or date range returned nothing.")
+            continue
 
-    latest_ts = data.index[-1]
-    latest_close = float(data["close"].iloc[-1])
-    latest_volume = int(data["volume"].iloc[-1])
+        any_success = True
+        latest_ts = data.index[-1]
+        latest_close = float(data["close"].iloc[-1])
+        latest_volume = int(data["volume"].iloc[-1])
+        print(f"  Bars returned: {len(data)}")
+        print(f"  Latest bar:    {latest_ts}")
+        print(f"  Close:         {latest_close:.4f}")
+        print(f"  Volume:        {latest_volume:,}")
 
-    print(f"\nBars returned: {len(data)}")
-    print(f"Latest bar:    {latest_ts}")
-    print(f"Close:         {latest_close:.4f}")
-    print(f"Volume:        {latest_volume:,}")
+        if isinstance(provider, AlpacaIEXProvider) and symbol in provider.fallback_symbols:
+            print(f"  WARNING: {symbol} used demo fallback. Check Alpaca key and connectivity.")
+            any_fallback = True
+        else:
+            print(f"  Provider responded successfully.")
 
-    if isinstance(provider, AlpacaIEXProvider) and symbol in provider.fallback_symbols:
-        print(f"\nWARNING: {symbol} used demo fallback. Check Alpaca key and connectivity.")
-    else:
-        print(f"\nProvider responded successfully for {symbol}.")
+    if isinstance(provider, AlpacaIEXProvider) and any_fallback:
+        print("\nFallback occurred for one or more symbols. Verify Alpaca API keys in .env and connectivity.")
+    elif any_success:
+        print(f"\nCheck complete. Provider: {provider.name}")
+
+
+def run_provider_health(args: argparse.Namespace) -> ProviderHealth:
+    """Run a provider health check. Does not scan, trade, or place orders."""
+    settings = load_scanner_settings(args.config)
+    effective_provider = resolve_effective_provider(settings)
+    market_data_cfg = settings.market_data or {}
+    real_enabled = bool(market_data_cfg.get("real_provider_enabled", False))
+    lookback_days = getattr(args, "lookback_days", 5)
+
+    raw_symbols = getattr(args, "symbols", "")
+    test_symbols = [s.strip().upper() for s in raw_symbols.split(",") if s.strip()] if raw_symbols.strip() else None
+
+    metadata_by_symbol = load_universe_metadata(settings.universe_config_path)
+    profiles_by_symbol = {
+        sym: meta.demo_profile
+        for sym, meta in metadata_by_symbol.items()
+        if meta.demo_profile
+    }
+
+    print("Provider health check")
+    print("Does not scan, trade, or place orders.")
+    print(f"Config:              {args.config}")
+    print(f"Configured provider: {settings.provider}")
+    print(f"Effective provider:  {effective_provider} (real_provider_enabled={real_enabled})")
+
+    health = check_provider_health(
+        effective_provider=effective_provider,
+        configured_provider=settings.provider,
+        market_data_config=settings.market_data,
+        test_symbols=test_symbols,
+        lookback_days=lookback_days,
+        profiles_by_symbol=profiles_by_symbol,
+    )
+
+    print(f"\nHealth check result: {'PASSED' if health.passed else 'FAILED'}")
+    print(f"Keys present:        {health.keys_present}")
+    print(f"Feed:                {health.feed}")
+    print(f"Timeframe:           {health.timeframe}")
+    print(f"Fallback provider:   {health.fallback_provider}")
+    print(f"Symbols requested:   {health.symbols_requested}")
+    print(f"Symbols with data:   {health.symbols_with_data}")
+    print(f"Symbols fallback:    {health.symbols_fallback}")
+    print(f"Symbols stale:       {health.symbols_stale}")
+    print(f"Using fallback:      {health.using_fallback}")
+    if health.latest_bar_time:
+        print(f"Latest bar time:     {health.latest_bar_time}")
+    if health.provider_errors:
+        print("Errors:")
+        for err in health.provider_errors:
+            print(f"  {err}")
+    if effective_provider == "alpaca_iex":
+        print("NOTE: Alpaca IEX is a single-exchange feed. It may differ from consolidated SIP data.")
+
+    if getattr(args, "record_event", False):
+        repo = ScannerRepository(settings.database_path)
+        tony = TonyStocksService(repo, settings.tony_stocks)
+        tony.start_cycle()
+        configure_logging(settings.log_dir)
+        health_dict = health.to_dict()
+        if health.passed:
+            tony.record_provider_health_passed(health_dict)
+        else:
+            tony.record_provider_health_failed(health_dict)
+        print("\nHealth check event recorded.")
+
+    return health
 
 
 def main() -> None:
@@ -687,6 +815,8 @@ def main() -> None:
         run_outcome_analytics(args)
     elif args.command == "data-check":
         run_data_check(args)
+    elif args.command == "provider-health":
+        run_provider_health(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 

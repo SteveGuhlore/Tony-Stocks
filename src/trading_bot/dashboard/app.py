@@ -16,7 +16,7 @@ from trading_bot.data.market_data import build_market_data_provider
 from trading_bot.data.universe import load_universe_metadata
 from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.indicators import simple_moving_average
-from trading_bot.settings import load_scanner_settings
+from trading_bot.settings import load_scanner_settings, resolve_effective_provider
 from trading_bot.storage.repositories import ScannerRepository
 
 
@@ -56,34 +56,63 @@ def latest_results(repo: ScannerRepository) -> pd.DataFrame:
     return results
 
 
-def render_data_provider_status() -> None:
+def render_data_provider_status(repo: ScannerRepository | None = None) -> None:
     """Show a compact data provider status card in the Overview tab."""
     settings = load_scanner_settings()
-    provider = settings.provider
+    configured_provider = settings.provider
+    effective_provider = resolve_effective_provider(settings)
     market_data_cfg = settings.market_data or {}
     alpaca_cfg = market_data_cfg.get("alpaca") or {}
+    real_enabled = bool(market_data_cfg.get("real_provider_enabled", False))
+
+    last_scan_run = repo.latest_scan_run() if repo else None
+    last_scan_provider = str(last_scan_run.get("provider", "unknown")) if last_scan_run else "no scan yet"
 
     with st.expander("Data Provider Status", expanded=False):
-        status_cols = st.columns(4)
-        status_cols[0].metric("Active Provider", provider)
-        if provider == "alpaca_iex":
+        top_cols = st.columns(4)
+        top_cols[0].metric("Configured Provider", configured_provider)
+        top_cols[1].metric("Effective Provider", effective_provider)
+        top_cols[2].metric("real_provider_enabled", str(real_enabled))
+        top_cols[3].metric("Last Scan Provider", last_scan_provider)
+
+        if effective_provider == "alpaca_iex":
             feed = alpaca_cfg.get("feed", "iex")
             timeframe = alpaca_cfg.get("timeframe", "1Day")
             max_symbols = alpaca_cfg.get("max_symbols_per_scan", 30)
-            status_cols[1].metric("Feed", str(feed).upper())
-            status_cols[2].metric("Timeframe", str(timeframe))
-            status_cols[3].metric("Max Symbols/Scan", str(max_symbols))
+            detail_cols = st.columns(3)
+            detail_cols[0].metric("Feed", str(feed).upper())
+            detail_cols[1].metric("Timeframe", str(timeframe))
+            detail_cols[2].metric("Max Symbols/Scan", str(max_symbols))
             st.warning(
                 "**Alpaca IEX data notice:** Alpaca IEX is a single-exchange feed and may differ from "
                 "consolidated SIP market tape. Do not use as sole basis for execution decisions. "
                 "This is market data for research and scanning only — no orders are placed."
             )
+            if repo:
+                recent_events = repo.list_tony_events(limit=100)
+                fallback_count = 0
+                stale_count = 0
+                all_fallback_count = 0
+                if not recent_events.empty and "event_type" in recent_events.columns:
+                    fallback_count = int(recent_events["event_type"].eq("data_provider_fallback").sum())
+                    stale_count = int(recent_events["event_type"].eq("stale_data_warning").sum())
+                    all_fallback_count = int(recent_events["event_type"].eq("all_symbol_fallback").sum())
+                event_cols = st.columns(3)
+                event_cols[0].metric("Fallback Events (recent)", fallback_count)
+                event_cols[1].metric("Stale Data Events (recent)", stale_count)
+                event_cols[2].metric("All-Symbol Fallback Events", all_fallback_count)
+                if all_fallback_count > 0:
+                    st.error(
+                        f"**{all_fallback_count} all-symbol fallback event(s) recorded.** "
+                        "All symbols fell back to demo data in at least one recent cycle. "
+                        "Check Alpaca API keys, connectivity, and market hours."
+                    )
         else:
-            status_cols[1].metric("Feed", "demo")
-            status_cols[2].metric("Timeframe", settings.timeframe)
-            status_cols[3].metric("Mode", "research/testing")
-            if provider == "demo_generated":
-                st.info("Provider is demo_generated. Set provider to alpaca_iex in config and add API keys to .env to use real market data.")
+            detail_cols = st.columns(2)
+            detail_cols[0].metric("Timeframe", settings.timeframe)
+            detail_cols[1].metric("Mode", "research/testing")
+            if effective_provider == "demo_generated":
+                st.info("Provider is demo_generated. Set real_provider_enabled: true and provider: alpaca_iex in market_data config, then add API keys to .env.")
 
 
 def render_overview(repo: ScannerRepository, results: pd.DataFrame) -> None:
@@ -97,7 +126,7 @@ def render_overview(repo: ScannerRepository, results: pd.DataFrame) -> None:
     cols[3].metric("Primary candidates", len(primary))
     cols[4].metric("Mid/small-cap candidates", len(mid_small))
     cols[5].metric("Warnings", int(results["warning_count"].sum()) if not results.empty else 0)
-    render_data_provider_status()
+    render_data_provider_status(repo)
     render_watch_status(repo, run)
     if not results.empty:
         chart_cols = st.columns(3)
@@ -234,7 +263,12 @@ def render_detail(results: pd.DataFrame) -> None:
         for item_symbol, item in metadata.items()
         if item.demo_profile
     }
-    provider = build_market_data_provider(settings.provider, settings.cache_dir, profiles_by_symbol=profiles_by_symbol)
+    provider = build_market_data_provider(
+        resolve_effective_provider(settings),
+        settings.cache_dir,
+        profiles_by_symbol=profiles_by_symbol,
+        market_data_config=settings.market_data,
+    )
     data = provider.fetch_ohlcv(symbol, settings.lookback_days, settings.timeframe)
     data["sma20"] = simple_moving_average(data["close"], 20)
     data["sma50"] = simple_moving_average(data["close"], 50)
