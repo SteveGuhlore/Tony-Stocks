@@ -44,6 +44,10 @@ class TonyConfig:
         "universe_rotation_summary",
         "batch_fetch_summary",
         "provider_fallback_summary",
+        "analyst_candidate_hypothesis",
+        "analyst_market_context",
+        "analyst_data_quality",
+        "analyst_risk_warning",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -379,6 +383,109 @@ class TonyStocksService:
                 f"Errors: {error_summary}."
             ),
             payload=health,
+        )
+
+    def record_analyst_candidate_hypothesis(
+        self,
+        symbol: str,
+        priority_label: str,
+        recommended_action: str,
+        hypothesis: str,
+        setup_read: str,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        """Create one analyst hypothesis event per high-priority candidate.
+
+        Tony is analyzing, not trading. No paper trades or orders are created.
+        """
+        severity = "watch" if priority_label in ("high_priority", "watch") else "info"
+        self.create_event(
+            event_type="analyst_candidate_hypothesis",
+            severity=severity,
+            symbol=symbol,
+            title=f"{self.config.agent_name}: {symbol} — {priority_label} ({setup_read})",
+            message=hypothesis,
+            payload=payload or {
+                "symbol": symbol,
+                "priority_label": priority_label,
+                "recommended_action": recommended_action,
+                "setup_read": setup_read,
+            },
+        )
+
+    def record_analyst_market_context(
+        self,
+        context_label: str,
+        description: str,
+        benchmark_symbols: list[str],
+    ) -> None:
+        """Create a market context event once per watch cycle."""
+        severity = "warning" if context_label == "market_weak" else "info"
+        self.create_event(
+            event_type="analyst_market_context",
+            severity=severity,
+            title=f"{self.config.agent_name}: Market context — {context_label}",
+            message=description,
+            payload={
+                "context_label": context_label,
+                "benchmark_symbols": benchmark_symbols,
+            },
+        )
+
+    def record_analyst_data_quality(
+        self,
+        dq_summary: dict[str, int],
+        provider_name: str,
+        total_candidates: int,
+    ) -> None:
+        """Create a data quality summary event once per scan cycle."""
+        real_count = dq_summary.get("alpaca_iex_real_data", 0)
+        demo_count = dq_summary.get("demo_data", 0)
+        fallback_count = dq_summary.get("fallback_data", 0)
+        stale_count = dq_summary.get("stale_data", 0)
+        seeded_count = dq_summary.get("seeded_demo_fixture", 0)
+        severity = "warning" if (fallback_count + stale_count) > 0 else "info"
+        self.create_event(
+            event_type="analyst_data_quality",
+            severity=severity,
+            title=f"{self.config.agent_name}: Data quality summary ({provider_name})",
+            message=(
+                f"{total_candidates} candidates: {real_count} real IEX, {demo_count} demo, "
+                f"{fallback_count} fallback, {stale_count} stale, {seeded_count} seeded fixtures. "
+                "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape."
+            ),
+            payload={
+                "provider": provider_name,
+                "total_candidates": total_candidates,
+                **dq_summary,
+            },
+        )
+
+    def record_analyst_risk_warning(
+        self,
+        symbols_with_risk: list[str],
+        risk_types: list[str],
+        provider_name: str,
+    ) -> None:
+        """Create a risk warning event when candidates have elevated ATR or invalid plans."""
+        if not symbols_with_risk:
+            return
+        severity = "warning"
+        self.create_event(
+            event_type="analyst_risk_warning",
+            severity=severity,
+            title=f"{self.config.agent_name}: Risk concerns in {len(symbols_with_risk)} candidate(s)",
+            message=(
+                f"Risk flags in {len(symbols_with_risk)} candidate(s): {', '.join(symbols_with_risk[:10])}. "
+                f"Risk types detected: {', '.join(sorted(set(risk_types)))}. "
+                "Review before any manual pick decisions. Tony is analyzing, not trading."
+            ),
+            payload={
+                "provider": provider_name,
+                "symbols_with_risk": symbols_with_risk,
+                "risk_types": risk_types,
+                "count": len(symbols_with_risk),
+            },
         )
 
     def record_outcome_analytics(self, analytics_summary: dict[str, Any]) -> None:

@@ -6,6 +6,59 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V10 handoff — Tony Analyst Engine Foundation
+
+### Current active task
+
+V10 complete. Tony Stocks analyst module built. 180 tests pass.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V10
+
+- `src/trading_bot/tony/analysis.py` — NEW. Deterministic analyst engine: `CandidateAnalysis` dataclass, `MarketContext` class, `analyze_candidates()` entry point. Seven private helpers: `_setup_read()`, `_volume_read()`, `_risk_read()`, `_data_quality()`, `_outcome_context()`, `_priority_and_action()`, `_build_hypothesis()`. Labels: setup_read (7 values), volume_read (5 values), risk_read (5 values), market_context_read (4 values), data_quality_read (5 values), outcome_context (4 values), priority_label (5 values). Allowed recommended_actions: `snapshot_only`, `watch_only`, `avoid`, `needs_more_data`, `reference_only`. No LLMs, no paper trades, no orders.
+- `src/trading_bot/tony/events.py` — Added 4 new event methods: `record_analyst_candidate_hypothesis()`, `record_analyst_market_context()`, `record_analyst_data_quality()`, `record_analyst_risk_warning()`. Added 4 event types to `TonyConfig.create_events_for` default tuple.
+- `src/trading_bot/tony/__init__.py` — Exported `CandidateAnalysis`, `MarketContext`, `analyze_candidates`.
+- `src/trading_bot/cli.py` — Imported `analyze_candidates`, `MarketContext`. Wired analyst block into `run_scan()` after Alpaca events, before `tony.record_scan_completed()`. Builds benchmark_rows, candidate_rows, fallback/stale sets, loads outcome snapshots (seeded excluded), calls `analyze_candidates()`, then fires all 4 analyst events per cycle.
+- `src/trading_bot/dashboard/app.py` — Updated `render_tony_stocks()`: added analyst status metric, "Analyst Reads" expander showing market context, data quality, risk warning, and candidate hypothesis events. Added real-vs-fallback event separation notice. Updated info banner to say "analyst, not trader".
+- `config/default_config.yaml` — Added 4 analyst event types to `create_events_for` list.
+- `tests/test_tony_analyst.py` — NEW. 59 tests in 10 test classes: `TestSetupRead`, `TestVolumeRead`, `TestRiskRead`, `TestMarketContext`, `TestDataQuality`, `TestPriorityAndAction`, `TestOutcomeContext`, `TestAnalyzeCandidates`, `TestTonyAnalystEvents`.
+
+### Tests/checks run in V10
+
+- `pytest` (via `run_tests.ps1`) — **180 passed, 0 failures, 0 errors** (up from 121).
+- `provider-health` — PASSED. keys_present=True. 3 symbols, 0 fallback.
+- `run_scanner.ps1` — 52 symbols scored. Analyst events generated:
+  - `analyst_market_context`: market_supportive
+  - `analyst_data_quality`: 42 candidates, 0 real IEX, 39 demo, 3 fallback, 0 stale
+  - `analyst_risk_warning`: 9 candidates (wide ATR or high volatility)
+  - `analyst_candidate_hypothesis`: DVN (high_priority, breakout_candidate, snapshot_only), DKNG (high_priority), OXY (high_priority), AVGO, U, RUN, SNOW, SMCI (all watch/watch_only)
+- `watch --max-cycles 1` — 159 symbols, 3 API requests, 4 fallbacks, 0 rate-limit warnings.
+- `tony-events --limit 30` — confirmed all 4 analyst event types present and correctly formatted.
+
+### Known issues / risks (V10)
+
+- `analyst_market_context` shows "SPY not in scan" when scanning from `default_config.yaml` because SPY is not in that universe's symbol list. Correct behavior — the analyst correctly reports no benchmark data. The `universe_swing_research_config.yaml` includes SPY and will show real market context.
+- Analyst events created after Alpaca provider events; event budget (max_events_per_cycle=20) could run out if many provider events fire first. Tuning: increase `max_events_per_cycle` in config if analyst hypotheses are getting cut off.
+- `analyst_data_quality` shows "0 real IEX" when the provider uses Alpaca IEX but all data uses demo fallback. Correct — the data_quality read tracks per-symbol quality, not provider type. Real IEX count increases once symbols aren't in fallback.
+- `outcome_context` returns `not_enough_history` on first run because no real-data snapshots exist yet. This will improve once watch mode accumulates snapshots over real market sessions.
+
+### Safe to continue?
+
+Yes. 180 tests pass (0 failures, 0 errors). No broker execution, live trading, paper trades, order placement, API keys exposed, external notifications, or LLM trade decisions were added or changed. `recommended_action` is constrained to: snapshot_only, watch_only, avoid, needs_more_data, reference_only. Tony explicitly states "analyzing, not trading" in all hypotheses.
+
+### Next recommended steps
+
+1. Run `watch --max-cycles 1` with `config/universe_swing_research_config.yaml` to see analyst events with full 171-symbol universe and SPY/QQQ/IWM as benchmarks.
+2. Check `tony-events --limit 30` for `analyst_market_context` with real benchmark data.
+3. After accumulating real-data snapshots over several sessions, `outcome_context` will start returning `historically_positive/negative/mixed` instead of `not_enough_history`.
+4. Consider adding `analyst_candidate_hypothesis` filter to the dashboard ranked view so high-priority analyst picks appear alongside scanner output.
+5. Consider wiring analyst reads into the candidate_snapshots table (store `tony_hypothesis` in snapshot notes) for future outcome-to-hypothesis correlation.
+
+---
+
 ## V9.5 handoff — Universe Expansion to 171 Symbols
 
 ### Current active task

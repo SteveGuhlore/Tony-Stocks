@@ -121,6 +121,10 @@ tony_stocks:
     - universe_rotation_summary
     - batch_fetch_summary
     - provider_fallback_summary
+    - analyst_candidate_hypothesis
+    - analyst_market_context
+    - analyst_data_quality
+    - analyst_risk_warning
   high_score_threshold: 85
   include_seeded_demo_events: false
   max_events_per_cycle: 25

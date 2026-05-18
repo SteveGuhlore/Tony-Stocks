@@ -33,6 +33,7 @@ from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
 from trading_bot.settings import load_scanner_settings, resolve_effective_provider
 from trading_bot.tony import TonyStocksService
+from trading_bot.tony.analysis import MarketContext, analyze_candidates
 
 
 LOGGER = logging.getLogger(__name__)
@@ -345,6 +346,67 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             waits_count = rl.total_waits if rl is not None else 0
             tony.record_rate_limit_warning(provider.name, cycle_stats["rate_limit_warnings"], waits_count)
         tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
+
+    # ── Tony analyst reads (V10) ──────────────────────────────────────────────
+    # Produce deterministic analyst reads for each candidate.
+    # No LLMs, no paper trades, no orders. Tony is analyzing, not trading.
+    if results and tony.enabled:
+        benchmark_rows = [r for r in results if r.universe_role in ("benchmark", "reference")]
+        candidate_rows = [r for r in results if r.universe_role not in ("benchmark", "reference")]
+        fallback_syms = list(provider.fallback_symbols) if isinstance(provider, AlpacaIEXProvider) else []
+        stale_syms = list(provider.stale_symbols) if isinstance(provider, AlpacaIEXProvider) else []
+        effective_provider_name = provider.name
+
+        outcome_snaps: Any = None
+        try:
+            outcome_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
+        except Exception:
+            pass
+
+        analyses = analyze_candidates(
+            candidates=candidate_rows,
+            benchmark_rows=benchmark_rows,
+            provider_name=effective_provider_name,
+            fallback_symbols=fallback_syms,
+            stale_symbols=stale_syms,
+            outcome_snapshots=outcome_snaps if (outcome_snaps is not None and not outcome_snaps.empty) else None,
+            include_seeded_demo=False,
+        )
+
+        # Market context event (once per scan)
+        mkt = MarketContext(benchmark_rows)
+        tony.record_analyst_market_context(
+            context_label=mkt.context_label(),
+            description=mkt.description(),
+            benchmark_symbols=[r.symbol for r in benchmark_rows],
+        )
+
+        # Data quality summary event (once per scan)
+        from collections import Counter
+        dq_counts: Counter[str] = Counter(a.data_quality_read for a in analyses)
+        tony.record_analyst_data_quality(
+            dq_summary=dict(dq_counts),
+            provider_name=effective_provider_name,
+            total_candidates=len(analyses),
+        )
+
+        # Risk warning event (once per scan, for symbols with elevated risk)
+        risk_symbols = [a.symbol for a in analyses if a.risk_read in ("wide_atr_concern", "high_volatility_concern", "avoid_invalid_plan")]
+        risk_types = [a.risk_read for a in analyses if a.risk_read in ("wide_atr_concern", "high_volatility_concern", "avoid_invalid_plan")]
+        tony.record_analyst_risk_warning(risk_symbols, risk_types, effective_provider_name)
+
+        # Hypothesis events for high-priority candidates
+        for analysis in analyses:
+            if analysis.priority_label in ("high_priority", "watch"):
+                tony.record_analyst_candidate_hypothesis(
+                    symbol=analysis.symbol,
+                    priority_label=analysis.priority_label,
+                    recommended_action=analysis.recommended_action,
+                    hypothesis=analysis.tony_hypothesis,
+                    setup_read=analysis.setup_read,
+                    payload=analysis.to_dict(),
+                )
+
     tony.record_scan_completed(summary, results=results, snapshot_ids=snapshot_ids)
     return summary
 

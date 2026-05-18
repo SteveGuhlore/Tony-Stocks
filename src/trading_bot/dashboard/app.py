@@ -542,9 +542,13 @@ def render_tony_stocks(repo: ScannerRepository) -> None:
     st.subheader("Tony Stocks")
     settings = load_scanner_settings()
     tony_config = settings.tony_stocks or {}
-    st.info("Tony Stocks is currently watcher/analyst only. No paper trades, broker orders, or live trades are placed.")
+    st.info(
+        "Tony Stocks is an analyst, not a trader. "
+        "No paper trades, broker orders, or live trades are placed. "
+        "Hypotheses are deterministic reads of scanner output — not financial advice."
+    )
     events = repo.list_tony_events(limit=500)
-    status_cols = st.columns(5)
+    status_cols = st.columns(6)
     status_cols[0].metric("Tony Mode", str(tony_config.get("mode", "watcher")))
     latest_scan = _latest_event_time(events, "scan_completed")
     latest_watch = _latest_event_time(events, "watch_cycle_completed")
@@ -552,9 +556,60 @@ def render_tony_stocks(repo: ScannerRepository) -> None:
     status_cols[2].metric("Latest Watch Event", latest_watch or "None")
     status_cols[3].metric("Warnings", repo.count_tony_events(severity="warning"))
     status_cols[4].metric("High-Score Events", repo.count_tony_events(event_type="high_score_candidate"))
+    status_cols[5].metric("Analyst Hypotheses", repo.count_tony_events(event_type="analyst_candidate_hypothesis"))
+
+    # ── Analyst reads section ─────────────────────────────────────────────────
+    analyst_events = repo.list_tony_events(event_type="analyst_candidate_hypothesis", limit=50)
+    mkt_events = repo.list_tony_events(event_type="analyst_market_context", limit=5)
+    dq_events = repo.list_tony_events(event_type="analyst_data_quality", limit=5)
+    risk_events = repo.list_tony_events(event_type="analyst_risk_warning", limit=10)
+
+    with st.expander("Analyst Reads (latest cycle)", expanded=True):
+        if not mkt_events.empty:
+            mkt_row = mkt_events.iloc[0]
+            mkt_payload = json.loads(mkt_row.get("payload_json") or "{}")
+            mkt_label = mkt_payload.get("context_label", "unknown")
+            mkt_color = {"market_supportive": "✅", "market_weak": "⚠️", "market_mixed": "🔶", "benchmark_data_missing": "❓"}
+            st.markdown(f"**Market Context:** {mkt_color.get(mkt_label, '')} `{mkt_label}` — {mkt_row.get('message', '')}")
+        if not dq_events.empty:
+            dq_row = dq_events.iloc[0]
+            st.markdown(f"**Data Quality:** {dq_row.get('message', '')}")
+        if not risk_events.empty:
+            risk_row = risk_events.iloc[0]
+            st.markdown(f"**Risk Warning:** {risk_row.get('message', '')}")
+
+        if not analyst_events.empty:
+            st.markdown("---")
+            st.markdown("**Candidate Hypotheses** *(Tony is analyzing, not trading)*")
+            for _, ev in analyst_events.iterrows():
+                payload = json.loads(ev.get("payload_json") or "{}")
+                sym = ev.get("symbol") or payload.get("symbol", "?")
+                priority = payload.get("priority_label", "")
+                action = payload.get("recommended_action", "")
+                setup = payload.get("setup_read", "")
+                priority_icon = {"high_priority": "🔴", "watch": "🟡", "low_priority": "🟢", "avoid": "⛔", "reference_only": "📊"}.get(priority, "")
+                with st.expander(f"{priority_icon} {sym} — {priority} | {action} | {setup}"):
+                    st.write(ev.get("message", ""))
+                    if payload:
+                        st.json(payload)
+        elif not events.empty:
+            st.info("No analyst hypothesis events yet. Analyst mode produces events when scanning with real or demo data.")
+
     if events.empty:
         st.info("No Tony Stocks events yet. Run a scan, snapshot update, or watch cycle.")
         return
+
+    st.markdown("---")
+    st.subheader("All Tony Events")
+
+    # separate current real-data events from old fallback events
+    if not events.empty and "event_type" in events.columns:
+        fallback_types = {"data_provider_fallback", "all_symbol_fallback", "provider_fallback_summary"}
+        real_data_types = {"real_data_scan_scaled", "batch_fetch_summary", "real_provider_active", "universe_rotation_summary"}
+        has_real = not events[events["event_type"].isin(real_data_types)].empty
+        has_fallback = not events[events["event_type"].isin(fallback_types)].empty
+        if has_real and has_fallback:
+            st.info("This event log contains both real-data scan events and fallback events from earlier cycles.")
 
     filter_cols = st.columns(4)
     severity = filter_cols[0].selectbox("Severity", ["All"] + sorted(events["severity"].dropna().unique().tolist()))
