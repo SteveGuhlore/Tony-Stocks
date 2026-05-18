@@ -15,6 +15,15 @@ if str(ROOT / "src") not in sys.path:
 from trading_bot.data.market_data import build_market_data_provider
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
 from trading_bot.analytics import OutcomeAnalytics
+from trading_bot.dashboard.helpers import (
+    count_hypothesis_by_priority,
+    event_age_label,
+    filter_events_by_type,
+    is_fallback_provider,
+    is_seeded_demo_snapshot,
+    latest_event_of_type,
+    snapshots_today_count,
+)
 from trading_bot.indicators import simple_moving_average
 from trading_bot.settings import load_scanner_settings, resolve_effective_provider
 from trading_bot.storage.repositories import ScannerRepository
@@ -854,28 +863,353 @@ def _tony_event_columns(events: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+def _cc_hypothesis_cards(analyst_events: pd.DataFrame, limit: int = 8) -> None:
+    """Compact hypothesis cards for the Command Center. No orders, no buy/sell wording."""
+    if analyst_events.empty:
+        st.info("No analyst hypothesis events yet. Run a scan to generate analyst reads.")
+        return
+    st.caption("Tony is analyzing, not trading. No orders, paper trades, or broker execution.")
+    priority_icon = {
+        "high_priority": "🔴",
+        "watch": "🟡",
+        "low_priority": "🟢",
+        "avoid": "⛔",
+        "reference_only": "📊",
+    }
+    action_labels = {
+        "snapshot_only": "Snapshot Only",
+        "watch_only": "Watch Only",
+        "avoid": "Avoid",
+        "needs_more_data": "Needs More Data",
+        "reference_only": "Reference Only",
+    }
+    for _, ev in analyst_events.head(limit).iterrows():
+        payload = json.loads(ev.get("payload_json") or "{}")
+        sym = ev.get("symbol") or payload.get("symbol", "?")
+        priority = payload.get("priority_label", "")
+        action = payload.get("recommended_action", "")
+        setup = payload.get("setup_read", "")
+        icon = priority_icon.get(priority, "")
+        age = event_age_label(ev.get("created_at"))
+        header = f"{icon} **{sym}** — {action_labels.get(action, action)} | {setup} | {age}"
+        with st.expander(header, expanded=False):
+            card_cols = st.columns(4)
+            card_cols[0].metric("Priority", priority.replace("_", " ").title() if priority else "—")
+            card_cols[1].metric("Volume", payload.get("volume_read", "—").replace("_", " "))
+            card_cols[2].metric("Risk", payload.get("risk_read", "—").replace("_", " "))
+            card_cols[3].metric("Data", payload.get("data_quality_read", "—").replace("_", " "))
+            concerns = payload.get("concerns", [])
+            if concerns:
+                st.caption("Concerns: " + ", ".join(str(c) for c in concerns))
+            hypothesis = ev.get("message") or payload.get("tony_hypothesis", "")
+            if hypothesis:
+                st.write(hypothesis)
+
+
+def render_watch_health(repo: ScannerRepository) -> None:
+    """Watch Health panel — universe size, rotation stats, API/batch requests, rate limits."""
+    settings = load_scanner_settings()
+    events = repo.list_tony_events(limit=100)
+
+    # Universe metrics from config
+    universe_total = 0
+    active_count = 0
+    core_count = 0
+    discovery_count = 0
+    try:
+        universe_cfg_path = settings.universe_config_path
+        all_syms = load_universe(universe_cfg_path)
+        universe_tags = load_universe_tags(universe_cfg_path)
+        universe_meta = load_universe_metadata(universe_cfg_path)
+        core_count = sum(1 for tags in universe_tags.values() if "watchlist_core" in tags)
+        discovery_count = sum(1 for tags in universe_tags.values() if "discovery" in tags)
+        active_count = sum(1 for m in universe_meta.values() if m.universe_role != "excluded_by_default")
+        universe_total = len(all_syms)
+    except Exception:
+        pass
+
+    # Rotation stats from latest universe_rotation_summary event
+    rotation_event = latest_event_of_type(events, "universe_rotation_summary")
+    symbols_selected = None
+    open_snapshot_count = None
+    bucket_id = None
+    if rotation_event:
+        rp = json.loads(rotation_event.get("payload_json") or "{}")
+        symbols_selected = rp.get("symbols_selected") or rp.get("cycle_symbols_count")
+        open_snapshot_count = rp.get("open_snapshot_count")
+        bucket_id = rp.get("bucket_id") or rp.get("rotation_bucket_id")
+
+    # API/batch stats from latest batch_fetch_summary
+    batch_event = latest_event_of_type(events, "batch_fetch_summary")
+    api_requests = None
+    batch_requests = None
+    if batch_event:
+        bp = json.loads(batch_event.get("payload_json") or "{}")
+        api_requests = bp.get("api_requests_used")
+        batch_requests = bp.get("batch_requests_used")
+
+    # Rate limit / fallback counts from recent events
+    rate_limit_count = int(filter_events_by_type(events, "rate_limit_warning").shape[0])
+    fallback_count = int(
+        filter_events_by_type(events, "data_provider_fallback").shape[0]
+        + filter_events_by_type(events, "all_symbol_fallback").shape[0]
+    )
+    stale_count = int(filter_events_by_type(events, "stale_data_warning").shape[0])
+
+    st.subheader("Watch Health")
+    row1 = st.columns(4)
+    row1[0].metric("Universe Total", universe_total or "—")
+    row1[1].metric("Active Symbols", active_count or "—")
+    row1[2].metric("Watchlist Core", core_count or "—")
+    row1[3].metric("Discovery Pool", discovery_count or "—")
+
+    row2 = st.columns(4)
+    row2[0].metric("Symbols Selected/Cycle", symbols_selected if symbols_selected is not None else "—")
+    row2[1].metric("Open Snapshots (rotation)", open_snapshot_count if open_snapshot_count is not None else repo.count_open_candidate_snapshots())
+    row2[2].metric("Rotation Bucket", bucket_id if bucket_id is not None else "—")
+    rotation_cfg = settings.watch_universe_rotation or {}
+    row2[3].metric("Max/Cycle", rotation_cfg.get("max_symbols_per_cycle", "—"))
+
+    row3 = st.columns(4)
+    row3[0].metric("API Requests (last batch)", api_requests if api_requests is not None else "—")
+    row3[1].metric("Batch Requests (last batch)", batch_requests if batch_requests is not None else "—")
+    row3[2].metric("Rate-Limit Warnings", rate_limit_count)
+    row3[3].metric("Fallback / Stale Events", f"{fallback_count} / {stale_count}")
+
+    if rate_limit_count > 0:
+        st.warning(f"{rate_limit_count} rate-limit warning(s). Reduce max_symbols_per_cycle or increase request_sleep_seconds.")
+
+
+def render_data_quality_panel(repo: ScannerRepository) -> None:
+    """Data Quality panel — IEX notice, fallback summary, stale warning, no key values shown."""
+    settings = load_scanner_settings()
+    effective_provider = resolve_effective_provider(settings)
+    events = repo.list_tony_events(limit=100)
+
+    dq_event = latest_event_of_type(events, "analyst_data_quality")
+    real_count = demo_count = fallback_count = stale_count = seeded_count = total = 0
+    dq_provider = effective_provider
+    if dq_event:
+        dp = json.loads(dq_event.get("payload_json") or "{}")
+        real_count = dp.get("alpaca_iex_real_data", 0)
+        demo_count = dp.get("demo_data", 0)
+        fallback_count = dp.get("fallback_data", 0)
+        stale_count = dp.get("stale_data", 0)
+        seeded_count = dp.get("seeded_demo_fixture", 0)
+        total = dp.get("total_candidates", 0)
+        dq_provider = dp.get("provider", effective_provider)
+
+    st.subheader("Data Quality")
+
+    if effective_provider == "alpaca_iex":
+        st.warning(
+            "**Alpaca IEX single-exchange notice:** IEX is not full SIP consolidated tape. "
+            "Price/volume data may differ from NBBO. Research and scanning only — no orders placed."
+        )
+    elif is_fallback_provider(effective_provider):
+        st.error(
+            f"**Provider is {effective_provider} (demo/fallback).** Real market data is not active. "
+            "Add Alpaca API keys to .env and set real_provider_enabled: true."
+        )
+
+    cols = st.columns(5)
+    cols[0].metric("Real IEX Data", real_count)
+    cols[1].metric("Demo Data", demo_count)
+    cols[2].metric("Fallback Data", fallback_count)
+    cols[3].metric("Stale Data", stale_count)
+    cols[4].metric("Seeded Fixtures", seeded_count)
+
+    if dq_event:
+        age = event_age_label(dq_event.get("created_at"))
+        st.caption(f"From latest analyst_data_quality event ({age}) — provider: {dq_provider} — {total} candidates")
+
+    if fallback_count > 0 or stale_count > 0:
+        st.warning(
+            f"{fallback_count} fallback and {stale_count} stale data reads in the last scan. "
+            "Analyst reads for these symbols used degraded data."
+        )
+
+    if demo_count == total and total > 0:
+        st.error("All candidates are using demo data. Real Alpaca IEX data is not flowing.")
+
+
+def render_outcome_snapshot_panel(repo: ScannerRepository) -> None:
+    """Outcome Snapshot panel — today count, open/watch, triggered, hit/miss. Seeded demo excluded."""
+    outcome_counts = repo.count_candidate_snapshots_by_outcome()
+    open_count = repo.count_open_candidate_snapshots()
+    triggered_count = repo.count_triggered_candidate_snapshots()
+    today_count = snapshots_today_count(repo)
+
+    st.subheader("Snapshot Summary")
+    st.caption("Seeded demo fixtures are excluded from all counts below.")
+
+    cols = st.columns(6)
+    cols[0].metric("Snapshots Today", today_count)
+    cols[1].metric("Open / Watch", open_count)
+    cols[2].metric("Triggered", triggered_count)
+    cols[3].metric("Target Hit", _count_outcome(outcome_counts, ["target_hit", "target_before_stop"]))
+    cols[4].metric("Stop Hit", _count_outcome(outcome_counts, ["stop_hit", "stop_before_target"]))
+    cols[5].metric("Insufficient Data", _count_outcome(outcome_counts, ["insufficient_future_data"]))
+
+
+def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Command Center — consolidated current state for monitoring Tony at a glance."""
+    st.caption(
+        "Tony Stocks is an analyst, not a trader. "
+        "No orders, paper trades, broker execution, or live trading. "
+        "All reads are deterministic — no LLM."
+    )
+
+    settings = load_scanner_settings()
+    tony_cfg = settings.tony_stocks or {}
+    effective_provider = resolve_effective_provider(settings)
+
+    events = repo.list_tony_events(limit=300)
+    analyst_events = repo.list_tony_events(event_type="analyst_candidate_hypothesis", limit=20)
+    mkt_events = repo.list_tony_events(event_type="analyst_market_context", limit=3)
+    dq_events = repo.list_tony_events(event_type="analyst_data_quality", limit=3)
+    risk_events = repo.list_tony_events(event_type="analyst_risk_warning", limit=5)
+
+    latest_scan_ts = _latest_event_time(events, "scan_completed")
+    latest_watch_ts = _latest_event_time(events, "watch_cycle_completed")
+
+    # API/symbols from last batch event
+    api_requests = None
+    symbols_scanned = None
+    batch_event = latest_event_of_type(events, "batch_fetch_summary")
+    if batch_event:
+        bp = json.loads(batch_event.get("payload_json") or "{}")
+        api_requests = bp.get("api_requests_used")
+        symbols_scanned = bp.get("symbols_fetched") or bp.get("symbols_scanned")
+
+    if symbols_scanned is None and not results.empty:
+        symbols_scanned = len(results)
+
+    fallback_count = int(
+        filter_events_by_type(events, "data_provider_fallback").shape[0]
+        + filter_events_by_type(events, "all_symbol_fallback").shape[0]
+    )
+    rate_limit_count = int(filter_events_by_type(events, "rate_limit_warning").shape[0])
+
+    pri_counts = count_hypothesis_by_priority(analyst_events)
+    high_pri_count = pri_counts.get("high_priority", 0)
+    watch_count = pri_counts.get("watch", 0)
+
+    # ── Status row ─────────────────────────────────────────────────────────────
+    row1 = st.columns(6)
+    row1[0].metric("Tony Mode", str(tony_cfg.get("mode", "watcher")).title())
+    row1[1].metric("Provider", effective_provider)
+    row1[2].metric("Last Scan", event_age_label(latest_scan_ts) if latest_scan_ts else "No scan")
+    row1[3].metric("Last Watch", event_age_label(latest_watch_ts) if latest_watch_ts else "No watch")
+    row1[4].metric("Symbols Scanned", symbols_scanned if symbols_scanned is not None else "—")
+    row1[5].metric("API Requests", api_requests if api_requests is not None else "—")
+
+    # ── Health row ─────────────────────────────────────────────────────────────
+    row2 = st.columns(6)
+    row2[0].metric("Fallback Events", fallback_count)
+    row2[1].metric("Rate-Limit Warnings", rate_limit_count)
+    row2[2].metric("Snapshots Today", snapshots_today_count(repo))
+    row2[3].metric("Open Snapshots", repo.count_open_candidate_snapshots())
+    row2[4].metric("High-Priority Reads", high_pri_count)
+    row2[5].metric("Watch Reads", watch_count)
+
+    # ── Banners ────────────────────────────────────────────────────────────────
+    if is_fallback_provider(effective_provider):
+        st.error(
+            f"Provider is **{effective_provider}** (demo/fallback). "
+            "Real market data is not active. Add Alpaca API keys to .env and set real_provider_enabled: true."
+        )
+    if effective_provider == "alpaca_iex":
+        st.info(
+            "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape. "
+            "Research use only. No orders placed."
+        )
+    if rate_limit_count > 0:
+        st.warning(
+            f"{rate_limit_count} rate-limit warning(s) recorded. "
+            "Consider reducing max_symbols_per_cycle or increasing request_sleep_seconds."
+        )
+
+    # ── Market context ─────────────────────────────────────────────────────────
+    mkt_row = latest_event_of_type(mkt_events, "analyst_market_context")
+    if mkt_row:
+        mkt_payload = json.loads(mkt_row.get("payload_json") or "{}")
+        mkt_label = mkt_payload.get("context_label", "unknown")
+        mkt_age = event_age_label(mkt_row.get("created_at"))
+        mkt_icon = {
+            "market_supportive": "✅",
+            "market_weak": "⚠️",
+            "market_mixed": "🔶",
+            "benchmark_data_missing": "❓",
+        }.get(mkt_label, "")
+        st.markdown(
+            f"**Market Context** ({mkt_age}): {mkt_icon} `{mkt_label}` — {mkt_row.get('message', '')}"
+        )
+
+    # ── Data quality one-liner ─────────────────────────────────────────────────
+    dq_row = latest_event_of_type(dq_events, "analyst_data_quality")
+    if dq_row:
+        dq_age = event_age_label(dq_row.get("created_at"))
+        st.markdown(f"**Data Quality** ({dq_age}): {dq_row.get('message', '')}")
+
+    # ── Risk warning ───────────────────────────────────────────────────────────
+    risk_row = latest_event_of_type(risk_events, "analyst_risk_warning")
+    if risk_row:
+        risk_age = event_age_label(risk_row.get("created_at"))
+        st.warning(f"**Risk Warning** ({risk_age}): {risk_row.get('message', '')}")
+
+    # ── Hypothesis cards ───────────────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("Analyst Reads — Latest Cycle")
+    _cc_hypothesis_cards(analyst_events, limit=8)
+
+    # ── Panels ────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    panel_cols = st.columns(2)
+    with panel_cols[0]:
+        render_watch_health(repo)
+    with panel_cols[1]:
+        render_data_quality_panel(repo)
+
+    st.markdown("---")
+    render_outcome_snapshot_panel(repo)
+
+
 def main() -> None:
     repo = repository()
     results = latest_results(repo)
     st.title("Trading Bot Scanner")
-    tabs = st.tabs(["Overview", "Ranked Stocks", "Stock Detail", "Candidate Snapshots", "Outcome Analytics", "Tony Stocks", "Manual Picks", "Paper Journal", "Performance"])
+    tabs = st.tabs([
+        "Command Center",
+        "Overview",
+        "Ranked Stocks",
+        "Stock Detail",
+        "Candidate Snapshots",
+        "Outcome Analytics",
+        "Tony Stocks",
+        "Manual Picks",
+        "Paper Journal",
+        "Performance",
+    ])
     with tabs[0]:
-        render_overview(repo, results)
+        render_command_center(repo, results)
     with tabs[1]:
-        render_ranked(results)
+        render_overview(repo, results)
     with tabs[2]:
-        render_detail(results)
+        render_ranked(results)
     with tabs[3]:
-        render_candidate_snapshots(repo)
+        render_detail(results)
     with tabs[4]:
-        render_outcome_analytics(repo)
+        render_candidate_snapshots(repo)
     with tabs[5]:
-        render_tony_stocks(repo)
+        render_outcome_analytics(repo)
     with tabs[6]:
-        render_manual_picks(repo, results)
+        render_tony_stocks(repo)
     with tabs[7]:
-        render_paper_journal(repo)
+        render_manual_picks(repo, results)
     with tabs[8]:
+        render_paper_journal(repo)
+    with tabs[9]:
         render_performance(repo)
 
 

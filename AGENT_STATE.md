@@ -6,6 +6,55 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V11 handoff — Dashboard Command Center UX
+
+### Current active task
+
+V11 complete. Dashboard Command Center built. 230 tests pass.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V11
+
+- `src/trading_bot/dashboard/helpers.py` — NEW. Pure, Streamlit-free helper functions for testing: `event_age_label()`, `is_fallback_provider()`, `filter_events_by_type()`, `latest_event_of_type()`, `is_current_cycle_event()`, `count_hypothesis_by_priority()`, `is_seeded_demo_snapshot()`, `snapshots_today_count()`.
+- `src/trading_bot/dashboard/app.py` — Added:
+  - Import of helpers module
+  - `_cc_hypothesis_cards()` — compact hypothesis cards for Command Center (no buy/sell, allowed actions only)
+  - `render_watch_health()` — universe size, rotation stats, API/batch requests, rate-limit warnings
+  - `render_data_quality_panel()` — IEX single-exchange notice, fallback/stale counts, demo banner, no key values shown
+  - `render_outcome_snapshot_panel()` — snapshots today (seeded excluded), open/watch, triggered, target/stop hit
+  - `render_command_center()` — new first tab: Tony status, provider, scan/watch age, symbols scanned, API requests, fallback count, rate-limit warnings, snapshots today, analyst hypothesis cards, market context, data quality one-liner, risk warning, Watch Health + Data Quality panels side-by-side, Outcome Snapshot summary
+  - Updated `main()`: added "Command Center" as first tab, shifted all existing tabs up by index. Total tabs: 10.
+- `tests/test_dashboard_helpers.py` — NEW. 50 tests in 9 classes: `TestEventAgeLabel`, `TestIsFallbackProvider`, `TestFilterEventsByType`, `TestLatestEventOfType`, `TestIsCurrentCycleEvent`, `TestCountHypothesisByPriority`, `TestIsSeededDemoSnapshot`, `TestCurrentVsHistoricalSeparation`, `TestNoBrokerBehavior`, `TestSnapshotsTodayCount`.
+
+### Tests/checks run in V11
+
+- `pytest tests/test_dashboard_helpers.py -v` — **50 passed, 0 failures**
+- `pytest --tb=short -q` (full suite) — **230 passed, 0 failures, 0 errors** (up from 180)
+
+### Known issues / risks (V11)
+
+- `render_watch_health()` pulls rotation stats from `universe_rotation_summary` event payload. If the payload schema of that event differs from what's expected (e.g., key name mismatch for `symbols_selected`), those cells will show "—". Safe fallback — no crash.
+- `snapshots_today_count()` counts real snapshots created today (UTC). On days when no scan runs before midnight UTC, the count will be 0 at dashboard open even if the user thinks it's still "today" in their local timezone.
+- Command Center Analyst Reads shows the 8 most recent `analyst_candidate_hypothesis` events, not necessarily from the latest scan cycle. Events are ordered by `created_at DESC` by the repo query. When the budget runs out mid-cycle, some candidates won't appear.
+- `max_events_per_cycle: 25` is configured in `default_config.yaml` (increased from 20 in previous versions). If analyst reads are still getting cut off, raise further.
+
+### Safe to continue?
+
+Yes. 230 tests pass (0 failures, 0 errors). Command Center added as a read-only monitoring view. No broker execution, live trading, paper trades, order placement, API keys exposed, or LLM trade decisions were added. All safety constraints from V10 remain in force. Tony still says "analyst, not trader" in all UI text.
+
+### Next recommended steps
+
+1. Run `run_dashboard.ps1` and verify Command Center tab appears first and shows correct data.
+2. Run `watch --max-cycles 1` with `config/universe_swing_research_config.yaml` to populate events, then refresh dashboard.
+3. Verify hypothesis cards render correctly in Command Center — check priority icons, action labels, age labels.
+4. If Analyst Reads cards are empty: confirm `max_events_per_cycle` is high enough (≥25) and `analyst_candidate_hypothesis` is in `create_events_for` list in `default_config.yaml`.
+5. Consider adding outcome-to-hypothesis correlation once sufficient real-data snapshots accumulate (after several watch sessions).
+
+---
+
 ## V10 handoff — Tony Analyst Engine Foundation
 
 ### Current active task
