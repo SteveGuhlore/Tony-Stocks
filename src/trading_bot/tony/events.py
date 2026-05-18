@@ -48,6 +48,11 @@ class TonyConfig:
         "analyst_market_context",
         "analyst_data_quality",
         "analyst_risk_warning",
+        "watch_run_started",
+        "watch_run_stopped",
+        "watch_run_error",
+        "watch_heartbeat_stale",
+        "watch_waiting_for_market_open",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -486,6 +491,106 @@ class TonyStocksService:
                 "risk_types": risk_types,
                 "count": len(symbols_with_risk),
             },
+        )
+
+    # ── Watch run lifecycle events ─────────────────────────────────────────────
+
+    def record_watch_run_started(
+        self,
+        run_id: int,
+        provider: str,
+        interval_minutes: float,
+        market_hours_only: bool,
+    ) -> None:
+        """Create one event when watch mode starts. Research mode only — no trading."""
+        self.create_event(
+            event_type="watch_run_started",
+            severity="info",
+            title=f"{self.config.agent_name}: Watch mode started (run_id={run_id})",
+            message=(
+                f"Watch mode started. Provider: {provider}. "
+                f"Interval: {interval_minutes:g} min. Market hours only: {market_hours_only}. "
+                "Research mode only — no broker execution, paper trades, or live trading."
+            ),
+            payload={
+                "run_id": run_id,
+                "provider": provider,
+                "interval_minutes": interval_minutes,
+                "market_hours_only": market_hours_only,
+            },
+        )
+
+    def record_watch_run_stopped(
+        self,
+        run_id: int,
+        cycles_completed: int,
+        stop_reason: str,
+    ) -> None:
+        """Create one event when watch mode stops cleanly."""
+        self.create_event(
+            event_type="watch_run_stopped",
+            severity="info",
+            title=f"{self.config.agent_name}: Watch mode stopped (run_id={run_id})",
+            message=(
+                f"Watch mode stopped cleanly after {cycles_completed} cycle(s). "
+                f"Stop reason: {stop_reason}."
+            ),
+            payload={"run_id": run_id, "cycles_completed": cycles_completed, "stop_reason": stop_reason},
+        )
+
+    def record_watch_run_error(
+        self,
+        run_id: int,
+        error_message: str,
+        cycles_completed: int,
+    ) -> None:
+        """Create one critical event when watch mode stops due to an unhandled error."""
+        self.create_event(
+            event_type="watch_run_error",
+            severity="critical",
+            title=f"{self.config.agent_name}: Watch mode error (run_id={run_id})",
+            message=(
+                f"Watch mode stopped due to an error after {cycles_completed} cycle(s). "
+                f"Error: {str(error_message)[:200]}"
+            ),
+            payload={"run_id": run_id, "error_message": str(error_message)[:500], "cycles_completed": cycles_completed},
+        )
+
+    def record_watch_heartbeat_stale(
+        self,
+        run_id: int,
+        last_heartbeat_at: str,
+        stale_minutes: int,
+    ) -> None:
+        """Create a warning when a previous watch run's heartbeat is stale at restart."""
+        self.create_event(
+            event_type="watch_heartbeat_stale",
+            severity="warning",
+            title=f"{self.config.agent_name}: Previous watch run heartbeat stale (run_id={run_id})",
+            message=(
+                f"Previous watch run (id={run_id}) last heartbeat was {last_heartbeat_at}, "
+                f"more than {stale_minutes} min ago. "
+                "The previous process may have exited without a clean shutdown."
+            ),
+            payload={"run_id": run_id, "last_heartbeat_at": last_heartbeat_at, "stale_minutes": stale_minutes},
+        )
+
+    def record_watch_waiting_for_market_open(
+        self,
+        timezone_name: str,
+        current_time_et: str,
+    ) -> None:
+        """Create one event when watch mode enters the market-closed waiting state."""
+        self.create_event(
+            event_type="watch_waiting_for_market_open",
+            severity="info",
+            title=f"{self.config.agent_name}: Watch mode waiting for market hours",
+            message=(
+                f"Watch mode is running but the market is not open. "
+                f"Current time: {current_time_et} ({timezone_name}). "
+                "Regular session: 9:30 AM – 4:00 PM ET. No holiday calendar applied."
+            ),
+            payload={"timezone": timezone_name, "current_time": current_time_et},
         )
 
     def record_outcome_analytics(self, analytics_summary: dict[str, Any]) -> None:

@@ -46,7 +46,9 @@ Required test areas:
 - database,
 - risk manager,
 - backtester,
-- V9 scaling (batch fetch, rate limiter, universe rotation, request count audit).
+- V9 scaling (batch fetch, rate limiter, universe rotation, request count audit),
+- V11 dashboard helpers (event age, fallback detection, hypothesis counting, snapshot counting),
+- V12 watch run state (table CRUD, heartbeat staleness, market-hours guard, watch status labels, no-broker behavior).
 
 ## Scanner smoke test
 
@@ -260,6 +262,34 @@ Expected:
 - Scheduled Watch Mode is scanning/snapshot collection only. It does not place paper trades or live trades.
 - Tony Stocks is currently a watcher/analyst event layer only. It does not paper trade, execute broker orders, place live trades, or use an LLM for trade decisions.
 - Outcome analytics are for model evaluation and research. Seeded demo fixture results are excluded by default and are not proof of strategy quality.
+
+## V12 watch run state tests
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m pytest tests/test_watch_run.py -v
+```
+
+Expected:
+
+- 52 tests pass across 10 classes: `TestWatchRunTable`, `TestCreateWatchRun`, `TestUpdateWatchRunHeartbeat`, `TestUpdateWatchRunStopped`, `TestUpdateWatchRunError`, `TestLatestWatchRun`, `TestIsHeartbeatStale`, `TestIsWithinUsEasternMarketHours`, `TestWatchStatusLabel`, `TestNoBrokerBehavior`.
+- All heartbeat/market-hours tests use injected `now` — no real-time clock dependency.
+- No broker fields, no paper trades, no order placement in any watch run operation.
+
+## V12 Workday watch mode smoke test
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1
+python -m trading_bot.cli tony-events --config config/default_config.yaml --limit 10
+```
+
+Expected:
+
+- Watch run created (`watch_run_started` Tony event).
+- One scan cycle completes with heartbeat update.
+- Watch run marked stopped (`watch_run_stopped` Tony event) with reason `max_cycles`.
+- No broker execution, no paper trades, no orders.
 
 ## Agent handoff checks
 

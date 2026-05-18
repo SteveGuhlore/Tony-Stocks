@@ -138,6 +138,27 @@ CREATE TABLE IF NOT EXISTS tony_events (
     dismissed INTEGER NOT NULL DEFAULT 0,
     notes TEXT
 );
+
+CREATE TABLE IF NOT EXISTS watch_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    last_heartbeat_at TEXT,
+    stopped_at TEXT,
+    status TEXT NOT NULL DEFAULT 'running',
+    stop_reason TEXT,
+    provider TEXT NOT NULL DEFAULT '',
+    interval_minutes REAL NOT NULL DEFAULT 5,
+    market_hours_only INTEGER NOT NULL DEFAULT 0,
+    cycles_completed INTEGER NOT NULL DEFAULT 0,
+    latest_scan_run_id INTEGER,
+    latest_symbols_selected INTEGER,
+    latest_symbols_scored INTEGER,
+    latest_snapshots_created INTEGER,
+    latest_api_requests_used INTEGER,
+    latest_rate_limit_warnings INTEGER,
+    latest_fallback_count INTEGER,
+    latest_error_message TEXT
+);
 """
 
 
@@ -164,6 +185,8 @@ CANDIDATE_SNAPSHOT_MIGRATIONS = (
     "ALTER TABLE candidate_snapshots ADD COLUMN trade_plan_valid INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE candidate_snapshots ADD COLUMN trade_plan_status TEXT NOT NULL DEFAULT 'valid'",
 )
+
+WATCH_RUN_MIGRATIONS: tuple[str, ...] = ()  # reserved for future additive columns
 
 
 def connect(database_path: str | Path) -> sqlite3.Connection:
@@ -194,4 +217,12 @@ def initialize_database(database_path: str | Path) -> None:
         for statement in CANDIDATE_SNAPSHOT_MIGRATIONS:
             column_name = statement.split(" ADD COLUMN ", 1)[1].split(" ", 1)[0]
             if column_name not in snapshot_columns:
+                conn.execute(statement)
+        watch_run_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(watch_runs)").fetchall()
+        }
+        for statement in WATCH_RUN_MIGRATIONS:
+            column_name = statement.split(" ADD COLUMN ", 1)[1].split(" ", 1)[0]
+            if column_name not in watch_run_columns:
                 conn.execute(statement)

@@ -5,9 +5,13 @@ Extracted here so they can be unit-tested without importing Streamlit.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time as dt_time, timedelta, timezone
+from typing import Any
 
 import pandas as pd
+
+_MARKET_OPEN_ET = dt_time(9, 30)
+_MARKET_CLOSE_ET = dt_time(16, 0)
 
 
 def event_age_label(ts_str: str | None) -> str:
@@ -92,6 +96,59 @@ def is_seeded_demo_snapshot(notes: str | None, tags_json: str | None) -> bool:
         except Exception:
             pass
     return False
+
+
+def is_within_us_eastern_market_hours(now_et: datetime) -> bool:
+    """Return True if now_et falls within the regular US equity session (9:30–16:00 ET).
+
+    No holiday calendar is applied. Use for simple market-hours guard only.
+    """
+    t = now_et.time()
+    return _MARKET_OPEN_ET <= t <= _MARKET_CLOSE_ET
+
+
+def is_heartbeat_stale(
+    last_heartbeat_at: str | None,
+    stale_minutes: int = 10,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """Return True if the watch run heartbeat is older than stale_minutes.
+
+    Pass now= to inject a fixed reference time in tests.
+    Returns False (not stale) if last_heartbeat_at is None — the run hasn't started yet.
+    """
+    if not last_heartbeat_at:
+        return False
+    try:
+        ts = datetime.fromisoformat(str(last_heartbeat_at).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        ref = now if now is not None else datetime.now(timezone.utc)
+        return (ref - ts).total_seconds() / 60 > stale_minutes
+    except Exception:
+        return False
+
+
+def watch_status_label(
+    watch_run: dict[str, Any] | None,
+    stale_minutes: int = 10,
+    *,
+    now: datetime | None = None,
+) -> str:
+    """Return a display label for the watch run status.
+
+    Labels: no_run | running | stale | stopped | error | unknown
+    A running run with a stale heartbeat is reported as 'stale'.
+    """
+    if not watch_run:
+        return "no_run"
+    status = str(watch_run.get("status", "unknown"))
+    if status == "running" and is_heartbeat_stale(
+        watch_run.get("last_heartbeat_at"), stale_minutes, now=now
+    ):
+        return "stale"
+    return status
 
 
 def snapshots_today_count(repo: object) -> int:

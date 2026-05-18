@@ -20,9 +20,11 @@ from trading_bot.dashboard.helpers import (
     event_age_label,
     filter_events_by_type,
     is_fallback_provider,
+    is_heartbeat_stale,
     is_seeded_demo_snapshot,
     latest_event_of_type,
     snapshots_today_count,
+    watch_status_label,
 )
 from trading_bot.indicators import simple_moving_average
 from trading_bot.settings import load_scanner_settings, resolve_effective_provider
@@ -1062,7 +1064,16 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
 
     settings = load_scanner_settings()
     tony_cfg = settings.tony_stocks or {}
+    watch_config = settings.scheduled_watch or {}
     effective_provider = resolve_effective_provider(settings)
+    stale_heartbeat_minutes = int(watch_config.get("stale_heartbeat_minutes", 10))
+    stop_file_path = Path(str(watch_config.get("stop_file", "data/STOP_WATCH_MODE")))
+    if not stop_file_path.is_absolute():
+        stop_file_path = Path.cwd() / stop_file_path
+
+    # Watch run state
+    watch_run = repo.latest_watch_run()
+    wsr_label = watch_status_label(watch_run, stale_heartbeat_minutes)
 
     events = repo.list_tony_events(limit=300)
     analyst_events = repo.list_tony_events(event_type="analyst_candidate_hypothesis", limit=20)
@@ -1095,14 +1106,44 @@ def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> Non
     high_pri_count = pri_counts.get("high_priority", 0)
     watch_count = pri_counts.get("watch", 0)
 
+    # ── Watch run status row ───────────────────────────────────────────────────
+    wsr_display = wsr_label.upper().replace("_", " ")
+    wr_cols = st.columns(6)
+    wr_cols[0].metric("Watch Status", wsr_display)
+    wr_cols[1].metric("Heartbeat", event_age_label(watch_run.get("last_heartbeat_at")) if watch_run else "—")
+    wr_cols[2].metric("Cycles Done", watch_run.get("cycles_completed", "—") if watch_run else "—")
+    wr_cols[3].metric("Latest Scan Run", watch_run.get("latest_scan_run_id", "—") if watch_run else "—")
+    wr_cols[4].metric("Symbols Scored", watch_run.get("latest_symbols_scored", "—") if watch_run else "—")
+    wr_cols[5].metric("API Requests", watch_run.get("latest_api_requests_used", "—") if watch_run else "—")
+
+    if wsr_label == "stale":
+        st.error(
+            "Watch heartbeat is stale — the watch process may have stopped unexpectedly. "
+            "Check the PowerShell window and restart if needed."
+        )
+    elif wsr_label == "error":
+        err = (watch_run or {}).get("latest_error_message", "unknown error")
+        st.error(f"Watch mode stopped with error: {err}")
+    elif wsr_label == "running":
+        st.success("Watch mode is running.")
+    elif wsr_label == "stopped":
+        reason = (watch_run or {}).get("stop_reason", "")
+        st.info(f"Watch mode stopped cleanly. Reason: {reason or 'unknown'}")
+
+    st.caption(
+        f"Stop file: `{stop_file_path}` — "
+        "create this file or press Ctrl+C in the watch terminal to stop cleanly."
+    )
+
     # ── Status row ─────────────────────────────────────────────────────────────
+    st.markdown("---")
     row1 = st.columns(6)
     row1[0].metric("Tony Mode", str(tony_cfg.get("mode", "watcher")).title())
     row1[1].metric("Provider", effective_provider)
     row1[2].metric("Last Scan", event_age_label(latest_scan_ts) if latest_scan_ts else "No scan")
     row1[3].metric("Last Watch", event_age_label(latest_watch_ts) if latest_watch_ts else "No watch")
     row1[4].metric("Symbols Scanned", symbols_scanned if symbols_scanned is not None else "—")
-    row1[5].metric("API Requests", api_requests if api_requests is not None else "—")
+    row1[5].metric("API Requests (events)", api_requests if api_requests is not None else "—")
 
     # ── Health row ─────────────────────────────────────────────────────────────
     row2 = st.columns(6)

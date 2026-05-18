@@ -16,6 +16,7 @@ from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance
+from trading_bot.dashboard.helpers import is_heartbeat_stale
 from trading_bot.data.market_data import (
     AlpacaIEXProvider,
     ProviderHealth,
@@ -314,6 +315,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             "batch_requests_used": cycle_stats.get("batch_requests_used", 0),
             "rate_limit_warnings": cycle_stats.get("rate_limit_warnings", 0),
             "batch_mode": cycle_stats.get("batch_mode", False),
+            "fallback_count": fallback_count,
         })
         if fallback_count > 0 and fallback_count >= scanned_count:
             print(
@@ -578,6 +580,8 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     max_cycles = _resolve_watch_max_cycles(args, watch_config)
     run_updates = bool(watch_config.get("run_snapshot_update_after_scan", True))
     market_hours_only = bool(watch_config.get("market_hours_only", False))
+    heartbeat_enabled = bool(watch_config.get("heartbeat_enabled", True))
+    stale_heartbeat_minutes = int(watch_config.get("stale_heartbeat_minutes", 10))
     timezone_name = str(watch_config.get("timezone", "America/New_York"))
     stop_file = Path(str(watch_config.get("stop_file", "data/STOP_WATCH_MODE")))
     if not stop_file.is_absolute():
@@ -605,6 +609,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Max cycles: {max_cycles if max_cycles is not None else 'unlimited'}")
     print(f"Market hours only: {market_hours_only}")
     print(f"Stop file: {stop_file}")
+    print(f"To stop cleanly: press Ctrl+C or create the stop file above.")
     LOGGER.info("Scheduled Watch Mode started. interval_minutes=%s max_cycles=%s effective_provider=%s", interval_minutes, max_cycles, effective_provider_name)
 
     # Universe rotation — initialized once; state carries forward across cycles
@@ -620,26 +625,51 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
         )
         print(f"Universe rotation: enabled ({len(universe_symbols)} symbols, max {rotation_cfg.get('max_symbols_per_cycle', 175)}/cycle)")
 
+    # Watch run state — track heartbeat for dashboard monitoring
+    watch_run_id: int | None = None
+    if heartbeat_enabled:
+        prev_run = repo.latest_watch_run()
+        if prev_run and prev_run.get("status") == "running":
+            prev_hb = prev_run.get("last_heartbeat_at")
+            if is_heartbeat_stale(prev_hb, stale_heartbeat_minutes):
+                LOGGER.warning("Previous watch run (id=%s) heartbeat stale; marking as error.", prev_run["id"])
+                repo.update_watch_run_error(prev_run["id"], "Process exited without clean shutdown (stale heartbeat detected at restart)")
+                tony.record_watch_heartbeat_stale(prev_run["id"], prev_hb or "", stale_heartbeat_minutes)
+        watch_run_id = repo.create_watch_run(
+            provider=effective_provider_name,
+            interval_minutes=interval_minutes,
+            market_hours_only=market_hours_only,
+        )
+        tony.record_watch_run_started(watch_run_id, effective_provider_name, interval_minutes, market_hours_only)
+
     cycles_completed = 0
     stopped_by = "max_cycles" if max_cycles == 0 else ""
     summaries: list[dict[str, Any]] = []
+    _waiting_logged = False
     try:
         while max_cycles is None or cycles_completed < max_cycles:
             if stop_file.exists():
                 stopped_by = "stop_file"
                 print(f"Stop file found. Exiting cleanly: {stop_file}")
+                LOGGER.info("Stop file detected: %s", stop_file)
                 break
 
             if market_hours_only and not _within_watch_window(watch_config, timezone_name):
-                now = datetime.now(ZoneInfo(timezone_name))
-                print(f"Outside configured watch window at {now.isoformat()}; skipping cycle.")
-                LOGGER.info("Watch cycle skipped outside configured market window.")
+                now_et = datetime.now(ZoneInfo(timezone_name))
+                if not _waiting_logged:
+                    print(f"Outside configured watch window at {now_et.isoformat()}; waiting.")
+                    LOGGER.info("Watch cycle skipped outside configured market window.")
+                    tony.start_cycle()
+                    tony.record_watch_waiting_for_market_open(timezone_name, now_et.strftime("%H:%M %Z"))
+                    _waiting_logged = True
                 if max_cycles is not None:
                     cycles_completed += 1
                 if not _sleep_until_next_cycle(interval_seconds, stop_file):
                     stopped_by = "stop_file"
                     break
                 continue
+            else:
+                _waiting_logged = False
 
             cycle_number = cycles_completed + 1
             tony.start_cycle()
@@ -725,6 +755,20 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 print(f"Next run: {cycle_summary['next_run_time']}")
             tony.record_watch_cycle_completed(cycle_summary)
 
+            # Heartbeat update — update DB state after every cycle
+            if heartbeat_enabled and watch_run_id is not None:
+                repo.update_watch_run_heartbeat(
+                    run_id=watch_run_id,
+                    cycles_completed=cycles_completed,
+                    latest_scan_run_id=scan_summary.get("scan_run_id"),
+                    latest_symbols_selected=scan_summary.get("symbols_loaded"),
+                    latest_symbols_scored=scan_summary.get("symbols_scored"),
+                    latest_snapshots_created=snapshots_created,
+                    latest_api_requests_used=scan_summary.get("api_requests_used"),
+                    latest_rate_limit_warnings=scan_summary.get("rate_limit_warnings"),
+                    latest_fallback_count=scan_summary.get("fallback_count"),
+                )
+
             if max_cycles is not None and cycles_completed >= max_cycles:
                 stopped_by = "max_cycles"
                 break
@@ -734,8 +778,21 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     except KeyboardInterrupt:
         stopped_by = "keyboard_interrupt"
         print("\nCtrl+C received. Scheduled Watch Mode stopped cleanly.")
+    except Exception as exc:
+        stopped_by = "error"
+        LOGGER.exception("Watch mode stopped due to unexpected error: %s", exc)
+        if heartbeat_enabled and watch_run_id is not None:
+            repo.update_watch_run_error(watch_run_id, str(exc))
+            tony.record_watch_run_error(watch_run_id, str(exc), cycles_completed)
+        raise
 
     stopped_by = stopped_by or "completed"
+
+    # Clean stop — update watch run state and fire Tony event
+    if heartbeat_enabled and watch_run_id is not None and stopped_by != "error":
+        repo.update_watch_run_stopped(watch_run_id, stopped_by)
+        tony.record_watch_run_stopped(watch_run_id, cycles_completed, stopped_by)
+
     print(f"Scheduled Watch Mode stopped. cycles_completed={cycles_completed} stopped_by={stopped_by}")
     LOGGER.info("Scheduled Watch Mode stopped. cycles_completed=%s stopped_by=%s", cycles_completed, stopped_by)
     return {"cycles_completed": cycles_completed, "stopped_by": stopped_by, "cycle_summaries": summaries}

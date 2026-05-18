@@ -4,6 +4,12 @@ _Last updated: 2026-05-17_
 
 ## Overall status
 
+**V12** — Workday Watch Mode + Run Controls. Watch run lifecycle tracked in SQLite (`watch_runs` table). Heartbeat updates every cycle; dashboard detects and displays stale/running/stopped/error states. Market-hours guard (9:30–16:00 ET) with spam-prevention flag. Tony events for all watch lifecycle transitions. 282 tests pass, 0 errors.
+
+**V11** — Dashboard Command Center UX. "Command Center" tab is the first/default tab showing Tony status, provider, scan age, symbols, API requests, fallback, snapshots today, analyst hypotheses, warnings, market context, Watch Health panel, Data Quality panel, Outcome Snapshot panel. 230 tests pass, 0 errors.
+
+**V10** — Tony Stocks Analyst Engine. Deterministic analyst reads (setup, volume, risk, data quality, outcome context, priority) for every scan cycle. Five priority labels, five allowed recommended actions (no buy/sell). Dashboard Analyst Reads expander. 180 tests pass, 0 errors.
+
 **V9.5** — Universe expanded to 171 symbols across 14 sectors/themes. Batch fetching (multi-symbol Alpaca endpoint) retrieves all symbols in 1–2 HTTP requests. Universe rotation selects core benchmarks + open snapshots + previous high-priority candidates + rotating discovery pool (round-robin) up to 175 symbols per 5-minute watch cycle. 121 tests pass, 0 errors.
 
 V8 Alpaca IEX Market Data Provider Foundation: real-market-data adapter for Alpaca IEX historical bars. Provider disabled by default (demo_generated is still active). When enabled, reads US equity bars and falls back to demo data if Alpaca is unreachable. Tony Stocks creates internal events for fallback and stale-data conditions. No broker execution, no trading, no order placement.
@@ -45,7 +51,11 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Scheduled Watch Mode command: `python -m trading_bot.cli watch --config config/default_config.yaml`.
 - One-cycle watch test mode: `python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1`.
 - PowerShell helper: `scripts/run_watch_mode.ps1`.
-- Watch mode supports configurable intervals, max cycles, simple market-hours window checks, Ctrl+C shutdown, and a stop file at `data/STOP_WATCH_MODE`.
+- Watch mode supports configurable intervals, max cycles, market-hours guard (9:30–16:00 ET, no holiday calendar), Ctrl+C shutdown, and a stop file at `data/STOP_WATCH_MODE`.
+- Watch run lifecycle tracked in `watch_runs` SQLite table: `create_watch_run()`, `update_watch_run_heartbeat()`, `update_watch_run_stopped()`, `update_watch_run_error()`, `latest_watch_run()`.
+- Heartbeat staleness detection: `is_heartbeat_stale()` helper used by both CLI (startup stale detection) and dashboard.
+- Dashboard Command Center shows live watch status: running/stale/stopped/error, heartbeat age, cycles completed, latest scan run ID, symbols scored, API requests used.
+- Stop file path printed at watch startup; Tony lifecycle events for `watch_run_started`, `watch_run_stopped`, `watch_run_error`, `watch_heartbeat_stale`, `watch_waiting_for_market_open`.
 - Dashboard overview includes a compact watch-status readout based on latest scan and candidate snapshot data.
 - Tony Stocks configuration in `config/default_config.yaml`.
 - SQLite `tony_events` table for internal watcher/analyst events.
@@ -92,6 +102,21 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Demo snapshot outcomes now include `target_hit`, `stop_hit`, `partial_move`, `failed_setup`, `entry_not_triggered`, `expired_no_trigger`, and `insufficient_future_data` examples.
 - Programmatic CSV validation confirmed eligible non-reference/non-avoid rows have `stop < entry`, `target > entry`, positive risk/reward, and valid trade-plan flags.
 
+## Confirmed in V12
+
+- `pytest --tb=short -q` passed: **282 tests, 0 failures, 0 errors** (up from 230).
+- `pytest tests/test_watch_run.py -v` passed: **52 tests, 0 failures**.
+- `run_scanner.ps1` ran: 52 symbols scored, DVN top at 96.88, scan run ID recorded.
+- `watch --max-cycles 1` ran: `watch_run_stopped` event confirmed in `tony-events`.
+- `provider-health` PASSED.
+
+## Confirmed in V11
+
+- `pytest --tb=short -q` passed: **230 tests, 0 failures, 0 errors** (up from 180).
+- `pytest tests/test_dashboard_helpers.py -v` passed: **50 tests, 0 failures**.
+- Command Center tab renders as first/default tab in dashboard.
+- Analyst hypothesis cards render with priority icons and no buy/sell wording.
+
 ## Confirmed in V9.5
 
 - `pytest` passed with 121 tests, 0 errors (15 new universe tests + 31 V9 scaling/batch tests + 75 prior).
@@ -127,12 +152,13 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 
 ## Next recommended work
 
-1. Add Alpaca API keys to `.env` and set `real_provider_enabled: true` + `provider: alpaca_iex` under `market_data:` in `config/universe_swing_research_config.yaml`.
-2. Run `python -m trading_bot.cli data-check --config config/universe_swing_research_config.yaml --symbol PLTR` with real keys.
-3. Run `python -m trading_bot.cli watch --config config/universe_swing_research_config.yaml --max-cycles 1` to validate batch fetch at 171-symbol scale.
-4. Run `python -m trading_bot.cli tony-events --limit 30` — look for `batch_fetch_summary`, `real_data_scan_scaled`, `universe_rotation_summary`.
-5. If rate-limit warnings appear, reduce `max_symbols_per_cycle` or increase `request_sleep_seconds`.
-6. Monitor rotation `bucket_id` across cycles to verify round-robin advances.
-7. Initialize git and commit a known-good baseline.
+1. Run `run_dashboard.ps1` and verify the Command Center Watch Status row shows correctly (status, heartbeat age, cycles, latest scan run ID).
+2. Run `watch --max-cycles 3` and let cycles complete — verify heartbeat age resets in dashboard after each cycle.
+3. Test stop-file clean stop: create `data/STOP_WATCH_MODE` during a running watch, verify dashboard shows `stopped` with reason `stop_file`.
+4. Add Alpaca API keys to `.env` and run `provider-health` to confirm real data is flowing.
+5. Run `watch --config config/universe_swing_research_config.yaml --max-cycles 1` with real keys to validate batch fetch at 171-symbol scale and watch run tracking end-to-end.
+6. Consider adding `watch_run_id` FK to `candidate_snapshots` for per-session snapshot correlation.
+7. Add a holiday calendar to `is_within_us_eastern_market_hours()` if market-hours-only mode needs holiday awareness.
+8. Initialize git and commit a known-good baseline.
 
 **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**

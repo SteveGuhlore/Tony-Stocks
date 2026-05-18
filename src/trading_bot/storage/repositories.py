@@ -573,6 +573,97 @@ class ScannerRepository:
             ).fetchall()
         return pd.DataFrame([dict(row) for row in rows])
 
+    # ── Watch run state ────────────────────────────────────────────────────────
+
+    def create_watch_run(
+        self,
+        provider: str,
+        interval_minutes: float,
+        market_hours_only: bool,
+    ) -> int:
+        """Create a watch run record when watch mode starts."""
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO watch_runs (
+                    started_at, last_heartbeat_at, status, provider, interval_minutes, market_hours_only
+                )
+                VALUES (?, ?, 'running', ?, ?, ?)
+                """,
+                (utc_now_iso(), utc_now_iso(), provider, float(interval_minutes), int(market_hours_only)),
+            )
+            return int(cursor.lastrowid)
+
+    def update_watch_run_heartbeat(
+        self,
+        run_id: int,
+        cycles_completed: int = 0,
+        latest_scan_run_id: int | None = None,
+        latest_symbols_selected: int | None = None,
+        latest_symbols_scored: int | None = None,
+        latest_snapshots_created: int | None = None,
+        latest_api_requests_used: int | None = None,
+        latest_rate_limit_warnings: int | None = None,
+        latest_fallback_count: int | None = None,
+    ) -> None:
+        """Update heartbeat timestamp and latest cycle stats after each watch cycle."""
+        with connect(self.database_path) as conn:
+            conn.execute(
+                """
+                UPDATE watch_runs SET
+                    last_heartbeat_at = ?,
+                    cycles_completed = ?,
+                    latest_scan_run_id = ?,
+                    latest_symbols_selected = ?,
+                    latest_symbols_scored = ?,
+                    latest_snapshots_created = ?,
+                    latest_api_requests_used = ?,
+                    latest_rate_limit_warnings = ?,
+                    latest_fallback_count = ?
+                WHERE id = ?
+                """,
+                (
+                    utc_now_iso(),
+                    cycles_completed,
+                    latest_scan_run_id,
+                    latest_symbols_selected,
+                    latest_symbols_scored,
+                    latest_snapshots_created,
+                    latest_api_requests_used,
+                    latest_rate_limit_warnings,
+                    latest_fallback_count,
+                    run_id,
+                ),
+            )
+
+    def update_watch_run_stopped(self, run_id: int, stop_reason: str) -> None:
+        """Mark a watch run as cleanly stopped."""
+        with connect(self.database_path) as conn:
+            conn.execute(
+                "UPDATE watch_runs SET stopped_at = ?, status = 'stopped', stop_reason = ? WHERE id = ?",
+                (utc_now_iso(), str(stop_reason), run_id),
+            )
+
+    def update_watch_run_error(self, run_id: int, error_message: str) -> None:
+        """Mark a watch run as stopped due to an error."""
+        with connect(self.database_path) as conn:
+            conn.execute(
+                """
+                UPDATE watch_runs SET
+                    stopped_at = ?, status = 'error', latest_error_message = ?
+                WHERE id = ?
+                """,
+                (utc_now_iso(), str(error_message)[:500], run_id),
+            )
+
+    def latest_watch_run(self) -> dict[str, Any] | None:
+        """Return the most recent watch run record, or None."""
+        with connect(self.database_path) as conn:
+            row = conn.execute("SELECT * FROM watch_runs ORDER BY id DESC LIMIT 1").fetchone()
+            return dict(row) if row else None
+
+    # ── Internal helpers ───────────────────────────────────────────────────────
+
     def _recent_snapshot_exists(self, conn: Any, symbol: str, setup_category: str, dedupe_minutes: int) -> bool:
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=dedupe_minutes)).replace(microsecond=0).isoformat()
         row = conn.execute(

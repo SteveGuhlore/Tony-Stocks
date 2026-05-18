@@ -88,7 +88,7 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V9.5 complete.** Alpaca IEX provider with batch fetch, rate limiting, and universe rotation operational. Universe expanded to 171 symbols. 121 tests pass.
+Status: **V12 complete.** Workday Watch Mode operational. Watch run lifecycle tracked in SQLite. Heartbeat staleness detection. Market-hours guard. Tony lifecycle events. Dashboard Command Center (V11) shows real-time watch status. Analyst Engine (V10) produces deterministic reads every cycle. 282 tests pass, 0 errors.
 
 Goals:
 
@@ -100,7 +100,12 @@ Goals:
 - Batch fetch (`limit=10000`, 1–2 HTTP calls for 175 symbols): Done.
 - Keep all keys in environment variables only: Done.
 
-**Next validation step:** Run `watch --max-cycles 1` with real Alpaca keys and check `tony-events` for `batch_fetch_summary` and `universe_rotation_summary`.
+- Watch run lifecycle (heartbeat, stale detection, stop/error recording): Done (V12).
+- Dashboard Command Center with live watch status: Done (V11/V12).
+- Tony Analyst Engine (deterministic reads, priority labels, no LLM): Done (V10).
+- Dashboard Command Center tab (first/default): Done (V11).
+
+**Next validation step:** Run `watch --max-cycles 3` with real Alpaca keys; verify heartbeat resets in Command Center and `tony-events` shows `batch_fetch_summary`, `universe_rotation_summary`, `watch_run_stopped`.
 
 **Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for research and scanning only. Not for production execution decisions. **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**
 

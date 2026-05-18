@@ -55,10 +55,14 @@ scheduled_watch:
   run_snapshot_update_after_scan: true
   max_cycles:
   market_hours_only: false
+  premarket_enabled: false
+  afterhours_enabled: false
   start_time: "09:35"
   end_time: "16:10"
   timezone: "America/New_York"
   write_heartbeat_log: true
+  heartbeat_enabled: true
+  stale_heartbeat_minutes: 10
   stop_file: "data/STOP_WATCH_MODE"
 
 market_data:
@@ -125,6 +129,11 @@ tony_stocks:
     - analyst_market_context
     - analyst_data_quality
     - analyst_risk_warning
+    - watch_run_started
+    - watch_run_stopped
+    - watch_run_error
+    - watch_heartbeat_stale
+    - watch_waiting_for_market_open
   high_score_threshold: 85
   include_seeded_demo_events: false
-  max_events_per_cycle: 25
+  max_events_per_cycle: 30

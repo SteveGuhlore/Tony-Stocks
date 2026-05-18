@@ -1,6 +1,6 @@
 # Trading Bot Project - File Structure
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-17 (V12)_
 
 ```text
 TradingBotAgentProject/
@@ -124,4 +124,8 @@ TradingBotAgentProject/
     test_snapshot_followup.py
     test_outcome_analytics.py
     test_alpaca_provider.py
+    test_v9_scaling.py
+    test_tony_analyst.py
+    test_dashboard_helpers.py     (V11) 50 tests for dashboard pure helpers
+    test_watch_run.py             (V12) 52 tests for watch run CRUD + helpers
 ```

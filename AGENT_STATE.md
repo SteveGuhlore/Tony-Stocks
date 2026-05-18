@@ -6,6 +6,90 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V12 handoff — Workday Watch Mode + Run Controls
+
+### Current active task
+
+V12 complete. Workday Watch Mode and Run Controls built. 282 tests pass.
+
+### Last agent used
+
+Claude (claude-sonnet-4-6) via Claude Code.
+
+### Files changed in V12
+
+- `src/trading_bot/storage/database.py` — Added `watch_runs` table to SCHEMA and `WATCH_RUN_MIGRATIONS` tuple (reserved for future additive columns); updated `initialize_database()` to run migrations.
+- `src/trading_bot/storage/repositories.py` — Added 5 new CRUD methods: `create_watch_run()`, `update_watch_run_heartbeat()`, `update_watch_run_stopped()`, `update_watch_run_error()`, `latest_watch_run()`.
+- `src/trading_bot/dashboard/helpers.py` — Added `is_within_us_eastern_market_hours()`, `is_heartbeat_stale()`, `watch_status_label()`.
+- `src/trading_bot/tony/events.py` — Added 5 new event methods: `record_watch_run_started()`, `record_watch_run_stopped()`, `record_watch_run_error()`, `record_watch_heartbeat_stale()`, `record_watch_waiting_for_market_open()`. Updated `TonyConfig.create_events_for` default tuple.
+- `src/trading_bot/cli.py` — Added `is_heartbeat_stale` import; added `"fallback_count": fallback_count` to scan_summary in `run_scan()`; rewrote `run_watch()` with: stale-run detection at startup, `create_watch_run()` + `record_watch_run_started()`, per-cycle heartbeat updates, `_waiting_logged` flag for market-hours spam prevention, `except Exception` block for error recording, clean-stop recording after loop.
+- `src/trading_bot/dashboard/app.py` — Added `is_heartbeat_stale`, `watch_status_label` imports; updated `render_command_center()` with 6-column watch status row, status banners (stale → error, error → error, running → success, stopped → info), stop file caption, HR separator.
+- `config/default_config.yaml` — Added `premarket_enabled`, `afterhours_enabled`, `heartbeat_enabled`, `stale_heartbeat_minutes` to `scheduled_watch`; added 5 new event types to `tony_stocks.create_events_for`; changed `max_events_per_cycle: 30`.
+- `tests/test_watch_run.py` — NEW. 52 tests in 10 classes covering all watch run CRUD, heartbeat staleness helpers, market-hours guard, watch status labels, and no-broker behavior.
+
+### Tests/checks run in V12
+
+- `pytest tests/test_watch_run.py -v` — **52 passed, 0 failures**
+- `pytest --tb=short -q` (full suite) — **282 passed, 0 failures, 0 errors** (up from 230)
+- `provider-health` — PASSED
+- `watch --max-cycles 1` — completed; `watch_run_stopped` event visible in `tony-events`
+- `tony-events --limit 30` — `watch_run_stopped` confirmed at top
+- `run_tests.ps1` — 282 passed
+- `run_scanner.ps1` — 52 symbols scored, DVN top at 96.88
+
+### Watch run state table
+
+```sql
+watch_runs (
+    id, started_at, last_heartbeat_at, stopped_at, status,
+    stop_reason, provider, interval_minutes, market_hours_only,
+    cycles_completed, latest_scan_run_id, latest_symbols_selected,
+    latest_symbols_scored, latest_snapshots_created,
+    latest_api_requests_used, latest_rate_limit_warnings,
+    latest_fallback_count, latest_error_message
+)
+```
+
+### Heartbeat behavior
+
+- `create_watch_run()` inserts row with `status='running'`, `last_heartbeat_at=now`.
+- `update_watch_run_heartbeat()` refreshes `last_heartbeat_at` and all cycle stats after each scan cycle.
+- At startup: if previous run has `status='running'` with stale heartbeat → marks as `status='error'`, fires `watch_heartbeat_stale` Tony event.
+- Dashboard: `watch_status_label()` returns `"stale"` when `status='running'` but heartbeat is older than `stale_heartbeat_minutes`.
+
+### Market-hours behavior
+
+- `is_within_us_eastern_market_hours(now_et)` — pure function, 9:30–16:00 ET, no holiday calendar.
+- When `market_hours_only=True` in config and current time is outside those hours: watch cycle skips the scan, fires `watch_waiting_for_market_open` Tony event once per market-hours transition (spam prevention via `_waiting_logged` flag), then waits.
+
+### Stop behavior
+
+- Stop file path printed at watch startup: "To stop cleanly: press Ctrl+C or create the stop file above."
+- Ctrl+C → `KeyboardInterrupt` caught → `update_watch_run_stopped(run_id, "keyboard_interrupt")` + `record_watch_run_stopped`.
+- Stop file found → `update_watch_run_stopped(run_id, "stop_file")` + `record_watch_run_stopped`.
+- Unexpected exception → `update_watch_run_error(run_id, str(exc))` + `record_watch_run_error` + re-raise.
+- Clean stop: `stopped_by` not `"error"` → normal stopped-event path.
+
+### Known issues / risks (V12)
+
+- `is_within_us_eastern_market_hours()` has no holiday calendar. Market-hours guard will still attempt scans on US market holidays when `market_hours_only=True`.
+- `latest_watch_run()` returns most recent by `id DESC` — if two watch sessions start in the same second the last insert wins (expected).
+- Dashboard watch status reads `latest_watch_run()` on each render; no real-time push. Refresh the browser to see updated state.
+
+### Safe to continue?
+
+Yes. 282 tests pass (0 failures, 0 errors). Workday Watch Mode added as a scan/monitoring loop only. No broker execution, live trading, paper trades, order placement, API keys exposed, or LLM trade decisions were added. Safety constraints from V11 remain in force. Tony lifecycle events say "Research mode only — no broker execution."
+
+### Next recommended steps
+
+1. Run `run_dashboard.ps1` and verify the Command Center tab shows the Watch Status row (status, heartbeat age, cycles, scan run ID, symbols scored, API requests).
+2. Run `watch --max-cycles 3` and let two cycles complete — verify heartbeat age resets in the dashboard after each cycle.
+3. Test clean stop via stop file: create `data/STOP_WATCH_MODE` during a running watch, verify dashboard shows `stopped` with reason `stop_file`.
+4. Add a holiday calendar to `is_within_us_eastern_market_hours()` if market-hours-only mode needs to skip holidays.
+5. Consider adding a `watch_run_id` foreign key to `candidate_snapshots` so snapshots can be correlated back to the watch run that created them.
+
+---
+
 ## V11 handoff — Dashboard Command Center UX
 
 ### Current active task
