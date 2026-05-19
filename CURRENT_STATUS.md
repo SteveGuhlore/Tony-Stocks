@@ -1,8 +1,30 @@
 # Trading Bot Project - Current Status
 
-_Last updated: 2026-05-18_
+_Last updated: 2026-05-19_
 
 ## Overall status
+
+**V15.8B** - Product Dashboard Semantics: Entry Triggers, Current Positions, Closing Price, Results Rehaul. Main product views now use clean product wording and state models: Tony Picks show `Entry trigger`, trigger distance, trigger explanation, and `Active entry: N/A`; Active Tracking shows fixed `Tracked from` / active entry, dynamic `Current price` vs `Closing price`, research P/L, and risk/reward from the active entry; Results now uses the same deduped symbol-level product rows with filters and actual stock cards instead of raw-count-only semantics. Home preview copy is reduced to one complete sentence per card, and product cards avoid `NaN`, `$nan`, `+nan%`, `unknown`, and raw missing placeholders. V15.8B is dashboard aggregation/rendering only; it does not change scoring, trigger rules, paper/live behavior, broker execution, or snapshots.
+
+**V15.8A** - One Active Position Per Symbol + Planned vs Active Entry Cleanup. Main product views now build symbol-level Tony Picks and Active Tracking cards from deduped snapshot rows. Tony Picks show one card per symbol and hide symbols already actively tracked. Active Tracking keeps the first valid triggered research entry fixed per symbol, then overlays latest `current_price` / `research_unrealized_pl_pct` / reassessment fields from later rows for that symbol. Incomplete/demo/legacy/missing-real-data rows are hidden from Home, Tony Picks, Active Tracking, and Results still-active counts. V15.8A is dashboard aggregation only; it does not change scoring, trigger rules, paper/live behavior, or broker execution.
+
+**V15.8** - Freeze Original Plan + Active Tracking Fields. Nullable snapshot columns store frozen `original_*` plan at trigger, live `current_price` / `research_unrealized_pl_pct`, `tracking_status`, and `time_active_minutes` refreshed during `update-snapshots` from real Alpaca 5Min bars only. Tony `tracked_setup_updated` event summarizes refresh. V15.8 adds research-only active tracking fields. It does not create paper trades or broker orders.
+
+**V15.7E** - Home briefing card enrichment. Home Top 3 pick/tracking preview cards show compact pills + key levels (entry/target/stop or tracked/current/target/stop + P/L). Home status uses calm “not currently scanning” / “waiting for next session” copy; true errors only when meaningful. Missing live data on Home is count-only (no symbol list). UI only — no scoring/trigger/DB changes.
+
+**V15.7D** - Active Tracking render hotfix + Home clarity. Restored missing `render_tracking_position_card` import (Active Tracking crash). Home status only shows error when watch run has a meaningful `latest_error_message`; after-hours/stale states use calm market-closed copy. Home missing-data line is count-only or max 4 symbols + “See Settings”. UI only — no scoring/trigger/DB changes.
+
+**V15.7C** - Dashboard render fix + Home/Tony Picks separation. Theme HTML renders via `render_html()` → `st.markdown(..., unsafe_allow_html=True)`; stat grids are single complete fragments (no raw `<div class="tony-stat-tile">` text). Home is a short executive briefing (hero, status, 6 summary tiles, market one-liner, top 3 pick/tracking previews, review list). Tony Picks is the full watchlist with filters, sorting, and full signal cards. After-hours Tony status uses plain-English waiting copy. UI only — no scoring/trigger/DB changes.
+
+**V15.7B** - Tony Stocks visual product polish. Gradient page theme, hero landing, signal/position/performance cards via `dashboard/theme.py`. UI only — no backend logic changes.
+
+**V15.7A** - Dashboard crash fix + card polish. Safe JSON/NaN parsing for Tony Picks cards; no `$nan` in UI; sleeker HTML card styling. Does not change trading/scoring behavior.
+
+**V15.7** - Trading-App Dashboard Shell. Main nav is five tabs: Home, Tony Picks, Active Tracking, Results, Settings / System Health. Card-style picks and tracking; plain-English Results; legacy developer tables moved under Settings. Uses existing snapshot data only (no new DB columns). V15.7 does not change trading/scoring behavior.
+
+**V15.5** - Dashboard UI/UX Simplification. Command Center is a beginner-friendly 30-second home screen with Tony status, data safety, market read, top watches, entry trigger tracker, and end-of-day snapshot sections. V15.5 simplifies the dashboard for non-technical review. It does not change trading/scoring behavior.
+
+**V15.2** - Symbol Quarantine for Missing Real Data. Config-driven, non-destructive quarantine excludes repeated no-bar symbols (HCP, SAMSF, SMAR, SQ) from real-data-only scan/watch without removing them from universe YAML.
 
 **V15** - Intraday Entry Trigger Simulation (research-only). Candidate snapshots store `snapshot_price`, planned intraday trigger levels, and simulated `actual_entry_*` fields from real Alpaca 5Min bars after snapshot time. V15 adds research-only intraday trigger simulation. It does not create paper trades or broker orders.
 
@@ -205,6 +227,66 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Margin, leverage, short selling, or options logic.
 - Advanced backtesting and automatic paper-trade creation.
 - Intraday scoring automation. V14 stores optional research reads only; daily scoring remains the scanner default.
+
+## Confirmed in V15.8
+
+- Nullable V15.8 tracking columns on `candidate_snapshots` (additive migrations).
+- `build_original_plan_freeze_updates()` sets `original_*` once when `entry_status=triggered`; never overwrites existing originals.
+- `build_active_tracking_refresh_updates()` updates `current_price`, `research_unrealized_pl_pct`, `time_active_minutes`, and `tracking_status` from real Alpaca 5Min bars when provider is `alpaca_iex`.
+- Tony `tracked_setup_updated` event after `update-snapshots` when tracked rows refresh.
+- Dashboard Active Tracking + Home preview cards use frozen original entry and current research P/L fields.
+- **480 tests passed.**
+
+V15.8 adds research-only active tracking fields. It does not create paper trades or broker orders.
+
+## Confirmed in V15.8A
+
+- Main product tabs now use symbol-level helper aggregation instead of raw snapshot rows.
+- Tony Picks show one card per symbol and exclude symbols already represented in Active Tracking.
+- Active Tracking shows one card per symbol, anchored to the earliest valid triggered research entry for the current active position.
+- Latest rows for the same symbol now refresh current price, research P/L, reassessment, and time-active fields without replacing the original tracked entry.
+- Incomplete active-tracking rows with missing entry/target/stop/trigger time are hidden from Home, Tony Picks, and Active Tracking.
+- Results `Still active` now aligns with valid deduped active-tracking symbols instead of raw historical rows.
+- Main dashboard cards no longer surface `NaN`, `$nan`, `+nan%`, or `Not set yet` for active tracking.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` passed: **488 tests, 0 failures**.
+- `eod-report` and `outcome-analytics --real-only --today` completed successfully after the change.
+- `run_dashboard.ps1` started Streamlit at `http://localhost:8501`; startup verified in terminal. Full click-through/manual browser verification is still pending.
+
+## Confirmed in V15.7B
+
+- Product theme: purple/blue hero, stat tiles, rounded signal cards, emphasized Research P/L on tracking cards.
+- Home hero: “Tony is watching the market.” with stat grid (status, picks, tracking, alerts, research P/L).
+- Results uses performance stat cards + disclaimer banner.
+
+## Confirmed in V15.7A
+
+- Tony Picks no longer crashes when `tony_reasons_json` is NaN/float in SQLite rows.
+- Display helpers: `format_money_or_missing`, `format_percent_or_missing`, `clean_text_or_default`.
+- Home prefers Tony Picks with valid planned entry alerts; fresh active tracking only on Home.
+
+## Confirmed in V15.7
+
+- Dashboard main tabs: Home, Tony Picks, Active Tracking, Results, Settings / System Health.
+- Tony Picks and Active Tracking use card UI from `candidate_snapshots` + Tony fields (no JSON on main tabs).
+- Research P/L on open tracked setups is computed in helpers (`intraday_close` as provisional current price).
+- Legacy Overview/Ranked Stocks/Snapshots/Outcome Analytics/Tony Events/etc. live under Settings → Legacy developer views.
+- V15.5 Command Center preserved under Settings legacy tab.
+
+## Confirmed in V15.5
+
+- Command Center answers: Is Tony running? Real data? Anything broken? What is Tony watching? Entry alerts? What to review?
+- Plain-English labels on Command Center (watchlist records, planned entry alerts, missing real data).
+- Advanced technical tables moved into a collapsed expander; other tabs unchanged.
+- Helper unit tests for status labels, trigger summaries, top-watch rows, and health/review bullets.
+
+## Confirmed in V15.2
+
+- `symbol_quarantine` config block in `config/default_config.yaml` quarantines HCP, SAMSF, SMAR, and SQ during `real_data_only` scan/watch.
+- Quarantined symbols are excluded before Alpaca fetch, scoring, snapshots, and Tony candidate analysis.
+- Symbols remain in `config/universe_swing_research_config.yaml` (non-destructive).
+- `eod-report` and dashboard Market Day Review list configured quarantine vs event-detected missing symbols.
+- Tony `symbol_quarantine_applied` event records exclusions per scan/watch cycle.
+- 391 tests passed with clean teardown (V15.1 temp fix).
 
 ## Confirmed in V15
 

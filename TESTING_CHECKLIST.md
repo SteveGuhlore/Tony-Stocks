@@ -1,6 +1,6 @@
 # Trading Bot Project - Testing Checklist
 
-_Last updated: 2026-05-18_
+_Last updated: 2026-05-19_
 
 Use this after every meaningful code change.
 
@@ -31,10 +31,20 @@ python -m compileall src
 
 ## Unit tests
 
+Preferred on Windows (sets basetemp under `%LOCALAPPDATA%\TradingBotTests\pytest`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
+```
+
+Direct pytest (also uses `%LOCALAPPDATA%\TradingBotTests\pytest` via `tests/conftest.py` when `--basetemp` is omitted):
+
 ```powershell
 $env:PYTHONPATH = "src"
 python -m pytest
 ```
+
+Avoid `--basetemp` inside the repo (for example `.pytest_tmp`). Project-local temp dirs are often locked on Windows and cause teardown `PermissionError` noise even when tests pass.
 
 Required test areas:
 
@@ -53,6 +63,18 @@ Required test areas:
 - V14/V14.5 intraday data mode foundation (config parsing, 5Min fetch mocks, VWAP, opening range, insufficient data, Tony intraday labels, watch-mode summary, `intraday_analysis_summary` event, nullable snapshot fields, no order behavior).
 - V14.7 real-data-only enforcement (snapshot data-source classification, default real-only analytics, `--include-demo`, today/provider filters, missing-real-data aggregation, EOD report structure, legacy row compatibility, no order behavior).
 - V15 intraday entry trigger simulation (planned entry above snapshot price, trigger uses post-snapshot 5Min bars only, no lookahead, first-bar trigger time, pending/expired/missing-real-data statuses, legacy snapshot load, `entry_trigger_summary` event, no broker/order behavior).
+- V15.1 Windows pytest temp cleanup (`run_tests.ps1` + `tests/conftest.py` use `%LOCALAPPDATA%\TradingBotTests`; no repo-local `.pytest_tmp` basetemp; clean pass/fail exit codes).
+- V15.2 symbol quarantine (HCP/SAMSF/SMAR/SQ excluded from real-only scan, universe YAML unchanged, eod-report/dashboard listing, no broker/demo behavior).
+- V15.5 dashboard Command Center UX (`tests/test_dashboard_helpers.py`: status labels, trigger summary, top-watch rows, missing/quarantined summaries; no Streamlit browser automation required).
+- V15.8 active tracking fields (`tests/test_v15_8_active_tracking.py`: freeze once, current price/P/L, tracking_status map, legacy null-safe cards, no broker; `update-snapshots` refreshes tracking).
+- V15.8B dashboard product semantics (`tests/test_dashboard_helpers.py`: entry trigger survives dedupe, trigger distance/explanations, fixed active entry + latest current/closing price, risk/reward fallback, Results filters/cards/counts, no `NaN`/`unknown` product strings; `tests/test_dashboard_theme.py`: `Entry trigger` labels + preview semantics; manual: Home text readable, Tony Picks/Active Tracking/Results show clean product wording and no raw history).
+- V15.8A dashboard symbol-level product views (`tests/test_dashboard_helpers.py`: duplicate Tony Picks collapse to one symbol, duplicate Active Tracking rows collapse to one card, first valid triggered entry stays fixed, latest current price overlays active card, incomplete tracking rows hidden, Home preview lists have no duplicate symbols, planned entry vs active entry fields stay distinct, Results still-active count aligns with deduped active cards; `tests/test_dashboard_theme.py`: planned/current/active metrics render on pick/tracking preview cards).
+- V15.7E Home briefing card enrichment (`tests/test_dashboard_theme.py`: enriched preview HTML; `tests/test_dashboard_helpers.py`: preview model fields, count-only missing data, calm status; manual: Home cards informative but compact).
+- V15.7D Active Tracking import + Home clarity (`tests/test_dashboard_theme.py`: import protection; `tests/test_dashboard_helpers.py`: status/missing-data summaries; manual: Active Tracking tab loads).
+- V15.7C dashboard HTML render + Home briefing (`tests/test_dashboard_theme.py`: balanced stat grid, `render_html` unsafe markdown; `tests/test_dashboard_helpers.py`: home preview cap 3, status messages; manual: no raw `<div class="tony-stat-tile">` text on Home/Results).
+- V15.7B visual theme (`dashboard/theme.py`; `tests/test_dashboard_theme.py` for `_TONY_APP_CSS`; manual Streamlit check).
+- V15.7A dashboard NaN/JSON safety (`_parse_json_list`, display helpers, pick card with NaN reasons; 436 tests).
+- V15.7 trading-app dashboard shell (`tests/test_dashboard_helpers.py`: pick phase, research P/L %, card models, results/system health summaries; no Streamlit browser automation required).
 
 Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
 

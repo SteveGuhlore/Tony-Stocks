@@ -1,6 +1,6 @@
 # Trading Bot Project - Roadmap
 
-_Last updated: 2026-05-18_
+_Last updated: 2026-05-19_
 
 ## Phase 1 - V1/V2 scanner, scorer, and dashboard
 
@@ -89,7 +89,7 @@ Exit criteria:
 
 ## Phase 2 - Real API providers
 
-Status: **V15 complete** for research-only intraday entry trigger simulation on candidate snapshots. **V14.7 complete** for real-data-only enforcement. V15 adds research-only intraday trigger simulation. It does not create paper trades or broker orders. Outcome analytics now separates `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshots, and the CLI/dashboard include market-day review tooling. Daily scoring remains the default.
+Status: **V15.7 complete** for trading-app style five-tab dashboard shell (no scoring/trading/DB changes). **V15.5 complete** for beginner-friendly Command Center dashboard UX. **V15.2 complete** for config-driven symbol quarantine during real-data-only runs. **V15 complete** for research-only intraday entry trigger simulation on candidate snapshots. **V14.7 complete** for real-data-only enforcement. V15 adds research-only intraday trigger simulation. It does not create paper trades or broker orders. Outcome analytics now separates `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshots, and the CLI/dashboard include market-day review tooling. Daily scoring remains the default.
 
 V13: Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
 
@@ -150,3 +150,12 @@ Goals:
 - Alerting.
 - Risk dashboard.
 - Scheduled scans.
+
+## V15.8A note
+
+- Product dashboard symbol dedupe is complete: one Tony Pick card per symbol, one Active Tracking card per symbol, fixed first valid triggered entry per active symbol, and later rows only refresh live tracking fields plus Results still-active counts.
+
+## V15.8B note
+
+- Product dashboard semantics are now aligned around `Entry trigger`, fixed `Active entry` / `Tracked from`, after-hours `Closing price`, risk/reward helper text, and Results stock cards/filters driven by the same deduped symbol-level product rows as Home, Tony Picks, and Active Tracking.
+- Future Tony Explanation Engine work: Tony descriptions are still repetitive in some cards. A later pass should create more varied skill-specific explanations without surfacing raw history on the main dashboard.

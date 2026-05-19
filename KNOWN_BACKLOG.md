@@ -1,9 +1,12 @@
 # Trading Bot Project - Known Backlog
 
-_Last updated: 2026-05-18_
+_Last updated: 2026-05-19_
 
 ## Immediate
 
+- Tony descriptions are still repetitive across some dashboard cards. Future Tony Explanation Engine work should generate more varied skill-specific explanations while keeping the main product view history-free.
+- V15.8B dashboard semantics are implemented. Manual browser click-through is still pending to confirm Home text, Tony Picks trigger messaging, Active Tracking closing-price labeling, and Results filters/cards end to end.
+- V15.8A symbol-level dashboard dedupe is implemented. Manual browser click-through is still pending to confirm Home, Tony Picks, Active Tracking, and Results visually match the new product rules end to end.
 - Review V15 planned/triggered entry fields on new candidate snapshots after a market-hours watch session (`entry_status`, `planned_entry_price`, `actual_entry_time`).
 - Backfill planned entry fields for older open snapshots is not automatic; only new snapshots get plans at creation time.
 - Review the trade-plan validation fields in `outputs/latest_scan_results.csv`, scan results, and candidate snapshots.
@@ -16,7 +19,16 @@ _Last updated: 2026-05-18_
 - Review V14.5 intraday watch summaries during a supervised market session; confirm VWAP/opening-range labels are understandable and snapshots show Tony intraday fields.
 - First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring.
 - Review real-data-only analytics after each market-hours run using `outcome-analytics --today --provider alpaca_iex` and `eod-report`; default analytics now excludes demo and legacy rows.
-- Review repeated missing-real-data symbols before the next universe cleanup. Current repeated symbols: `HCP`, `SAMSF`, `SMAR`, `SQ`. Quarantine or replace these symbols only after manual review.
+- V15.7E enriched Home preview cards (picks + tracking) while keeping Tony Picks / Active Tracking as full-detail tabs.
+- V15.7D fixed Active Tracking NameError (`render_tracking_position_card` import); Home status/missing-data copy softened.
+- V15.7C fixed raw HTML showing on Home/Results (theme `render_html` + complete stat-grid fragments); Home vs Tony Picks separation done.
+- V15.7B visual polish complete (`src/trading_bot/dashboard/theme.py`); optional: responsive tweaks for mobile Streamlit.
+- V15.7A fixed NaN/JSON parse crash on Tony Picks; card HTML polish applied.
+- V15.8 complete: frozen original plan + active tracking refresh fields on `candidate_snapshots`; dashboard Active Tracking uses them.
+- V15.7 trading-app dashboard shell is live; legacy tables under Settings / System Health only.
+- V15.5 Command Center is simplified for non-technical review; preserved under Settings legacy expander.
+- V15.2 quarantines `HCP`, `SAMSF`, `SMAR`, and `SQ` in `config/default_config.yaml` for real-data-only runs (symbols still in universe YAML). Review after next market-hours watch; add more symbols to quarantine only after manual review.
+- Optional: add replacement tickers to universe YAML with full metadata if a quarantined name has a valid IEX symbol (not auto-applied).
 - Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
 - Initialize git and make an initial commit after checks pass.
 

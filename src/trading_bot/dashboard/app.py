@@ -13,25 +13,70 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from trading_bot.data.market_data import build_market_data_provider
+from trading_bot.data.symbol_quarantine import load_symbol_quarantine_config
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
 from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.dashboard.helpers import (
+    build_active_tracking_product_rows,
+    build_pick_card_model,
+    build_result_card_model,
+    build_results_product_rows,
+    build_tony_pick_product_rows,
+    build_top_watch_rows,
+    build_tracked_setup_card_model,
+    collect_health_issues,
     count_hypothesis_by_priority,
+    count_interesting_and_risky_stocks,
+    eod_outcome_summary_today,
     event_age_label,
     filter_events_by_type,
+    filter_research_snapshots,
+    human_review_items,
     is_fallback_provider,
-    is_heartbeat_stale,
-    is_seeded_demo_snapshot,
+    is_waiting_for_market_open,
     latest_event_of_type,
+    market_context_plain_english,
+    missing_symbols_from_events,
+    snapshot_symbol_lookup,
     snapshots_today_count,
+    snapshots_today_dataframe,
+    split_snapshots_by_phase,
+    home_briefing_review_items,
+    RESULTS_FILTERS,
+    filter_results_product_rows,
+    risk_reward_definition_text,
+    select_home_preview_picks,
+    select_home_tracking_rows,
+    summarize_results_product_counts,
+    summarize_research_pl,
+    tony_status_home_message,
+    summarize_results_plain_english,
+    summarize_symbol_list,
+    summarize_system_health,
+    tony_status_beginner_label,
+    trigger_tracker_summary,
     watch_status_label,
 )
+from trading_bot.dashboard.theme import (
+    avg_research_pl_from_prepared,
+    briefing_line,
+    inject_tony_theme,
+    render_hero,
+    render_pick_preview_card,
+    render_pick_signal_card,
+    render_result_card,
+    render_results_performance,
+    render_stat_grid,
+    render_tracking_position_card,
+    render_tracking_preview_card,
+    section_header,
+)
+from trading_bot.settings import load_scanner_settings, real_data_only_enabled, resolve_effective_provider
 from trading_bot.indicators import simple_moving_average
-from trading_bot.settings import load_scanner_settings, resolve_effective_provider
 from trading_bot.storage.repositories import ScannerRepository
 
 
-st.set_page_config(page_title="Trading Bot Scanner", layout="wide")
+st.set_page_config(page_title="Tony Stocks", layout="wide")
 
 
 @st.cache_resource
@@ -934,30 +979,7 @@ def _latest_event_time(events: pd.DataFrame, event_type: str) -> str | None:
 
 
 def _fallback_symbols_from_events(events: pd.DataFrame) -> list[str]:
-    if events.empty or "payload_json" not in events.columns:
-        return []
-    counts: dict[str, int] = {}
-    for raw in events["payload_json"].tolist():
-        try:
-            payload = json.loads(raw or "{}")
-        except json.JSONDecodeError:
-            continue
-        symbols = (
-            payload.get("missing_real_data_symbols")
-            or payload.get("fallback_symbols")
-            or payload.get("intraday_missing_symbols")
-            or payload.get("intraday_fallback_symbols")
-            or []
-        )
-        if isinstance(symbols, str):
-            symbols = [symbols]
-        for symbol in symbols:
-            key = str(symbol).upper().strip()
-            if key:
-                counts[key] = counts.get(key, 0) + 1
-    if counts and max(counts.values()) > 1:
-        counts = {symbol: count for symbol, count in counts.items() if count > 1}
-    return [symbol for symbol, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))]
+    return missing_symbols_from_events(events)
 
 
 def _tony_event_columns(events: pd.DataFrame) -> pd.DataFrame:
@@ -1151,6 +1173,9 @@ def render_market_day_review(repo: ScannerRepository) -> None:
     """Compact market-day data quality review for real vs demo hygiene."""
     st.subheader("Market Day Review")
     st.caption("Research-only data quality review. Tony does not place orders or make trade recommendations.")
+    settings = load_scanner_settings()
+    quarantine_cfg = load_symbol_quarantine_config(settings)
+    configured_quarantine = [entry.symbol for entry in quarantine_cfg.entries]
     events = repo.list_tony_events(limit=300)
     snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=5000)
     analytics = OutcomeAnalytics(snapshots, include_seeded_demo=True, today=True, real_only=True)
@@ -1175,8 +1200,13 @@ def render_market_day_review(repo: ScannerRepository) -> None:
     cols[4].metric("Real Intraday", int(intraday_payload.get("real_intraday_count", 0) or 0))
     cols[5].metric("Stale Intraday", int(intraday_payload.get("intraday_stale_count", 0) or 0))
 
-    st.caption(f"Missing real-data symbols: {', '.join(fallback_symbols[:12]) if fallback_symbols else 'none'}")
-    st.caption(f"Quarantine candidates: {', '.join(fallback_symbols[:12]) if fallback_symbols else 'none'}")
+    st.caption(f"Missing real-data symbols (events): {', '.join(fallback_symbols[:12]) if fallback_symbols else 'none'}")
+    st.caption(
+        f"Configured quarantined: {', '.join(configured_quarantine) if configured_quarantine else 'none'} "
+        "(excluded from real-data-only scan/watch; still in universe YAML)"
+    )
+    if quarantine_cfg.replacement_symbols:
+        st.caption(f"Configured replacements: {', '.join(quarantine_cfg.replacement_symbols)}")
     repeated = ", ".join(f"{key}: {value}" for key, value in priority_counts.items())
     st.caption(f"Tony repeated symbols: {repeated or 'none'}")
     if source_map.get("demo_generated", 0) or source_map.get("legacy_unknown", 0) or source_map.get("missing_real_data", 0):
@@ -1202,203 +1232,448 @@ def render_outcome_snapshot_panel(repo: ScannerRepository) -> None:
     cols[5].metric("Insufficient Data", _count_outcome(outcome_counts, ["insufficient_future_data"]))
 
 
-def render_command_center(repo: ScannerRepository, results: pd.DataFrame) -> None:
-    """Command Center — consolidated current state for monitoring Tony at a glance."""
-    st.caption(
-        "Tony Stocks is an analyst, not a trader. "
-        "No orders, paper trades, broker execution, or live trading. "
-        "All reads are deterministic — no LLM."
+def _render_safety_strip(real_only: bool) -> None:
+    st.info(
+        "**Research only** · No broker orders · No paper trades · No live trades · "
+        "Tony does not place trades · No demo data in active learning."
     )
+    if real_only:
+        st.success("**Real data only:** Yes — demo data is blocked for active Tony watch and learning.")
+    else:
+        st.warning("Real-data-only mode is off in config. Check settings before trusting results.")
 
+
+def _load_research_snapshots(repo: ScannerRepository, limit: int = 2000) -> pd.DataFrame:
+    snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=limit)
+    return filter_research_snapshots(snaps)
+
+
+def _dashboard_context(repo: ScannerRepository, results: pd.DataFrame) -> dict:
+    """Shared Tony dashboard context for Home and product tabs."""
     settings = load_scanner_settings()
-    tony_cfg = settings.tony_stocks or {}
     watch_config = settings.scheduled_watch or {}
+    quarantine_cfg = load_symbol_quarantine_config(settings)
     effective_provider = resolve_effective_provider(settings)
+    real_only = real_data_only_enabled(settings)
+    demo_blocked = real_only and not settings.allow_demo_fallback_in_watch
     stale_heartbeat_minutes = int(watch_config.get("stale_heartbeat_minutes", 10))
-    stop_file_path = Path(str(watch_config.get("stop_file", "data/STOP_WATCH_MODE")))
-    if not stop_file_path.is_absolute():
-        stop_file_path = Path.cwd() / stop_file_path
+    today_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%d")
 
-    # Watch run state
     watch_run = repo.latest_watch_run()
     wsr_label = watch_status_label(watch_run, stale_heartbeat_minutes)
-
     events = repo.list_tony_events(limit=300)
-    analyst_events = repo.list_tony_events(event_type="analyst_candidate_hypothesis", limit=20)
+    analyst_events = repo.list_tony_events(event_type="analyst_candidate_hypothesis", limit=50)
     mkt_events = repo.list_tony_events(event_type="analyst_market_context", limit=3)
-    dq_events = repo.list_tony_events(event_type="analyst_data_quality", limit=3)
-    risk_events = repo.list_tony_events(event_type="analyst_risk_warning", limit=5)
 
     latest_scan_ts = _latest_event_time(events, "scan_completed")
-    latest_watch_ts = _latest_event_time(events, "watch_cycle_completed")
+    waiting = is_waiting_for_market_open(events)
+    beginner_status = tony_status_beginner_label(wsr_label, waiting_for_market=waiting)
 
-    # API/symbols from last batch event
-    api_requests = None
-    symbols_scanned = None
+    missing_symbols = missing_symbols_from_events(events)
+    quarantined_symbols = list(quarantine_cfg.symbols)
+    rate_limit_count = int(filter_events_by_type(events, "rate_limit_warning").shape[0])
+    all_fallback = bool(latest_event_of_type(events, "all_symbol_fallback"))
+
+    health_issues = collect_health_issues(
+        watch_status=wsr_label,
+        real_data_only=real_only,
+        provider=effective_provider,
+        demo_blocked=demo_blocked,
+        rate_limit_count=rate_limit_count,
+        all_fallback=all_fallback,
+    )
+
+    research_snaps = _load_research_snapshots(repo)
+    phases = split_snapshots_by_phase(research_snaps)
+    picks_df = build_tony_pick_product_rows(research_snaps)
+    tracking_df = build_active_tracking_product_rows(research_snaps)
+    pending_symbol_count = 0
+    if not picks_df.empty:
+        pending_symbol_count = int(
+            picks_df.apply(lambda row: str(row.get("entry_status") or "").strip().lower() == "pending", axis=1).sum()
+        )
+
+    trigger_counts = trigger_tracker_summary(
+        planned_today=repo.count_planned_triggers_today(today_utc),
+        triggered_today=repo.count_entry_trigger_status("triggered", today_utc),
+        pending=pending_symbol_count,
+        expired_not_triggered=repo.count_entry_trigger_status("expired")
+        + repo.count_entry_trigger_status("not_triggered"),
+        missing_real_data=repo.count_entry_trigger_status("missing_real_data"),
+    )
+
+    mkt_row = latest_event_of_type(mkt_events, "analyst_market_context")
+    mkt_payload = json.loads(mkt_row.get("payload_json") or "{}") if mkt_row else {}
+    market_headline, market_line = market_context_plain_english(
+        mkt_payload.get("context_label"),
+        mkt_row.get("message") if mkt_row else None,
+    )
+    interesting_count, risky_count = count_interesting_and_risky_stocks(analyst_events)
+    pl_summary = summarize_research_pl(research_snaps)
+
     batch_event = latest_event_of_type(events, "batch_fetch_summary")
+    api_requests = symbols_scanned = None
     if batch_event:
         bp = json.loads(batch_event.get("payload_json") or "{}")
         api_requests = bp.get("api_requests_used") or bp.get("api_requests")
-        symbols_scanned = bp.get("symbols_fetched") or bp.get("symbols_scanned") or bp.get("symbols")
-
+        symbols_scanned = bp.get("symbols_fetched") or bp.get("symbols_scanned")
     if symbols_scanned is None and not results.empty:
         symbols_scanned = len(results)
 
-    fallback_count = int(
-        filter_events_by_type(events, "data_provider_fallback").shape[0]
-        + filter_events_by_type(events, "all_symbol_fallback").shape[0]
+    return {
+        "settings": settings,
+        "watch_run": watch_run,
+        "wsr_label": wsr_label,
+        "beginner_status": beginner_status,
+        "real_only": real_only,
+        "demo_blocked": demo_blocked,
+        "effective_provider": effective_provider,
+        "missing_symbols": missing_symbols,
+        "quarantined_symbols": quarantined_symbols,
+        "events": events,
+        "analyst_events": analyst_events,
+        "latest_scan_ts": latest_scan_ts,
+        "health_issues": health_issues,
+        "rate_limit_count": rate_limit_count,
+        "market_headline": market_headline,
+        "market_line": market_line,
+        "interesting_count": interesting_count,
+        "risky_count": risky_count,
+        "trigger_counts": trigger_counts,
+        "research_snaps": research_snaps,
+        "picks_df": picks_df,
+        "tracking_df": tracking_df,
+        "phases": phases,
+        "pl_summary": pl_summary,
+        "api_requests": api_requests,
+        "symbols_scanned": symbols_scanned,
+        "today_utc": today_utc,
+        "waiting_for_market": waiting,
+        "watch_error_message": (
+            str(watch_run.get("latest_error_message") or "").strip() if watch_run else ""
+        ),
+    }
+
+
+def render_home(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Home — executive briefing (short); full picker lives on Tony Picks."""
+    inject_tony_theme()
+    ctx = _dashboard_context(repo, results)
+    render_hero(real_data_only=ctx["real_only"])
+
+    tony_status = tony_status_home_message(
+        ctx["beginner_status"],
+        ctx["wsr_label"],
+        waiting_for_market=ctx["waiting_for_market"],
+        has_data_issues=bool(ctx["missing_symbols"]),
+        watch_error_message=ctx.get("watch_error_message"),
     )
-    rate_limit_count = int(filter_events_by_type(events, "rate_limit_warning").shape[0])
+    last_scan = event_age_label(ctx["latest_scan_ts"]) if ctx["latest_scan_ts"] else "No scan yet"
+    render_stat_grid([
+        ("Tony Status", tony_status, "purple", None),
+        ("Real Data Only", "Yes" if ctx["real_only"] else "No", "blue", None),
+        ("Tony Picks", str(len(ctx["picks_df"])), "info", "On the watchlist"),
+        ("Active Tracking", str(len(ctx["tracking_df"])), "purple", "Triggered setups"),
+        ("Waiting Alerts", str(ctx["trigger_counts"]["pending_alerts"]), "amber", None),
+        ("Last Scan", last_scan, "neutral", None),
+    ])
 
-    pri_counts = count_hypothesis_by_priority(analyst_events)
-    high_pri_count = pri_counts.get("high_priority", 0)
-    watch_count = pri_counts.get("watch", 0)
+    briefing_line(ctx["market_line"] or "No market read yet — Tony will update after the next scan.")
 
-    # ── Watch run status row ───────────────────────────────────────────────────
-    wsr_display = wsr_label.upper().replace("_", " ")
-    wr_cols = st.columns(6)
-    wr_cols[0].metric("Watch Status", wsr_display)
-    wr_cols[1].metric("Heartbeat", event_age_label(watch_run.get("last_heartbeat_at")) if watch_run else "—")
-    wr_cols[2].metric("Cycles Done", watch_run.get("cycles_completed", "—") if watch_run else "—")
-    wr_cols[3].metric("Latest Scan Run", watch_run.get("latest_scan_run_id", "—") if watch_run else "—")
-    wr_cols[4].metric("Symbols Scored", watch_run.get("latest_symbols_scored", "—") if watch_run else "—")
-    wr_cols[5].metric("API Requests", watch_run.get("latest_api_requests_used", "—") if watch_run else "—")
-
-    if wsr_label == "stale":
-        st.error(
-            "Watch heartbeat is stale — the watch process may have stopped unexpectedly. "
-            "Check the PowerShell window and restart if needed."
-        )
-    elif wsr_label == "error":
-        err = (watch_run or {}).get("latest_error_message", "unknown error")
-        st.error(f"Watch mode stopped with error: {err}")
-    elif wsr_label == "running":
-        st.success("Watch mode is running.")
-    elif wsr_label == "stopped":
-        reason = (watch_run or {}).get("stop_reason", "")
-        st.info(f"Watch mode stopped cleanly. Reason: {reason or 'unknown'}")
-
-    st.caption(
-        f"Stop file: `{stop_file_path}` — "
-        "create this file or press Ctrl+C in the watch terminal to stop cleanly."
-    )
-
-    # ── Status row ─────────────────────────────────────────────────────────────
-    st.markdown("---")
-    row1 = st.columns(6)
-    row1[0].metric("Tony Mode", str(tony_cfg.get("mode", "watcher")).title())
-    row1[1].metric("Provider", effective_provider)
-    row1[2].metric("Last Scan", event_age_label(latest_scan_ts) if latest_scan_ts else "No scan")
-    row1[3].metric("Last Watch", event_age_label(latest_watch_ts) if latest_watch_ts else "No watch")
-    row1[4].metric("Symbols Scanned", symbols_scanned if symbols_scanned is not None else "—")
-    row1[5].metric("API Requests (events)", api_requests if api_requests is not None else "—")
-
-    # ── Health row ─────────────────────────────────────────────────────────────
-    row2 = st.columns(6)
-    row2[0].metric("Fallback Events", fallback_count)
-    row2[1].metric("Rate-Limit Warnings", rate_limit_count)
-    today_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%d")
-    row2[2].metric("Snapshots Today", snapshots_today_count(repo))
-    row2[3].metric("Open Snapshots", repo.count_open_candidate_snapshots())
-    row2[4].metric("High-Priority Reads", high_pri_count)
-    row2[5].metric("Watch Reads", watch_count)
-
-    row2b = st.columns(4)
-    row2b[0].metric("Planned Triggers Today", repo.count_planned_triggers_today(today_utc))
-    row2b[1].metric("Triggered Entries Today", repo.count_entry_trigger_status("triggered", today_utc))
-    row2b[2].metric("Pending Entries", repo.count_entry_trigger_status("pending"))
-    row2b[3].metric("Expired / No Trigger", repo.count_entry_trigger_status("expired") + repo.count_entry_trigger_status("not_triggered"))
-
-    # ── Banners ────────────────────────────────────────────────────────────────
-    if is_fallback_provider(effective_provider):
-        st.error(
-            f"Provider is **{effective_provider}** (demo/fallback). "
-            "Real market data is not active. Add Alpaca API keys to .env and set real_provider_enabled: true."
-        )
-    if effective_provider == "alpaca_iex":
-        st.info(
-            "Alpaca IEX is a single-exchange feed — not full SIP consolidated tape. "
-            "Research use only. No orders placed."
-        )
-    if rate_limit_count > 0:
-        st.warning(
-            f"{rate_limit_count} rate-limit warning(s) recorded. "
-            "Consider reducing max_symbols_per_cycle or increasing request_sleep_seconds."
-        )
-
-    # ── Market context ─────────────────────────────────────────────────────────
-    mkt_row = latest_event_of_type(mkt_events, "analyst_market_context")
-    if mkt_row:
-        mkt_payload = json.loads(mkt_row.get("payload_json") or "{}")
-        mkt_label = mkt_payload.get("context_label", "unknown")
-        mkt_age = event_age_label(mkt_row.get("created_at"))
-        mkt_icon = {
-            "market_supportive": "✅",
-            "market_weak": "⚠️",
-            "market_mixed": "🔶",
-            "benchmark_data_missing": "❓",
-        }.get(mkt_label, "")
-        st.markdown(
-            f"**Market Context** ({mkt_age}): {mkt_icon} `{mkt_label}` — {mkt_row.get('message', '')}"
-        )
-
-    # ── Data quality one-liner ─────────────────────────────────────────────────
-    dq_row = latest_event_of_type(dq_events, "analyst_data_quality")
-    if dq_row:
-        dq_age = event_age_label(dq_row.get("created_at"))
-        st.markdown(f"**Data Quality** ({dq_age}): {dq_row.get('message', '')}")
-
-    # ── Risk warning ───────────────────────────────────────────────────────────
-    intraday_cfg = settings.intraday or {}
-    intraday_event = latest_event_of_type(events, "intraday_analysis_summary")
-    intraday_payload = json.loads(intraday_event.get("payload_json") or "{}") if intraday_event else {}
-    st.markdown("**Intraday Read Summary**")
-    intraday_cols = st.columns(7)
-    intraday_cols[0].metric("Enabled", "yes" if intraday_cfg.get("enabled", False) else "no")
-    intraday_cols[1].metric("Timeframe", str(intraday_payload.get("timeframe") or intraday_cfg.get("timeframe", "5Min")))
-    intraday_cols[2].metric("With Data", int(intraday_payload.get("symbols_with_intraday", 0) or 0))
-    intraday_cols[3].metric("Missing", int(intraday_payload.get("missing_count", 0) or 0))
-    intraday_cols[4].metric("Above VWAP", int(intraday_payload.get("above_vwap_count", 0) or 0))
-    intraday_cols[5].metric("Below VWAP", int(intraday_payload.get("below_vwap_count", 0) or 0))
-    intraday_cols[6].metric(
-        "OR B/O-B/D",
-        f"{int(intraday_payload.get('opening_range_breakout_count', 0) or 0)}/"
-        f"{int(intraday_payload.get('opening_range_breakdown_count', 0) or 0)}",
-    )
-    if intraday_event:
-        st.caption(
-            f"Latest intraday summary: {event_age_label(intraday_event.get('created_at'))}. "
-            "Intraday reads are research-only context and are not entry automation."
-        )
+    section_header("Top 3 Tony Picks")
+    home_picks = select_home_preview_picks(ctx["picks_df"], limit=3)
+    if home_picks.empty:
+        st.info("No Tony Picks yet. Open Tony Picks after the next watch cycle.")
     else:
-        st.caption("No intraday summary event yet. Intraday reads are research-only context and are not entry automation.")
+        for _, row in home_picks.iterrows():
+            render_pick_preview_card(build_pick_card_model(row))
 
-    risk_row = latest_event_of_type(risk_events, "analyst_risk_warning")
-    if risk_row:
-        risk_age = event_age_label(risk_row.get("created_at"))
-        st.warning(f"**Risk Warning** ({risk_age}): {risk_row.get('message', '')}")
+    section_header("Top 3 Active Tracking")
+    home_tracking = select_home_tracking_rows(ctx["tracking_df"], limit=3)
+    if home_tracking.empty:
+        st.info("No active tracked setups right now.")
+    else:
+        for _, row in home_tracking.iterrows():
+            render_tracking_preview_card(build_tracked_setup_card_model(row))
 
-    # ── Hypothesis cards ───────────────────────────────────────────────────────
-    st.markdown("---")
-    st.subheader("Analyst Reads — Latest Cycle")
-    _cc_hypothesis_cards(analyst_events, limit=8)
+    section_header("What to review today")
+    review_lines = "\n".join(
+        f"- {item}"
+        for item in home_briefing_review_items(
+            interesting_count=ctx["interesting_count"],
+            risky_count=ctx["risky_count"],
+            pending_triggers=ctx["trigger_counts"]["pending_alerts"],
+            missing_symbols=ctx["missing_symbols"],
+        )
+    )
+    st.markdown(review_lines)
 
-    # ── Panels ────────────────────────────────────────────────────────────────
-    st.markdown("---")
-    panel_cols = st.columns(2)
-    with panel_cols[0]:
+
+def render_tony_picks(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Tony Picks — full stock-picker / watchlist."""
+    inject_tony_theme()
+    ctx = _dashboard_context(repo, results)
+    section_header("Tony Picks")
+    st.caption("Here are the current Tony Picks. Entry trigger means the price/confirmation Tony still needs before tracking starts. Research only — no trades placed.")
+    st.caption(risk_reward_definition_text())
+
+    if ctx["picks_df"].empty:
+        st.info("No Tony Picks on the watchlist right now.")
+        return
+
+    filter_cols = st.columns(2)
+    filter_choice = filter_cols[0].selectbox(
+        "Filter", ["All", "Waiting for alert", "Tony Pick"], key="picks_filter"
+    )
+    sort_choice = filter_cols[1].selectbox("Sort by", ["Newest", "Tony rating", "Symbol"], key="picks_sort")
+
+    cards: list[dict[str, str]] = []
+    for _, row in ctx["picks_df"].iterrows():
+        card = build_pick_card_model(row)
+        if filter_choice == "Waiting for alert" and card["phase"] != "waiting_alert":
+            continue
+        if filter_choice == "Tony Pick" and card["phase"] != "pick":
+            continue
+        cards.append(card)
+
+    if sort_choice == "Symbol":
+        cards.sort(key=lambda item: item["symbol"])
+    elif sort_choice == "Tony rating":
+        cards.sort(key=lambda item: item["tony_rating"])
+
+    for card in cards:
+        render_pick_signal_card(card)
+
+
+def render_active_tracking(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Active Tracking — post-trigger research position cards."""
+    inject_tony_theme()
+    ctx = _dashboard_context(repo, results)
+    section_header("Active Tracking")
+    st.caption("Research position cards after an entry alert triggers. Not live trading.")
+    st.caption(risk_reward_definition_text())
+
+    if ctx["tracking_df"].empty:
+        st.info("No active tracked setups. Tony moves symbols here after a planned entry alert triggers.")
+        return
+
+    for _, row in ctx["tracking_df"].iterrows():
+        render_tracking_position_card(build_tracked_setup_card_model(row))
+
+
+def _results_prepared_for_period(repo: ScannerRepository, period: str) -> pd.DataFrame:
+    snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=5000)
+    analytics = OutcomeAnalytics(snaps, include_seeded_demo=False, real_only=True)
+    prepared = filter_research_snapshots(analytics.prepared())
+    if prepared.empty or "snapshot_time" not in prepared.columns:
+        return prepared
+    dates = prepared["snapshot_time"].fillna("").astype(str).str.slice(0, 10)
+    if period == "Today":
+        today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+        return prepared[dates.eq(today)].copy()
+    if period == "This week":
+        cutoff = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
+        return prepared[dates.ge(cutoff)].copy()
+    return prepared
+
+
+def render_results(repo: ScannerRepository) -> None:
+    """Results — plain-English research performance."""
+    inject_tony_theme()
+    section_header("Results")
+    st.caption("What happened after Tony noticed each setup.")
+
+    period = st.radio("Period", ["Today", "This week", "All time"], horizontal=True, key="results_period")
+    prepared = _results_prepared_for_period(repo, period)
+    active_tracking_rows = build_active_tracking_product_rows(prepared)
+    result_rows = build_results_product_rows(prepared)
+    summary = summarize_results_plain_english(
+        prepared,
+        period_label=period,
+        active_tracking_rows=active_tracking_rows,
+    )
+    summary.update(summarize_results_product_counts(result_rows))
+    avg_pl = avg_research_pl_from_prepared(prepared)
+    render_results_performance(summary, avg_pl=avg_pl, period=period)
+    st.caption(risk_reward_definition_text())
+
+    filter_name = st.radio("Result filter", RESULTS_FILTERS, horizontal=True, key="results_filter")
+    filtered_rows = filter_results_product_rows(result_rows, filter_name)
+    if filtered_rows.empty:
+        st.info("No result cards match this filter yet.")
+        return
+    for _, row in filtered_rows.iterrows():
+        render_result_card(build_result_card_model(row))
+
+
+def render_system_health(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Settings / System Health — technical and legacy developer views."""
+    ctx = _dashboard_context(repo, results)
+    settings = ctx["settings"]
+    watch_config = settings.scheduled_watch or {}
+
+    health = summarize_system_health(
+        watch_status=ctx["wsr_label"],
+        beginner_status=ctx["beginner_status"],
+        real_data_only=ctx["real_only"],
+        provider=ctx["effective_provider"],
+        demo_blocked=ctx["demo_blocked"],
+        missing_symbols=ctx["missing_symbols"],
+        quarantined_symbols=ctx["quarantined_symbols"],
+        last_scan_age=event_age_label(ctx["latest_scan_ts"]) if ctx["latest_scan_ts"] else "No scan yet",
+        api_requests=ctx["api_requests"],
+        symbols_scanned=ctx["symbols_scanned"],
+        rate_limit_count=ctx["rate_limit_count"],
+        health_issues=ctx["health_issues"],
+    )
+
+    st.subheader("Settings / System Health")
+    st.caption("Technical details and debug views. Main Tony tabs stay simple.")
+
+    st.markdown("#### Data & safety")
+    cols = st.columns(4)
+    cols[0].metric("Real data only", "Yes" if health["real_data_only"] else "No")
+    cols[1].metric("Provider", health["provider"])
+    cols[2].metric("Demo blocked", "Yes" if health["demo_blocked"] else "No")
+    cols[3].metric("Tony status", health["tony_status"])
+    st.caption(f"**Missing real data:** {summarize_symbol_list(health['missing_symbols'])}")
+    st.caption(f"**Quarantined:** {summarize_symbol_list(health['quarantined_symbols'])}")
+
+    st.markdown("#### Operations")
+    ops = st.columns(4)
+    ops[0].metric("Watch status", health["watch_status"])
+    ops[1].metric("Last scan", health["last_scan_age"])
+    ops[2].metric("API requests (last batch)", health["api_requests"] if health["api_requests"] is not None else "—")
+    ops[3].metric("Symbols scanned", health["symbols_scanned"] if health["symbols_scanned"] is not None else "—")
+    if health["rate_limit_count"]:
+        st.warning(f"{health['rate_limit_count']} rate-limit warning(s) in recent events.")
+    if health["health_issues"]:
+        for issue in health["health_issues"]:
+            st.warning(issue)
+
+    stop_file_path = Path(str(watch_config.get("stop_file", "data/STOP_WATCH_MODE")))
+    if not stop_file_path.is_absolute():
+        stop_file_path = Path.cwd() / stop_file_path
+    st.caption(f"Watch stop file: `{stop_file_path}`")
+
+    with st.expander("Legacy developer views (tables, charts, raw events)", expanded=False):
+        st.caption("Developer/debug only. Not part of the main Tony product flow.")
+        legacy_tab = st.tabs([
+            "Overview",
+            "Ranked Stocks",
+            "Stock Detail",
+            "Snapshots",
+            "Outcome Analytics",
+            "Tony Events",
+            "Manual Picks",
+            "Paper Journal",
+            "Performance",
+            "Command Center (V15.5)",
+        ])
+        with legacy_tab[0]:
+            render_overview(repo, results)
+            render_data_provider_status(repo)
+        with legacy_tab[1]:
+            render_ranked(results)
+        with legacy_tab[2]:
+            render_detail(results)
+        with legacy_tab[3]:
+            render_candidate_snapshots(repo)
+        with legacy_tab[4]:
+            render_outcome_analytics(repo)
+        with legacy_tab[5]:
+            render_tony_stocks(repo)
+        with legacy_tab[6]:
+            render_manual_picks(repo, results)
+        with legacy_tab[7]:
+            render_paper_journal(repo)
+        with legacy_tab[8]:
+            render_performance(repo)
+        with legacy_tab[9]:
+            render_command_center_legacy(repo, results, ctx)
+
+    with st.expander("Watch health & data quality panels", expanded=False):
         render_watch_health(repo)
-    with panel_cols[1]:
         render_data_quality_panel(repo)
+        render_market_day_review(repo)
+        render_outcome_snapshot_panel(repo)
+        render_tony_learning_panel(repo)
 
-    st.markdown("---")
-    render_market_day_review(repo)
 
-    st.markdown("---")
-    render_outcome_snapshot_panel(repo)
+def render_command_center_legacy(
+    repo: ScannerRepository,
+    results: pd.DataFrame,
+    ctx: dict | None = None,
+) -> None:
+    """V15.5 Command Center preserved for power users under System Health."""
+    if ctx is None:
+        ctx = _dashboard_context(repo, results)
+    settings = ctx["settings"]
+    watch_run = ctx["watch_run"]
+    wsr_label = ctx["wsr_label"]
+    beginner_status = ctx["beginner_status"]
+    real_only = ctx["real_only"]
+    demo_blocked = ctx["demo_blocked"]
+    effective_provider = ctx["effective_provider"]
+    events = ctx["events"]
+    analyst_events = ctx["analyst_events"]
+    latest_scan_ts = ctx["latest_scan_ts"]
+    health_issues = ctx["health_issues"]
+    missing_symbols = ctx["missing_symbols"]
+    quarantined_symbols = ctx["quarantined_symbols"]
+    trigger_counts = ctx["trigger_counts"]
+    today_utc = ctx["today_utc"]
 
-    st.markdown("---")
-    render_tony_learning_panel(repo)
+    snaps_today = snapshots_today_dataframe(repo)
+    snap_lookup = snapshot_symbol_lookup(snaps_today)
+    interesting_count, risky_count = ctx["interesting_count"], ctx["risky_count"]
+    outcome_today = eod_outcome_summary_today(snaps_today)
+    updated_today = 0
+    if not snaps_today.empty and "last_checked_at" in snaps_today.columns:
+        updated_today = int(
+            snaps_today["last_checked_at"].fillna("").astype(str).str.slice(0, 10).eq(today_utc).sum()
+        )
+
+    review_items = human_review_items(
+        interesting_count=interesting_count,
+        risky_count=risky_count,
+        pending_triggers=trigger_counts["pending_alerts"],
+        missing_symbols=missing_symbols,
+        quarantined_symbols=quarantined_symbols,
+        health_issues=health_issues,
+    )
+
+    st.caption("Legacy Command Center (V15.5). Use Home tab for the daily briefing.")
+    st.markdown("### A. Tony Status")
+    status_cols = st.columns(4)
+    status_cols[0].metric("Is Tony running?", beginner_status)
+    status_cols[1].metric("Heartbeat", event_age_label(watch_run.get("last_heartbeat_at")) if watch_run else "—")
+    status_cols[2].metric("Last scan", event_age_label(latest_scan_ts) if latest_scan_ts else "No scan yet")
+    status_cols[3].metric("Research-only", "Yes — no trades")
+
+    st.markdown("### D. Tony's Top Watches")
+    top_rows = build_top_watch_rows(analyst_events, snap_lookup, limit=10)
+    if top_rows:
+        st.dataframe(pd.DataFrame(top_rows), hide_index=True, use_container_width=True)
+
+    st.markdown("### What you should review")
+    for item in review_items:
+        st.markdown(f"- {item}")
+
+    rate_limit_count = ctx["rate_limit_count"]
+    with st.expander("Advanced technical details", expanded=False):
+        watch_config = settings.scheduled_watch or {}
+        batch_event = latest_event_of_type(events, "batch_fetch_summary")
+        api_requests = ctx["api_requests"]
+        symbols_scanned = ctx["symbols_scanned"]
+        latest_watch_ts = _latest_event_time(events, "watch_cycle_completed")
+        pri_counts = count_hypothesis_by_priority(analyst_events)
+        adv1 = st.columns(4)
+        adv1[0].metric("Internal watch status", wsr_label)
+        adv1[1].metric("Provider", effective_provider)
+        adv1[2].metric("API requests", api_requests if api_requests is not None else "—")
+        adv1[3].metric("Rate-limit warnings", rate_limit_count)
+        _cc_hypothesis_cards(analyst_events, limit=8)
 
 
 def render_tony_learning_panel(repo: ScannerRepository) -> None:
@@ -1475,41 +1750,26 @@ def render_tony_learning_panel(repo: ScannerRepository) -> None:
 def main() -> None:
     repo = repository()
     results = latest_results(repo)
-    st.title("Trading Bot Scanner")
+    inject_tony_theme()
+    st.title("Tony Stocks")
     tabs = st.tabs([
-        "Command Center",
-        "Overview",
-        "Ranked Stocks",
-        "Stock Detail",
-        "Candidate Snapshots",
-        "Outcome Analytics",
-        "Tony Stocks",
-        "Manual Picks",
-        "Paper Journal",
-        "Performance",
+        "Home",
+        "Tony Picks",
+        "Active Tracking",
+        "Results",
+        "Settings / System Health",
     ])
     with tabs[0]:
-        render_command_center(repo, results)
+        render_home(repo, results)
     with tabs[1]:
-        render_overview(repo, results)
+        render_tony_picks(repo, results)
     with tabs[2]:
-        render_ranked(results)
+        render_active_tracking(repo, results)
     with tabs[3]:
-        render_detail(results)
+        render_results(repo)
     with tabs[4]:
-        render_candidate_snapshots(repo)
-    with tabs[5]:
-        render_outcome_analytics(repo)
-    with tabs[6]:
-        render_tony_stocks(repo)
-    with tabs[7]:
-        render_manual_picks(repo, results)
-    with tabs[8]:
-        render_paper_journal(repo)
-    with tabs[9]:
-        render_performance(repo)
+        render_system_health(repo, results)
 
 
 if __name__ == "__main__":
     main()
-    exclusions = analytics.exclusion_counts()
