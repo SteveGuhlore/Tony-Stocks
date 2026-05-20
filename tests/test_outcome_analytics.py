@@ -1470,7 +1470,7 @@ def test_after_market_review_creates_report_files(tmp_path, monkeypatch, capsys)
     ))
 
     assert result["report_date"] == "2026-05-19"
-    assert len(result["files_created"]) == 5  # eod json+md, analytics json, approval json+md
+    assert len(result["files_created"]) == 7  # eod json+md, analytics json, approval json+md, proposal json+md
 
     report_dir = tmp_path / "reports" / "2026-05-19"
     assert (report_dir / "eod_report.json").exists()
@@ -1478,6 +1478,8 @@ def test_after_market_review_creates_report_files(tmp_path, monkeypatch, capsys)
     assert (report_dir / "outcome_analytics.json").exists()
     assert (report_dir / "approval_package.json").exists()
     assert (report_dir / "approval_package.md").exists()
+    assert (report_dir / "strategy_proposal.json").exists()
+    assert (report_dir / "strategy_proposal.md").exists()
 
 
 def test_after_market_review_uses_et_date(tmp_path, monkeypatch):
@@ -1720,7 +1722,9 @@ def test_outside_hours_still_creates_report_files(tmp_path, monkeypatch):
     assert (report_dir / "outcome_analytics.json").exists()
     assert (report_dir / "approval_package.json").exists()
     assert (report_dir / "approval_package.md").exists()
-    assert len(result["files_created"]) == 5
+    assert (report_dir / "strategy_proposal.json").exists()
+    assert (report_dir / "strategy_proposal.md").exists()
+    assert len(result["files_created"]) == 7
 
 
 def test_market_hours_helper_weekday_inside():
@@ -1974,8 +1978,8 @@ def test_after_market_review_total_files_count(tmp_path, monkeypatch):
 
     result = cli.run_after_market_review(_amr_args(tmp_path))
 
-    # eod_report.json, eod_report.md, outcome_analytics.json, approval_package.json, approval_package.md
-    assert len(result["files_created"]) == 5
+    # eod json+md, analytics json, approval json+md, proposal json+md
+    assert len(result["files_created"]) == 7
 
 
 # --- V23: Human approval gate ---
@@ -2126,3 +2130,139 @@ def test_suggestion_key_is_stable():
     assert key1 == key2
     assert key1 != key3
     assert len(key1) == 12
+
+
+# --- V24: Strategy proposal package ---
+
+def _approved_decisions(output_dir, tmp_path):
+    """Write a suggestion_decisions.json with one approved decision."""
+    import json as _json
+    record = {
+        "suggestion_key": cli._suggestion_key("Consider prioritizing Breakout Watch", "v1"),
+        "suggestion": "Consider prioritizing Breakout Watch",
+        "reason": "High target rate",
+        "confidence": "high",
+        "strategy_version": "v1",
+        "status": "approved",
+        "decided_at": "2026-05-19T17:00:00-04:00",
+        "note": "Looks solid",
+        "date": "2026-05-19",
+        "not_applied": True,
+    }
+    decisions_path = tmp_path / "reports" / "suggestion_decisions.json"
+    (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
+    decisions_path.write_text(_json.dumps([record], indent=2), encoding="utf-8")
+    return record
+
+
+def test_proposal_created_from_approved_suggestions(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    _approved_decisions("reports", tmp_path)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    proposal = result["strategy_proposal"]
+    assert proposal["approved_count"] == 1
+    assert proposal["current_version"] == "v1"
+    assert proposal["proposed_version"] == "v1.1"
+    assert proposal["research_only"] is True
+    assert "not been applied" in proposal["not_applied_note"]
+
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    assert (report_dir / "strategy_proposal.json").exists()
+    assert (report_dir / "strategy_proposal.md").exists()
+
+
+def test_proposal_empty_fallback(tmp_path, monkeypatch):
+    """No approved decisions → proposal says 'No strategy proposal today.'"""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args(tmp_path))
+
+    proposal = result["strategy_proposal"]
+    assert proposal["approved_count"] == 0
+    assert proposal["proposed_version"] == proposal["current_version"]  # no bump when empty
+
+    md = (tmp_path / "reports" / "2026-05-19" / "strategy_proposal.md").read_text(encoding="utf-8")
+    assert "No strategy proposal today." in md
+
+
+def test_proposal_not_applied(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    proposal = result["strategy_proposal"]
+    assert proposal["research_only"] is True
+    assert "Approved does not mean applied" in proposal["not_applied_note"]
+    for s in proposal["approved_suggestions"]:
+        assert s.get("applied") is not True
+
+
+def test_proposal_json_valid(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    data = _json.loads((tmp_path / "reports" / "2026-05-19" / "strategy_proposal.json").read_text(encoding="utf-8"))
+    assert data["proposed_version"] == "v1.1"
+    assert data["approved_count"] == 1
+    assert data["research_only"] is True
+
+
+def test_next_proposed_version():
+    assert cli._next_proposed_version("v1") == "v1.1"
+    assert cli._next_proposed_version("v1.1") == "v1.2"
+    assert cli._next_proposed_version("v1.9") == "v1.10"
+    assert cli._next_proposed_version("v2") == "v2.1"
+    assert cli._next_proposed_version("v2.3") == "v2.4"
+
+
+def test_proposal_markdown_contains_key_sections(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    md = (tmp_path / "reports" / "2026-05-19" / "strategy_proposal.md").read_text(encoding="utf-8")
+    assert "Strategy Proposal" in md
+    assert "v1.1" in md
+    assert "Not applied" in md
+    assert "Research only" in md
+    assert "Approved does not mean applied" in md

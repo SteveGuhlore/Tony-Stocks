@@ -6,6 +6,34 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V24 handoff - Strategy Proposal Package
+
+### Current active task
+
+V24 is complete. `after-market-review` now builds and saves a research-only strategy proposal derived from approved suggestion decisions. Approved never means applied.
+
+### Changes
+
+- **`_next_proposed_version(current)`** — simple version bumper: "v1"→"v1.1", "v1.1"→"v1.2", "v2"→"v2.1".
+- **`_build_strategy_proposal(report_date, decisions, current_version)`** — filters decisions to `status=="approved"`, computes `proposed_version` (bumped only when approved suggestions exist), returns `{current_version, proposed_version, approved_count, approved_suggestions, not_applied_note, research_only}`.
+- **`_build_strategy_proposal_markdown(proposal)`** — markdown with "Strategy Proposal — YYYY-MM-DD" header, approved suggestions list, or "No strategy proposal today." when empty.
+- **`run_after_market_review`** — step 6: builds proposal from loaded decisions, saves `strategy_proposal.json` + `strategy_proposal.md`, prints summary, adds to `files_created` (now 7 total), adds `strategy_proposal` to return dict.
+
+### Files changed
+
+- `src/trading_bot/cli.py` — `_next_proposed_version`, `_build_strategy_proposal`, `_build_strategy_proposal_markdown`, updated `run_after_market_review`.
+- `tests/test_outcome_analytics.py` — 6 new V24 tests + `_approved_decisions` helper; 3 existing V21/V22 file-count tests updated (5→7).
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **583 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config/default_config.yaml changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. Every proposal carries `research_only: True` and a `not_applied_note` stating "Approved does not mean applied."
+
+---
+
 ## V23 handoff - Human Approval Gate
 
 ### Current active task

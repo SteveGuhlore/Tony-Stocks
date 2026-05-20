@@ -1732,6 +1732,80 @@ def _build_approval_package_markdown(report_date: str, package: dict[str, Any]) 
     return "\n".join(lines)
 
 
+def _next_proposed_version(current: str) -> str:
+    """Return the next minor version label: 'v1' → 'v1.1', 'v1.2' → 'v1.3'."""
+    core = current.lstrip("v")
+    parts = core.split(".")
+    if len(parts) == 1:
+        return f"v{parts[0]}.1"
+    minor = int(parts[-1]) + 1
+    return f"v{'.'.join(parts[:-1])}.{minor}"
+
+
+def _build_strategy_proposal(
+    report_date: str,
+    decisions: dict[str, dict[str, Any]],
+    current_version: str,
+) -> dict[str, Any]:
+    """Build a research-only proposed strategy version from approved suggestions.
+
+    Does not modify config, scoring, or any live code. Approved does not mean applied.
+    """
+    approved = [
+        d for d in decisions.values()
+        if d.get("status") == "approved"
+    ]
+    proposed_version = _next_proposed_version(current_version) if approved else current_version
+    return {
+        "report_date": report_date,
+        "current_version": current_version,
+        "proposed_version": proposed_version,
+        "approved_count": len(approved),
+        "approved_suggestions": approved,
+        "not_applied_note": (
+            "This proposal has not been applied. "
+            "Approved does not mean applied. "
+            "No config, scoring, trigger, or trading behavior has changed."
+        ),
+        "research_only": True,
+    }
+
+
+def _build_strategy_proposal_markdown(proposal: dict[str, Any]) -> str:
+    """Build a markdown strategy proposal from the proposal dict."""
+    report_date = proposal["report_date"]
+    lines: list[str] = []
+    lines.append(f"# Strategy Proposal — {report_date}")
+    lines.append("")
+    lines.append(f"**Current version:** {proposal['current_version']}  ")
+    lines.append(f"**Proposed version:** {proposal['proposed_version']}  ")
+    lines.append(f"**Approved suggestions:** {proposal['approved_count']}  ")
+    lines.append("")
+    lines.append(f"> {proposal['not_applied_note']}")
+    lines.append("")
+
+    if not proposal["approved_suggestions"]:
+        lines.append("No strategy proposal today.")
+    else:
+        lines.append("## Approved Suggestions (not applied)")
+        lines.append("")
+        for i, s in enumerate(proposal["approved_suggestions"], 1):
+            conf = str(s.get("confidence", "")).upper()
+            lines.append(f"### {i}. [{conf}] {s.get('suggestion', '')}")
+            lines.append(f"- **Reason:** {s.get('reason', '')}")
+            lines.append(f"- **Source version:** {s.get('strategy_version', 'v1')}")
+            lines.append(f"- **Proposed in:** {proposal['proposed_version']}")
+            lines.append(f"- **Status:** {s.get('status', 'approved')}")
+            if s.get("decision_note") or s.get("note"):
+                lines.append(f"- **Note:** {s.get('decision_note') or s.get('note', '')}")
+            lines.append(f"- **Decided at:** {s.get('decided_at', 'unknown')}")
+            lines.append("")
+
+    lines.append("---")
+    lines.append("*Research only. Not applied. No config, scoring, trigger, or trading behavior changed.*")
+    return "\n".join(lines)
+
+
 def _is_within_regular_market_hours(now: datetime | None = None) -> bool:
     """Return True if the current America/New_York time is a weekday inside 9:30–16:00 ET.
 
@@ -1826,9 +1900,24 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     else:
         print("  No approval items today.")
 
+    # 6. Build and save strategy proposal from approved decisions
+    proposal = _build_strategy_proposal(report_date, decisions, sv)
+    proposal_json_path = output_base / "strategy_proposal.json"
+    proposal_md_path = output_base / "strategy_proposal.md"
+    proposal_json_path.write_text(json.dumps(proposal, indent=2, default=str), encoding="utf-8")
+    proposal_md_path.write_text(_build_strategy_proposal_markdown(proposal), encoding="utf-8")
+
+    print("\nStrategy proposal (research only — not applied):")
+    print(f"  Current version: {proposal['current_version']}")
+    print(f"  Proposed version: {proposal['proposed_version']}")
+    print(f"  Approved suggestions: {proposal['approved_count']}")
+    if not proposal["approved_suggestions"]:
+        print("  No strategy proposal today.")
+
     created = [
         str(eod_json_path), str(eod_md_path), str(analytics_json_path),
         str(approval_json_path), str(approval_md_path),
+        str(proposal_json_path), str(proposal_md_path),
     ]
     print("\nAfter-market review complete.")
     print(f"Report date: {report_date} {MARKET_TIMEZONE_LABEL}")
@@ -1842,6 +1931,7 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
         "eod_report": eod_result,
         "outcome_analytics": analytics_result,
         "approval_package": approval,
+        "strategy_proposal": proposal,
         "market_hours_active": in_market_hours,
         "snapshot_refresh_ran": did_update,
     }
