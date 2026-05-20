@@ -18,6 +18,9 @@ RETURN_COLUMNS = ["result_eod", "result_3d", "result_5d", "result_10d", "result_
 MARKET_TIMEZONE = "America/New_York"
 MARKET_TZ = ZoneInfo(MARKET_TIMEZONE)
 
+CURRENT_STRATEGY_VERSION = "v1"
+SUGGESTION_STATUSES = {"needs_review", "approved", "rejected", "applied_later"}
+
 
 @dataclass(frozen=True)
 class OutcomeAnalytics:
@@ -645,15 +648,18 @@ def build_tony_self_review(
 _MIN_TRIGGERED_FOR_SUGGESTION = 3
 
 
-def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
+def generate_tony_rule_suggestions(
+    rows: pd.DataFrame,
+    strategy_version: str = CURRENT_STRATEGY_VERSION,
+) -> list[dict[str, Any]]:
     """Propose plain-English research-only scoring/filter ideas from real-only rows.
 
     Suggestions are never applied automatically. Each entry carries a confidence
-    level (low/medium/high) and status='needs_review'. Returns a no-data fallback
-    when triggered rows are below the minimum threshold.
+    level (low/medium/high), status='needs_review', and the current strategy version.
+    Returns a no-data fallback when triggered rows are below the minimum threshold.
     """
     if rows.empty:
-        return [_no_data_suggestion(0)]
+        return [_no_data_suggestion(0, strategy_version)]
 
     data = rows.copy()
     for column in ("setup_category", "outcome_label"):
@@ -671,21 +677,7 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
     )
     total_conclusive = int((_memory_triggered_mask(data) & conclusive_mask).sum())
     if total_conclusive < _MIN_TRIGGERED_FOR_SUGGESTION:
-        insufficient = total_triggered - total_conclusive
-        reason = (
-            f"{total_conclusive} conclusive triggered row(s) available "
-            f"(+{insufficient} still waiting on future data); "
-            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} conclusive rows needed."
-        ) if insufficient > 0 else (
-            f"{total_conclusive} triggered row(s) available; "
-            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} are needed before suggestions are generated."
-        )
-        return [{
-            "suggestion": "No rule changes suggested yet — not enough conclusive real-only data.",
-            "reason": reason,
-            "confidence": "low",
-            "status": "needs_review",
-        }]
+        return [_no_data_suggestion(total_conclusive, strategy_version, total_triggered - total_conclusive)]
 
     suggestions: list[dict[str, Any]] = []
     for setup_name, group in data.groupby("setup_category", dropna=False):
@@ -713,6 +705,7 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
                 ),
                 "confidence": confidence,
                 "status": "needs_review",
+                "strategy_version": strategy_version,
             })
 
         if stop_rate >= 0.67:
@@ -728,6 +721,7 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
                 ),
                 "confidence": confidence,
                 "status": "needs_review",
+                "strategy_version": strategy_version,
             })
 
     if not suggestions:
@@ -742,20 +736,61 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
             ),
             "confidence": "low",
             "status": "needs_review",
+            "strategy_version": strategy_version,
         })
 
     return suggestions
 
 
-def _no_data_suggestion(triggered_count: int) -> dict[str, Any]:
+def build_strategy_version_report(
+    suggestions: list[dict[str, Any]],
+    version: str = CURRENT_STRATEGY_VERSION,
+) -> dict[str, Any]:
+    """Return a research-only strategy version summary with pending suggestion counts.
+
+    Suggestions are never applied automatically. Status values: needs_review,
+    approved, rejected, applied_later. Only needs_review is assigned automatically.
+    """
+    status_counts = {
+        status: sum(1 for s in suggestions if s.get("status") == status)
+        for status in SUGGESTION_STATUSES
+        if any(s.get("status") == status for s in suggestions)
+    }
     return {
-        "suggestion": "No rule changes suggested yet — not enough real-only data.",
-        "reason": (
-            f"{triggered_count} triggered row(s) available; "
-            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} are needed before suggestions are generated."
+        "current_version": version,
+        "pending_suggestions": sum(1 for s in suggestions if s.get("status") == "needs_review"),
+        "status_counts": status_counts,
+        "suggestions": suggestions,
+        "note": (
+            "Strategy versioning tracks rule suggestion history. "
+            "Suggestions are never applied automatically. "
+            f"Current version: {version}."
         ),
+    }
+
+
+def _no_data_suggestion(
+    conclusive_count: int,
+    strategy_version: str = CURRENT_STRATEGY_VERSION,
+    insufficient_count: int = 0,
+) -> dict[str, Any]:
+    if insufficient_count > 0:
+        reason = (
+            f"{conclusive_count} conclusive triggered row(s) available "
+            f"(+{insufficient_count} still waiting on future data); "
+            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} conclusive rows needed."
+        )
+    else:
+        reason = (
+            f"{conclusive_count} triggered row(s) available; "
+            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} are needed before suggestions are generated."
+        )
+    return {
+        "suggestion": "No rule changes suggested yet — not enough conclusive real-only data.",
+        "reason": reason,
         "confidence": "low",
         "status": "needs_review",
+        "strategy_version": strategy_version,
     }
 
 

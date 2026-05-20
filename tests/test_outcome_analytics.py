@@ -3,8 +3,11 @@ from types import SimpleNamespace
 
 import trading_bot.cli as cli
 from trading_bot.analytics import (
+    CURRENT_STRATEGY_VERSION,
+    SUGGESTION_STATUSES,
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
+    build_strategy_version_report,
     build_tony_self_review,
     generate_tony_rule_suggestions,
     market_date_mask,
@@ -1131,3 +1134,98 @@ def test_rule_suggestions_use_conclusive_rows_not_total(tmp_path):
     assert any("prioritiz" in t for t in texts), "Should still suggest prioritizing BO based on conclusive rows"
     reasons = [s["reason"] for s in suggestions]
     assert any("3 of 3" in r or "conclusive" in r for r in reasons)
+
+
+# ── V19: strategy versioning ───────────────────────────────────────────────────
+
+def test_current_strategy_version_defaults_to_v1():
+    assert CURRENT_STRATEGY_VERSION == "v1"
+    assert "needs_review" in SUGGESTION_STATUSES
+    assert "approved" in SUGGESTION_STATUSES
+    assert "rejected" in SUGGESTION_STATUSES
+    assert "applied_later" in SUGGESTION_STATUSES
+
+
+def test_suggestions_attach_strategy_version(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    for _ in range(4):
+        create_snapshot(repo, stock("BO", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions = generate_tony_rule_suggestions(analytics.prepared())
+
+    assert all("strategy_version" in s for s in suggestions)
+    assert all(s["strategy_version"] == CURRENT_STRATEGY_VERSION for s in suggestions)
+    assert all(s["strategy_version"] == "v1" for s in suggestions)
+
+
+def test_suggestions_no_data_fallback_has_version():
+    suggestions = generate_tony_rule_suggestions(pd.DataFrame())
+    assert len(suggestions) == 1
+    assert suggestions[0]["strategy_version"] == CURRENT_STRATEGY_VERSION
+    assert suggestions[0]["status"] == "needs_review"
+
+
+def test_build_strategy_version_report_structure(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    for _ in range(4):
+        create_snapshot(repo, stock("BO", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    for _ in range(3):
+        create_snapshot(repo, stock("PB", 80, "Pullback Watch"), "stop_hit", provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions = generate_tony_rule_suggestions(analytics.prepared())
+    report = build_strategy_version_report(suggestions)
+
+    assert report["current_version"] == "v1"
+    assert report["pending_suggestions"] == len([s for s in suggestions if s["status"] == "needs_review"])
+    assert "needs_review" in report["status_counts"]
+    assert "suggestions" in report
+    assert "note" in report
+    assert "v1" in report["note"]
+    assert "never applied automatically" in report["note"]
+
+
+def test_strategy_version_report_no_scoring_changes(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    for _ in range(3):
+        create_snapshot(repo, stock("BO", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions_before = generate_tony_rule_suggestions(analytics.prepared())
+    report = build_strategy_version_report(suggestions_before)
+    # Calling the report does not mutate suggestions or change prepared data
+    suggestions_after = generate_tony_rule_suggestions(analytics.prepared())
+
+    assert report["current_version"] == CURRENT_STRATEGY_VERSION
+    assert len(suggestions_before) == len(suggestions_after)
+    assert all(s["status"] == "needs_review" for s in suggestions_before)
+    assert all(s["status"] == "needs_review" for s in suggestions_after)
+
+
+def test_eod_report_includes_strategy_version_report(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap = create_snapshot(repo, stock("VER", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET snapshot_time='2026-05-20T01:00:00+00:00' WHERE id=?",
+            (snap,),
+        )
+
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
+    output = capsys.readouterr().out
+
+    assert "strategy_version_report" in result
+    assert result["strategy_version_report"]["current_version"] == "v1"
+    assert "Strategy version: v1" in output
+    assert "Pending suggestions:" in output

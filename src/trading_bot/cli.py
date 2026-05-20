@@ -15,8 +15,10 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 from trading_bot.analytics import (
+    CURRENT_STRATEGY_VERSION,
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
+    build_strategy_version_report,
     build_tony_self_review,
     market_date_mask,
     new_york_market_date,
@@ -1357,10 +1359,17 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print("  Tomorrow watch:")
     for item in self_review["tomorrow_watch"]:
         print(f"    - {item}")
+    strategy_report = build_strategy_version_report(self_review["rule_suggestions"])
     print("  Rule suggestions (research-only, not applied automatically):")
     for s in self_review["rule_suggestions"]:
         print(f"    - [{s['confidence'].upper()}] {s['suggestion']}")
         print(f"      Reason: {s['reason']}")
+    print(f"\nStrategy version: {strategy_report['current_version']}")
+    print(f"Pending suggestions: {strategy_report['pending_suggestions']}")
+    if strategy_report["status_counts"]:
+        for status, count in strategy_report["status_counts"].items():
+            print(f"  {status}: {count}")
+    print(f"Note: {strategy_report['note']}")
 
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
@@ -1421,6 +1430,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "reconciliation": reconciliation,
         "tony_memory_summary": memory_summary,
         "tony_self_review": self_review,
+        "strategy_version_report": strategy_report,
     }
 
 

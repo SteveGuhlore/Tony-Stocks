@@ -6,6 +6,35 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V19 handoff - Strategy Versioning Foundation
+
+### Current active task
+
+V19 is complete. Rule suggestions now carry a strategy version label and a full strategy version report is included in the EOD report output and return dict.
+
+### Changes
+
+- **`CURRENT_STRATEGY_VERSION = "v1"`** and **`SUGGESTION_STATUSES`** constants added to `outcomes.py`.
+- **`generate_tony_rule_suggestions()`** now accepts an optional `strategy_version` parameter (defaults to `CURRENT_STRATEGY_VERSION`). Every suggestion dict includes `"strategy_version"`.
+- **`build_strategy_version_report(suggestions, version)`** — new function that returns `current_version`, `pending_suggestions`, `status_counts`, the full suggestions list, and a plain-English note. Never auto-applies anything.
+- **`eod-report`** prints a "Strategy version" section (version, pending suggestion count, status breakdown, note) and includes `strategy_version_report` in the return dict.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` — constants, `generate_tony_rule_suggestions` signature, `build_strategy_version_report`, `_no_data_suggestion` updated.
+- `src/trading_bot/analytics/__init__.py` — exported `CURRENT_STRATEGY_VERSION`, `SUGGESTION_STATUSES`, `build_strategy_version_report`.
+- `src/trading_bot/cli.py` — imported new symbols; strategy version print + return in `run_eod_report`.
+- `tests/test_outcome_analytics.py` — imported new symbols; 6 new V19 tests.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **39 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **535 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. All suggestions remain `status: needs_review` and are never auto-applied.
+
 ## V18A handoff - Active vs Future Outcome Wording
 
 ### Current active task
