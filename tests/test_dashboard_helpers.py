@@ -14,6 +14,7 @@ from trading_bot.dashboard.helpers import (
     build_result_card_model,
     build_results_product_rows,
     build_tony_pick_product_rows,
+    build_tony_watchlist_rows,
     build_top_watch_rows,
     build_tracked_setup_card_model,
     calculate_risk_reward,
@@ -1284,3 +1285,255 @@ class TestProductSemanticsV158B:
                 assert "$nan" not in text
                 assert "+nan" not in text
                 assert "unknown" not in text
+
+
+# ── V26 tests: lifecycle, unified Watchlist, Results filters ──────────────────
+
+
+class TestV26LifecycleAndWatchlist:
+    """V26 — position lifecycle, unified Watchlist, Results filters."""
+
+    def _active_row(self, symbol: str, **kwargs: object) -> dict:
+        base: dict = {
+            "symbol": symbol,
+            "snapshot_time": "2026-05-20T15:00:00+00:00",
+            "entry_status": "triggered",
+            "entry_triggered": 1,
+            "planned_entry_price": 100.0,
+            "actual_entry_price": 100.0,
+            "actual_entry_time": "2026-05-20T14:30:00+00:00",
+            "original_entry_price": 100.0,
+            "tracking_started_at": "2026-05-20T14:30:00+00:00",
+            "current_price": 103.0,
+            "target": 110.0,
+            "stop": 95.0,
+            "outcome_label": "still_open",
+            "tracking_status": "active",
+            "reassessment_label": "still_valid",
+        }
+        base.update(kwargs)
+        return base
+
+    def _pick_row(self, symbol: str, **kwargs: object) -> dict:
+        base: dict = {
+            "symbol": symbol,
+            "snapshot_time": "2026-05-20T14:00:00+00:00",
+            "entry_status": "pending",
+            "entry_triggered": 0,
+            "planned_entry_price": 50.0,
+            "target": 58.0,
+            "stop": 46.0,
+            "outcome_label": "unreviewed",
+            "setup_category": "Breakout Watch",
+        }
+        base.update(kwargs)
+        return base
+
+    # ── Lifecycle state tests ──────────────────────────────────────────────────
+
+    def test_path_invalidated_not_in_active_tracking(self) -> None:
+        """PATH: symbol with tracking_status=invalidated must leave active tracking."""
+        df = pd.DataFrame([self._active_row("PATH", tracking_status="invalidated", reassessment_label="invalidated")])
+        active = build_active_tracking_product_rows(df)
+        assert active.empty or "PATH" not in active["symbol"].values
+
+    def test_path_invalidated_appears_in_results(self) -> None:
+        """PATH: symbol with tracking_status=invalidated must appear in Results (not vanish silently)."""
+        df = pd.DataFrame([
+            self._active_row(
+                "PATH",
+                tracking_status="invalidated",
+                reassessment_label="invalidated",
+                invalidation_reason="Price breached stop.",
+            )
+        ])
+        results = build_results_product_rows(df)
+        assert not results.empty, "PATH must appear in Results, not vanish silently"
+        assert "PATH" in results["symbol"].values
+        path_row = results[results["symbol"] == "PATH"].iloc[0]
+        assert path_row["results_phase"] == "closed"
+
+    def test_invalidated_tracking_status_derives_closed_phase(self) -> None:
+        """derive_pick_phase returns 'closed' for tracking_status=invalidated."""
+        row = self._active_row("NVDA", tracking_status="invalidated", reassessment_label="invalidated")
+        assert derive_pick_phase(row) == "closed"
+
+    def test_invalidated_reassessment_label_derives_closed_phase(self) -> None:
+        """derive_pick_phase returns 'closed' for reassessment_label=invalidated even if tracking_status is active."""
+        row = self._active_row("IONQ", tracking_status="active", reassessment_label="invalidated")
+        assert derive_pick_phase(row) == "closed"
+
+    def test_active_still_valid_stays_in_tracking(self) -> None:
+        """Active symbol with still_valid reassessment stays in tracking (not closed)."""
+        assert derive_pick_phase(self._active_row("AAPL", reassessment_label="still_valid")) == "tracking"
+
+    def test_weakening_stays_in_tracking(self) -> None:
+        """Weakening symbol stays in tracking phase (not closed)."""
+        assert derive_pick_phase(self._active_row("TSLA", reassessment_label="weakening")) == "tracking"
+
+    def test_watching_phase_is_pick(self) -> None:
+        """Symbol with no planned entry and no entry_status derives 'pick' phase."""
+        row = self._pick_row("WATCHING", entry_status="", planned_entry_price=None)
+        assert derive_pick_phase(row) == "pick"
+
+    def test_waiting_for_trigger_phase_is_waiting_alert(self) -> None:
+        """Symbol with entry_status=pending derives 'waiting_alert' phase."""
+        assert derive_pick_phase(self._pick_row("WAIT", entry_status="pending")) == "waiting_alert"
+
+    # ── Unified Watchlist tests ────────────────────────────────────────────────
+
+    def test_unified_watchlist_one_card_per_symbol(self) -> None:
+        """build_tony_watchlist_rows returns exactly one row per symbol."""
+        df = pd.DataFrame([
+            self._pick_row("DKNG"),
+            self._pick_row("DKNG", snapshot_time="2026-05-20T13:00:00+00:00"),
+            self._active_row("ARM"),
+            self._active_row("ARM", snapshot_time="2026-05-20T16:00:00+00:00"),
+            self._pick_row("IONQ"),
+        ])
+        watchlist = build_tony_watchlist_rows(df)
+        assert not watchlist.empty
+        assert len(watchlist) == watchlist["symbol"].nunique(), "Must have one card per symbol"
+        assert set(watchlist["symbol"]) == {"DKNG", "ARM", "IONQ"}
+
+    def test_active_tracking_wins_over_pick_for_same_symbol(self) -> None:
+        """When symbol has both pick and active rows, active wins in Watchlist."""
+        df = pd.DataFrame([self._pick_row("SMCI"), self._active_row("SMCI")])
+        watchlist = build_tony_watchlist_rows(df)
+        assert len(watchlist) == 1
+        assert watchlist.iloc[0]["lifecycle_state"] == "active"
+
+    def test_watchlist_lifecycle_states_assigned_correctly(self) -> None:
+        """Each row type gets the correct lifecycle_state."""
+        df = pd.DataFrame([
+            self._pick_row("WATCHING_SYM", entry_status=""),
+            self._pick_row("WAITING_SYM", entry_status="pending"),
+            self._active_row("ACTIVE_SYM", reassessment_label="still_valid"),
+            self._active_row("WEAK_SYM", reassessment_label="weakening"),
+        ])
+        watchlist = build_tony_watchlist_rows(df)
+        state_map = dict(zip(watchlist["symbol"], watchlist["lifecycle_state"]))
+        assert state_map.get("WATCHING_SYM") == "watching"
+        assert state_map.get("WAITING_SYM") == "waiting_for_trigger"
+        assert state_map.get("ACTIVE_SYM") == "active"
+        assert state_map.get("WEAK_SYM") == "weakening"
+
+    def test_invalidated_symbol_excluded_from_watchlist(self) -> None:
+        """Symbol with tracking_status=invalidated must not appear in Watchlist."""
+        df = pd.DataFrame([
+            self._pick_row("VALID"),
+            self._active_row("INVALID_SYM", tracking_status="invalidated", reassessment_label="invalidated"),
+        ])
+        watchlist = build_tony_watchlist_rows(df)
+        symbols = set(watchlist["symbol"]) if not watchlist.empty else set()
+        assert "INVALID_SYM" not in symbols
+        assert "VALID" in symbols
+
+    def test_demo_and_legacy_rows_hidden_from_watchlist(self) -> None:
+        """Demo and legacy rows must not appear in the Watchlist."""
+        df = pd.DataFrame([
+            self._pick_row("CLEAN"),
+            {**self._pick_row("DEMO"), "used_demo_data": 1},
+            {**self._pick_row("MISSING"), "data_source": "missing_real_data"},
+            {**self._pick_row("LEGACY"), "data_source": "legacy_unknown"},
+        ])
+        watchlist = build_tony_watchlist_rows(df)
+        symbols = set(watchlist["symbol"]) if not watchlist.empty else set()
+        assert "CLEAN" in symbols
+        assert "DEMO" not in symbols
+        assert "MISSING" not in symbols
+        assert "LEGACY" not in symbols
+
+    # ── Results filter tests ───────────────────────────────────────────────────
+
+    def test_results_filter_all_returns_all_cards(self) -> None:
+        """'All' filter returns all result rows."""
+        df = pd.DataFrame([
+            self._pick_row("DKNG"),
+            self._active_row("ARM"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "All")
+        assert len(filtered) == len(result_rows)
+
+    def test_results_filter_active_returns_only_active(self) -> None:
+        """'Active' filter returns only active tracking cards."""
+        df = pd.DataFrame([
+            self._pick_row("DKNG"),
+            self._active_row("ARM"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Active")
+        assert not filtered.empty
+        assert all(r == "active" for r in filtered["results_phase"])
+        assert "ARM" in filtered["symbol"].values
+        assert "DKNG" not in filtered["symbol"].values
+
+    def test_results_filter_closed_returns_only_closed(self) -> None:
+        """'Closed' filter returns only closed result cards."""
+        df = pd.DataFrame([
+            self._active_row("ARM"),
+            self._active_row("OXY", outcome_label="target_hit", tracking_status="target_hit"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Closed")
+        if not filtered.empty:
+            assert all(r == "closed" for r in filtered["results_phase"])
+            assert "OXY" in filtered["symbol"].values
+
+    def test_results_filter_waiting_for_trigger(self) -> None:
+        """'Waiting for trigger' filter returns only pending pick cards."""
+        df = pd.DataFrame([
+            self._pick_row("DKNG", entry_status="pending"),
+            self._active_row("ARM"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Waiting for trigger")
+        assert not filtered.empty
+        assert "DKNG" in filtered["symbol"].values
+        assert "ARM" not in filtered["symbol"].values
+
+    def test_results_filter_target_reached(self) -> None:
+        """'Target reached' filter returns only target_hit cards."""
+        df = pd.DataFrame([
+            self._active_row("ARM"),
+            self._active_row("OXY", outcome_label="target_hit", tracking_status="target_hit"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Target reached")
+        if not filtered.empty:
+            assert all(r == "Target reached" for r in filtered["results_filter"])
+            assert "OXY" in filtered["symbol"].values
+
+    def test_results_filter_stop_reached(self) -> None:
+        """'Stop reached' filter returns only stop_hit cards."""
+        df = pd.DataFrame([
+            self._active_row("ARM"),
+            self._active_row("OXY", outcome_label="stop_hit", tracking_status="stop_hit"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Stop reached")
+        if not filtered.empty:
+            assert all(r == "Stop reached" for r in filtered["results_filter"])
+
+    def test_results_filter_expired_not_triggered(self) -> None:
+        """'Expired / not triggered' filter returns expired cards."""
+        df = pd.DataFrame([
+            self._pick_row("DKNG"),
+            self._pick_row("EXPIRED", entry_status="expired", entry_triggered=0, outcome_label="expired_no_trigger"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Expired / not triggered")
+        if not filtered.empty:
+            assert "EXPIRED" in filtered["symbol"].values
+
+    def test_results_filter_insufficient_data(self) -> None:
+        """'Insufficient data' filter returns insufficient_future_data tracking cards."""
+        df = pd.DataFrame([
+            self._active_row("ARM"),
+            self._active_row("OXY", outcome_label="insufficient_future_data"),
+        ])
+        result_rows = build_results_product_rows(df)
+        filtered = filter_results_product_rows(result_rows, "Insufficient data")
+        if not filtered.empty:
+            assert all(r == "Insufficient data" for r in filtered["results_filter"])

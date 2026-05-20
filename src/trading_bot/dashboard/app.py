@@ -22,6 +22,7 @@ from trading_bot.dashboard.helpers import (
     build_result_card_model,
     build_results_product_rows,
     build_tony_pick_product_rows,
+    build_tony_watchlist_rows,
     build_top_watch_rows,
     build_tracked_setup_card_model,
     collect_health_issues,
@@ -1370,10 +1371,11 @@ def render_home(repo: ScannerRepository, results: pd.DataFrame) -> None:
         watch_error_message=ctx.get("watch_error_message"),
     )
     last_scan = event_age_label(ctx["latest_scan_ts"]) if ctx["latest_scan_ts"] else "No scan yet"
+    watchlist_count = len(ctx["picks_df"]) + len(ctx["tracking_df"])
     render_stat_grid([
         ("Tony Status", tony_status, "purple", None),
         ("Real Data Only", "Yes" if ctx["real_only"] else "No", "blue", None),
-        ("Tony Picks", str(len(ctx["picks_df"])), "info", "On the watchlist"),
+        ("Tony Watchlist", str(watchlist_count), "info", "Picks + active tracking"),
         ("Active Tracking", str(len(ctx["tracking_df"])), "purple", "Triggered setups"),
         ("Waiting Alerts", str(ctx["trigger_counts"]["pending_alerts"]), "amber", None),
         ("Last Scan", last_scan, "neutral", None),
@@ -1408,6 +1410,61 @@ def render_home(repo: ScannerRepository, results: pd.DataFrame) -> None:
         )
     )
     st.markdown(review_lines)
+
+
+def render_tony_watchlist(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Tony Watchlist — unified Picks + Active Tracking in one tab."""
+    inject_tony_theme()
+    ctx = _dashboard_context(repo, results)
+    section_header("Tony Watchlist")
+    st.caption(
+        "All symbols Tony is currently watching or tracking. "
+        "Watching/waiting cards show the entry trigger; active cards show live research P/L. "
+        "Research only — no trades placed."
+    )
+    st.caption(risk_reward_definition_text())
+
+    watchlist = build_tony_watchlist_rows(ctx["research_snaps"])
+
+    if watchlist.empty:
+        st.info("Tony Watchlist is empty. Run a scan and watch cycle to populate.")
+        return
+
+    filter_cols = st.columns(2)
+    lifecycle_filter = filter_cols[0].selectbox(
+        "Show",
+        ["All", "Watching", "Waiting for trigger", "Active", "Weakening"],
+        key="watchlist_lifecycle_filter",
+    )
+    sort_choice = filter_cols[1].selectbox(
+        "Sort by", ["Newest", "Symbol"], key="watchlist_sort"
+    )
+
+    rows_to_show = watchlist.copy()
+    if lifecycle_filter != "All":
+        state_map = {
+            "Watching": "watching",
+            "Waiting for trigger": "waiting_for_trigger",
+            "Active": "active",
+            "Weakening": "weakening",
+        }
+        state = state_map.get(lifecycle_filter)
+        if state and "lifecycle_state" in rows_to_show.columns:
+            rows_to_show = rows_to_show[rows_to_show["lifecycle_state"].eq(state)].copy()
+
+    if sort_choice == "Symbol":
+        rows_to_show = rows_to_show.sort_values("symbol")
+
+    if rows_to_show.empty:
+        st.info(f"No symbols in '{lifecycle_filter}' state right now.")
+        return
+
+    for _, row in rows_to_show.iterrows():
+        lifecycle = str(row.get("lifecycle_state") or "watching")
+        if lifecycle in ("active", "weakening"):
+            render_tracking_position_card(build_tracked_setup_card_model(row))
+        else:
+            render_pick_signal_card(build_pick_card_model(row))
 
 
 def render_tony_picks(repo: ScannerRepository, results: pd.DataFrame) -> None:
@@ -1764,20 +1821,17 @@ def main() -> None:
     st.title("Tony Stocks")
     tabs = st.tabs([
         "Home",
-        "Tony Picks",
-        "Active Tracking",
+        "Tony Watchlist",
         "Results",
         "Settings / System Health",
     ])
     with tabs[0]:
         render_home(repo, results)
     with tabs[1]:
-        render_tony_picks(repo, results)
+        render_tony_watchlist(repo, results)
     with tabs[2]:
-        render_active_tracking(repo, results)
-    with tabs[3]:
         render_results(repo)
-    with tabs[4]:
+    with tabs[3]:
         render_system_health(repo, results)
 
 

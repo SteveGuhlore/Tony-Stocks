@@ -1,8 +1,40 @@
 # Agent State / Handoff Log
 
-_Last updated: 2026-05-19_
+_Last updated: 2026-05-20_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## V26 handoff - Position Lifecycle + Unified Watchlist + Results Filters
+
+### Current active task
+
+V26 is complete. Tony Picks and Active Tracking are merged into one "Tony Watchlist" tab. Symbols with `tracking_status=invalidated` now surface in Results (not silently vanish). All Results filters return correct visible cards.
+
+### Changes
+
+- **`WATCHLIST_LIFECYCLE_STATES`** — new tuple constant in `helpers.py`: `watching`, `waiting_for_trigger`, `active`, `weakening`, `invalidated`, `closed`, `expired`.
+- **`derive_pick_phase`** — now returns `"closed"` when `tracking_status == "invalidated"` or `reassessment_label == "invalidated"`, preventing active symbols from vanishing silently.
+- **`_watchlist_lifecycle_state`** — new private helper mapping a row to its lifecycle state string.
+- **`build_tony_watchlist_rows`** — new public function that combines pick rows + active tracking rows into one deduped list with a `lifecycle_state` column. Active tracking wins over pick when a symbol appears in both.
+- **`app.py: render_tony_watchlist`** — new render function; shows pick cards for watching/waiting rows, tracking cards for active/weakening rows; lifecycle filter dropdown.
+- **`app.py: main()`** — tabs changed from 5 ("Home", "Tony Picks", "Active Tracking", "Results", "Settings") to 4 ("Home", "Tony Watchlist", "Results", "Settings / System Health").
+- **`app.py: render_home`** — Home stat grid now shows "Tony Watchlist" (combined count) instead of separate "Tony Picks".
+
+### Files changed
+
+- `src/trading_bot/dashboard/helpers.py` — `WATCHLIST_LIFECYCLE_STATES`, `derive_pick_phase` fix, `_watchlist_lifecycle_state`, `build_tony_watchlist_rows`.
+- `src/trading_bot/dashboard/app.py` — `render_tony_watchlist`, merged tab list, Home stat grid, import added.
+- `tests/test_dashboard_helpers.py` — 21 new V26 tests; `build_tony_watchlist_rows` imported.
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **611 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. All changes are dashboard display/lifecycle only.
 
 ---
 

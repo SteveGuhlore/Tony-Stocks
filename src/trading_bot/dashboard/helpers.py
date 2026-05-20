@@ -506,6 +506,17 @@ TERMINAL_OUTCOMES = {
     "entry_not_triggered",
 }
 
+# V26: named lifecycle states for unified Watchlist
+WATCHLIST_LIFECYCLE_STATES = (
+    "watching",             # phase=pick, no planned entry trigger
+    "waiting_for_trigger",  # phase=waiting_alert, pending entry
+    "active",               # triggered and tracking (still_valid / needs_review)
+    "weakening",            # triggered and tracking, reassessment=weakening
+    "invalidated",          # tracking_status=invalidated → surfaces in Results
+    "closed",               # terminal outcome → surfaces in Results
+    "expired",              # entry expired / not triggered → surfaces in Results
+)
+
 _TRACKING_OUTCOMES = {
     "unreviewed",
     "still_open",
@@ -591,11 +602,19 @@ def filter_research_snapshots(snapshots: pd.DataFrame) -> pd.DataFrame:
     """Exclude seeded demo fixtures from product-facing views."""
     if snapshots.empty:
         return snapshots
-    notes_col = snapshots["notes"].fillna("") if "notes" in snapshots.columns else pd.Series([""] * len(snapshots))
-    tags_col = snapshots["tags_json"].fillna("[]") if "tags_json" in snapshots.columns else pd.Series(["[]"] * len(snapshots))
+    notes_col = (
+        snapshots["notes"].fillna("")
+        if "notes" in snapshots.columns
+        else pd.Series([""] * len(snapshots), index=snapshots.index)
+    )
+    tags_col = (
+        snapshots["tags_json"].fillna("[]")
+        if "tags_json" in snapshots.columns
+        else pd.Series(["[]"] * len(snapshots), index=snapshots.index)
+    )
     seeded = pd.Series([
         is_seeded_demo_snapshot(n, t) for n, t in zip(notes_col, tags_col)
-    ])
+    ], index=snapshots.index)
     filtered = snapshots[~seeded].copy()
     if "used_demo_data" in filtered.columns:
         filtered = filtered[filtered["used_demo_data"].fillna(0).astype(int).eq(0)]
@@ -848,6 +867,11 @@ def derive_pick_phase(row: dict[str, Any] | pd.Series) -> str:
     if entry_status in ("expired", "missing_real_data", "not_triggered") and entry_triggered == 0:
         return "closed"
     if entry_status == "triggered" or entry_triggered == 1:
+        # Invalidated tracking state → symbol must surface in Results, not stay on Watchlist
+        tracking_status = str(row.get("tracking_status") or "").strip().lower()
+        reassessment_label = str(row.get("reassessment_label") or "").strip().lower()
+        if tracking_status == "invalidated" or reassessment_label == "invalidated":
+            return "closed"
         if outcome in _TRACKING_OUTCOMES or outcome == "":
             return "tracking"
         return "closed"
@@ -1713,6 +1737,57 @@ def build_results_product_rows(snapshots: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
     combined = pd.concat(frames, ignore_index=True)
     combined["_sort_time"] = _result_sort_time(combined)
+    combined = combined.sort_values(["_sort_time", "symbol"], ascending=[False, True], na_position="last")
+    return combined.drop(columns="_sort_time")
+
+
+def _watchlist_lifecycle_state(row: dict[str, Any] | pd.Series) -> str:
+    """Assign a WATCHLIST_LIFECYCLE_STATES value to a watchlist row."""
+    if isinstance(row, pd.Series):
+        row = dict(row)
+    phase = derive_pick_phase(row)
+    if phase == "waiting_alert":
+        return "waiting_for_trigger"
+    if phase == "pick":
+        return "watching"
+    reassessment = str(row.get("reassessment_label") or "").strip().lower()
+    if reassessment == "weakening":
+        return "weakening"
+    return "active"
+
+
+def build_tony_watchlist_rows(snapshots: pd.DataFrame) -> pd.DataFrame:
+    """Unified Tony Watchlist: one card per symbol combining picks and active tracking.
+
+    Active tracking rows take priority over pick rows for the same symbol.
+    Closed/invalidated/expired symbols are excluded — they appear in Results.
+    """
+    active = build_active_tracking_product_rows(snapshots)
+    picks = build_tony_pick_product_rows(snapshots)
+
+    active_symbols: set[str] = set()
+    frames: list[pd.DataFrame] = []
+
+    if not active.empty:
+        active_copy = active.copy()
+        active_symbols = set(active_copy["symbol"].astype(str).str.upper().tolist())
+        active_copy["lifecycle_state"] = active_copy.apply(_watchlist_lifecycle_state, axis=1)
+        frames.append(active_copy)
+
+    if not picks.empty:
+        pick_filtered = picks[~picks["symbol"].astype(str).str.upper().isin(active_symbols)].copy()
+        if not pick_filtered.empty:
+            pick_filtered["lifecycle_state"] = pick_filtered.apply(_watchlist_lifecycle_state, axis=1)
+            frames.append(pick_filtered)
+
+    if not frames:
+        return pd.DataFrame()
+
+    combined = pd.concat(frames, ignore_index=True)
+    combined["_sort_time"] = _product_sort_series(
+        combined,
+        ("tracking_started_at", "actual_entry_time", "snapshot_time"),
+    )
     combined = combined.sort_values(["_sort_time", "symbol"], ascending=[False, True], na_position="last")
     return combined.drop(columns="_sort_time")
 
