@@ -6,6 +6,38 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V15.8C handoff - EOD Data Reconciliation
+
+### Current active task
+
+V15.8C is complete. `eod-report` now prints a raw-vs-product reconciliation section that proves dashboard dedupe/hiding changes visibility only and does not delete raw candidate snapshot history. Settings / System Health also includes a compact reconciliation summary.
+
+### Root cause
+
+The product dashboard intentionally hides duplicates, stale history rows, and incomplete product rows, but there was no explicit report proving those raw rows still existed in storage. That left the system looking lossy even though the database retained the full history.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` - added `classified_snapshots()` for raw history classification before active filters.
+- `src/trading_bot/dashboard/helpers.py` - added `summarize_product_reconciliation()` for raw snapshot rows vs current product-view counts.
+- `src/trading_bot/cli.py` - `eod-report` now prints reconciliation counts and an explicit raw-history-preserved note.
+- `src/trading_bot/dashboard/app.py` - Settings / System Health now shows a small reconciliation summary.
+- `tests/test_outcome_analytics.py` - reconciliation counts, raw-vs-product distinction, and no-deletion coverage.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md` - updated.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q --basetemp .pytest_tmp_v158c_outcomes` -> **10 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_dashboard_helpers.py -q --basetemp .pytest_tmp_v158c_helpers` -> **128 passed**
+
+### Known limitations
+
+- The compact Settings reconciliation summary uses the current research snapshot slice already loaded by the dashboard, not a separate full raw-history table dump. The full raw proof remains the CLI `eod-report` output and the legacy developer views.
+
+### Safety
+
+No scoring logic changes, no trigger rule changes, no broker/paper/live execution changes, no order placement, no demo-data injection, no snapshot deletion, and no API key output.
+
 ## V15.8B handoff - Product Dashboard Semantics: Entry Triggers, Current Positions, Closing Price, Results Rehaul
 
 ### Current active task

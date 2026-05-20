@@ -1761,6 +1761,86 @@ def summarize_results_product_counts(rows: pd.DataFrame) -> dict[str, int]:
     }
 
 
+def summarize_product_reconciliation(snapshots: pd.DataFrame) -> dict[str, int]:
+    """Summarize raw snapshot rows versus current product-view rows.
+
+    This is used by reporting surfaces to prove that dashboard dedupe/hiding does
+    not delete raw history from storage. Counts here are research/product counts only.
+    """
+    empty = {
+        "raw_snapshot_rows": 0,
+        "raw_triggered_entry_rows": 0,
+        "product_eligible_rows": 0,
+        "product_visible_symbols": 0,
+        "deduped_active_positions": 0,
+        "deduped_waiting_picks": 0,
+        "deduped_closed_results": 0,
+        "target_hits": 0,
+        "stop_hits": 0,
+        "partial_moves": 0,
+        "pending_triggers": 0,
+        "expired_no_trigger": 0,
+        "insufficient_data": 0,
+        "incomplete_rows_hidden_from_product_views": 0,
+        "history_rows_hidden_from_product_views": 0,
+    }
+    if snapshots.empty:
+        return empty
+
+    raw = snapshots.copy()
+    raw_triggered = 0
+    if "entry_triggered" in raw.columns:
+        raw_triggered = int(raw["entry_triggered"].fillna(0).astype(int).sum())
+
+    product_base = _product_rows_only(raw)
+    active_rows = build_active_tracking_product_rows(raw)
+    pick_rows = build_tony_pick_product_rows(raw)
+    result_rows = build_results_product_rows(raw)
+    result_counts = summarize_results_product_counts(result_rows)
+
+    pending_triggers = 0
+    if not pick_rows.empty:
+        pending_triggers = int(
+            pick_rows.apply(
+                lambda row: str(row.get("entry_status") or "").strip().lower() == "pending",
+                axis=1,
+            ).sum()
+        )
+
+    incomplete_hidden = 0
+    if not product_base.empty:
+        for _, row in product_base.iterrows():
+            phase = derive_pick_phase(row)
+            if phase == "tracking" and not _is_valid_active_tracking_anchor(row):
+                incomplete_hidden += 1
+                continue
+            if phase in {"pick", "waiting_alert"} and not _is_valid_tony_pick_row(row):
+                incomplete_hidden += 1
+                continue
+            if phase == "closed" and not _is_valid_closed_result_row(row):
+                incomplete_hidden += 1
+
+    visible_symbols = int(len(result_rows))
+    history_hidden = max(0, int(len(product_base)) - incomplete_hidden - visible_symbols)
+    return {
+        "raw_snapshot_rows": int(len(raw)),
+        "raw_triggered_entry_rows": raw_triggered,
+        "product_eligible_rows": int(len(product_base)),
+        "product_visible_symbols": visible_symbols,
+        "deduped_active_positions": int(len(active_rows)),
+        "deduped_waiting_picks": int(len(pick_rows)),
+        "deduped_closed_results": int(result_counts["closed"]),
+        "target_hits": int(result_counts["target_reached"]),
+        "stop_hits": int(result_counts["stop_reached"]),
+        "partial_moves": int(result_counts["partial_moves"]),
+        "pending_triggers": pending_triggers,
+        "expired_no_trigger": int(result_counts["expired"]),
+        "insufficient_data": int(result_counts["insufficient_data"]),
+        "incomplete_rows_hidden_from_product_views": incomplete_hidden,
+        "history_rows_hidden_from_product_views": history_hidden,
+    }
+
+
 def result_explanation(row: dict[str, Any] | pd.Series) -> str:
     """Plain-English explanation for the current result state."""
     if isinstance(row, pd.Series):

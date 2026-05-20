@@ -18,12 +18,20 @@ from trading_bot.analytics import OutcomeAnalytics
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance
-from trading_bot.dashboard.helpers import is_heartbeat_stale
+from trading_bot.dashboard.helpers import (
+    is_heartbeat_stale,
+    summarize_product_reconciliation,
+)
 from trading_bot.data.market_data import (
     AlpacaIEXProvider,
     ProviderHealth,
     build_market_data_provider,
     check_provider_health,
+)
+from trading_bot.data.symbol_quarantine import (
+    apply_symbol_quarantine,
+    format_quarantine_symbols,
+    load_symbol_quarantine_config,
 )
 from trading_bot.data.universe_rotation import RotationResult, WatchUniverseRotator
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
@@ -34,9 +42,12 @@ from trading_bot.scoring import ScoreEngine, load_scoring_config
 from trading_bot.snapshots import (
     ENTRY_STATUS_MISSING_REAL_DATA,
     EntryTriggerSimulationResult,
+    build_active_tracking_refresh_updates,
+    build_original_plan_freeze_updates,
     calculate_snapshot_followup,
     compute_planned_entry_at_snapshot,
     simulate_entry_trigger,
+    summarize_tracked_setup_refresh,
 )
 from trading_bot.snapshots.seeding import build_demo_seed_snapshots
 from trading_bot.strategies import MovingAverageCrossoverStrategy
@@ -203,6 +214,16 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         symbols = load_universe(settings.universe_config_path, manual_symbols=manual_symbols)
         symbols = symbols[: settings.max_symbols]
 
+    symbols, quarantined_entries = apply_symbol_quarantine(symbols, settings, real_only)
+    if quarantined_entries:
+        excluded = format_quarantine_symbols(quarantined_entries)
+        print(
+            f"Symbol quarantine (real-data-only): excluded {len(quarantined_entries)} symbol(s) "
+            f"from scan/watch — {excluded}"
+        )
+        for entry in quarantined_entries:
+            print(f"  {entry.symbol}: {entry.reason}")
+
     # Apply Alpaca per-scan symbol cap and reset cycle state
     if isinstance(provider, AlpacaIEXProvider):
         alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
@@ -315,7 +336,11 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         "warnings_count": sum(len(result.warnings) for result in results),
         "high_priority_symbols": high_priority_symbols,
         "real_data_only": real_only,
+        "quarantined_symbols": [entry.symbol for entry in quarantined_entries],
+        "quarantined_count": len(quarantined_entries),
     }
+    if quarantined_entries:
+        tony.record_symbol_quarantine_applied(quarantined_entries, real_data_only=real_only)
     if isinstance(provider, AlpacaIEXProvider):
         alpaca_cfg = (settings.market_data or {}).get("alpaca") or {}
         stale_minutes = int(alpaca_cfg.get("stale_data_minutes", 20))
@@ -573,13 +598,14 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     pending_triggers = 0
     expired_no_trigger = 0
     missing_real_trigger = 0
+    tracked_refresh_rows: list[dict[str, Any]] = []
 
     for snapshot in snapshots.to_dict("records"):
         checked += 1
         try:
             working = dict(snapshot)
+            intraday_bars = None
             if entry_trigger_cfg.get("enabled", True):
-                intraday_bars = None
                 if not real_only or provider.name == "alpaca_iex":
                     try:
                         intraday_bars = provider.fetch_ohlcv(
@@ -624,6 +650,11 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
                 if trigger_result.entry_status == "missing_real_data":
                     missing_real_trigger += 1
 
+                freeze_updates = build_original_plan_freeze_updates(working)
+                if freeze_updates:
+                    repo.update_candidate_snapshot_followup(int(snapshot["id"]), **freeze_updates)
+                    working.update(freeze_updates)
+
             data = provider.fetch_ohlcv(str(snapshot["symbol"]), max(settings.lookback_days, 140, expire_after + 40), settings.timeframe)
             result = calculate_snapshot_followup(
                 snapshot=working,
@@ -632,6 +663,20 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
                 expire_after_trading_days=expire_after,
             )
             repo.update_candidate_snapshot_followup(int(snapshot["id"]), **result.to_update_fields())
+            working.update(result.to_update_fields())
+
+            tracking_updates = build_active_tracking_refresh_updates(
+                working,
+                intraday_bars,
+                real_data_only=real_only,
+                provider_name=provider.name,
+            )
+            if tracking_updates:
+                repo.update_candidate_snapshot_followup(int(snapshot["id"]), **tracking_updates)
+                working.update(tracking_updates)
+                if working.get("original_entry_price") not in (None, ""):
+                    tracked_refresh_rows.append(dict(working))
+
             updated += 1
             outcomes[result.outcome_label] = outcomes.get(result.outcome_label, 0) + 1
             if result.entry_triggered or working.get("entry_status") == "triggered":
@@ -681,6 +726,8 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     tony.record_snapshot_update(summary)
     if entry_trigger_cfg.get("enabled", True):
         tony.record_entry_trigger_summary(summary)
+    if tracked_refresh_rows:
+        tony.record_tracked_setup_updated(summarize_tracked_setup_refresh(tracked_refresh_rows))
     return summary
 
 
@@ -810,6 +857,16 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     rotator: WatchUniverseRotator | None = None
     if rotation_cfg.get("enabled", False):
         universe_symbols = load_universe(settings.universe_config_path)
+        universe_symbols, watch_quarantined = apply_symbol_quarantine(
+            universe_symbols,
+            settings,
+            real_data_only_enabled(settings),
+        )
+        if watch_quarantined:
+            print(
+                f"Symbol quarantine: {len(watch_quarantined)} symbol(s) removed from rotation pool — "
+                f"{format_quarantine_symbols(watch_quarantined)}"
+            )
         rotator = WatchUniverseRotator(universe_symbols, rotation_cfg)
         LOGGER.info(
             "Universe rotation enabled: %d symbols available, max %d per cycle",
@@ -1128,12 +1185,28 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     watch_run = repo.latest_watch_run()
     snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
     analytics = OutcomeAnalytics(snapshots, include_seeded_demo=True, real_only=True)
+    classified = analytics.classified_snapshots()
     prepared = analytics.prepared()
-    exclusions = analytics.exclusion_counts()
+    if not classified.empty and "snapshot_time" in classified.columns:
+        classified = classified[classified["snapshot_time"].astype(str).str.slice(0, 10).eq(report_date)].copy()
     if not prepared.empty:
         prepared = prepared[prepared["snapshot_time"].astype(str).str.slice(0, 10).eq(report_date)].copy()
+    source_counts = (
+        classified["data_source_classification"]
+        .fillna("legacy_unknown")
+        .value_counts()
+        .to_dict()
+        if not classified.empty and "data_source_classification" in classified.columns
+        else {}
+    )
+    exclusions = {
+        "demo_rows_excluded": int(source_counts.get("demo_generated", 0)),
+        "legacy_unknown_rows_excluded": int(source_counts.get("legacy_unknown", 0)),
+        "missing_real_data_rows_excluded": int(source_counts.get("missing_real_data", 0)),
+    }
     outcome_counts = _outcome_counts(prepared)
     warning_counts = _warning_counts(prepared)
+    reconciliation = summarize_product_reconciliation(prepared)
 
     latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
     cycles_completed = int(watch_run.get("cycles_completed", 0) or 0) if watch_run else 0
@@ -1151,6 +1224,8 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     intraday_event = latest_event_of_type_records(today_events, "intraday_analysis_summary")
     intraday_payload = _payload(intraday_event) if intraday_event else {}
     fallback_symbols = repeated_fallback_symbols(today_events)
+    quarantine_cfg = load_symbol_quarantine_config(settings)
+    configured_quarantine = list(quarantine_cfg.entries)
     real_symbols_scanned = symbols_scanned
     if isinstance(symbols_scanned, int):
         real_symbols_scanned = max(0, symbols_scanned - len(fallback_symbols))
@@ -1171,6 +1246,9 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print(f"API requests: {api_requests if api_requests is not None else 'unknown'}")
     print(f"Real symbols scanned: {real_symbols_scanned if real_symbols_scanned is not None else 'unknown'}")
     print(f"Missing real-data symbols: {', '.join(fallback_symbols) if fallback_symbols else 'none'}")
+    print(f"Configured quarantined symbols: {format_quarantine_symbols(configured_quarantine)}")
+    if quarantine_cfg.replacement_symbols:
+        print(f"Configured replacement symbols: {', '.join(quarantine_cfg.replacement_symbols)}")
     print(f"Real intraday count: {intraday_payload.get('real_intraday_count', 0)}")
     print(f"Stale intraday count: {intraday_payload.get('intraday_stale_count', 0)}")
     print(f"Above VWAP count: {intraday_payload.get('above_vwap_count', 0)}")
@@ -1183,20 +1261,48 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Demo rows excluded: {exclusions['demo_rows_excluded']}")
     print(f"Legacy unknown rows excluded: {exclusions['legacy_unknown_rows_excluded']}")
     print(f"Fallback/missing rows excluded: {exclusions['missing_real_data_rows_excluded']}")
+    print("\nEOD reconciliation (raw history vs product views):")
+    print(f"Raw snapshot rows kept in history: {reconciliation['raw_snapshot_rows']}")
+    print(f"Raw triggered entry rows kept in history: {reconciliation['raw_triggered_entry_rows']}")
+    print(f"Product-eligible real rows: {reconciliation['product_eligible_rows']}")
+    print(f"Visible product symbols now: {reconciliation['product_visible_symbols']}")
+    print(f"Deduped active positions: {reconciliation['deduped_active_positions']}")
+    print(f"Deduped waiting picks: {reconciliation['deduped_waiting_picks']}")
+    print(f"Deduped closed results: {reconciliation['deduped_closed_results']}")
+    print(f"Target hits: {reconciliation['target_hits']}")
+    print(f"Stop hits: {reconciliation['stop_hits']}")
+    print(f"Partial moves: {reconciliation['partial_moves']}")
+    print(f"Pending triggers: {reconciliation['pending_triggers']}")
+    print(f"Expired / no trigger: {reconciliation['expired_no_trigger']}")
+    print(f"Insufficient data: {reconciliation['insufficient_data']}")
+    print(f"Incomplete rows hidden from product views: {reconciliation['incomplete_rows_hidden_from_product_views']}")
+    print(f"History rows hidden by dedupe/current-state rules: {reconciliation['history_rows_hidden_from_product_views']}")
+    print(f"Missing real-data rows kept in raw history: {exclusions['missing_real_data_rows_excluded']}")
+    print(f"Demo rows excluded from product/analytics views: {exclusions['demo_rows_excluded']}")
+    print(f"Legacy rows excluded from product/analytics views: {exclusions['legacy_unknown_rows_excluded']}")
     print(f"Top repeated high-priority symbols: {_format_counter(top_symbols)}")
     print(f"Top Tony hypotheses: {_format_counter(top_hypotheses)}")
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
     print("\nWarning counts:")
     _print_dataframe(warning_counts)
-    print("\nRepeated missing real-data symbols:")
+    print("\nConfigured symbol quarantine (non-destructive; still in universe YAML):")
+    if configured_quarantine:
+        for entry in configured_quarantine:
+            print(f"  {entry.symbol}: {entry.reason}")
+    else:
+        print("  none")
+    print("\nRepeated missing real-data symbols from today's events:")
     if fallback_symbols:
         for symbol in fallback_symbols:
-            print(f"  {symbol}: missing real-data candidate. Quarantine or replace these symbols.")
+            in_config = symbol in quarantine_cfg.symbol_set()
+            note = " (also in configured quarantine)" if in_config else " (consider adding to symbol_quarantine)"
+            print(f"  {symbol}: missing real-data during scan/watch{note}")
     else:
         print("  none")
     print("\nData-quality notes:")
     print("  Active analytics review real-data rows only; demo, missing, and legacy rows are excluded by default.")
+    print("  Product dashboard dedupe/hiding changes visibility only; raw candidate snapshot history remains in data/trading_bot.db.")
     print("  Alpaca IEX is a single-exchange feed and may differ from consolidated SIP data.")
 
     return {
@@ -1209,6 +1315,9 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "api_requests": api_requests,
         "fallback_symbols": fallback_symbols,
         "missing_real_data_symbols": fallback_symbols,
+        "configured_quarantined_symbols": [entry.symbol for entry in configured_quarantine],
+        "configured_quarantine_entries": [entry.to_dict() for entry in configured_quarantine],
+        "replacement_symbols": list(quarantine_cfg.replacement_symbols),
         "real_intraday_count": int(intraday_payload.get("real_intraday_count", 0) or 0),
         "stale_intraday_count": int(intraday_payload.get("intraday_stale_count", 0) or 0),
         "snapshots_created_today": created_today,
@@ -1217,6 +1326,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "demo_rows_excluded": exclusions["demo_rows_excluded"],
         "legacy_unknown_rows_excluded": exclusions["legacy_unknown_rows_excluded"],
         "missing_real_data_rows_excluded": exclusions["missing_real_data_rows_excluded"],
+        "reconciliation": reconciliation,
     }
 
 

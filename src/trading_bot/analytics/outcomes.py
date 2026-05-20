@@ -158,9 +158,26 @@ class OutcomeAnalytics:
 
     def raw_data_source_counts(self) -> pd.DataFrame:
         """Count snapshots by derived data-source class before active source filters."""
-        data = self.snapshots.copy()
+        data = self.classified_snapshots()
         if data.empty:
             return pd.DataFrame(columns=["data_source_classification", "count"])
+        return (
+            data["data_source_classification"]
+            .fillna("legacy_unknown")
+            .value_counts()
+            .rename_axis("data_source_classification")
+            .reset_index(name="count")
+        )
+
+    def classified_snapshots(self) -> pd.DataFrame:
+        """Return snapshots with seeded-demo and data-source classification added.
+
+        This is the raw history view used for reconciliation and exclusion reporting.
+        No real/demo/legacy/missing filters are applied beyond the seeded-demo toggle.
+        """
+        data = self.snapshots.copy()
+        if data.empty:
+            return data
         for column in (
             "notes",
             "tags_json",
@@ -179,13 +196,7 @@ class OutcomeAnalytics:
         data["data_source_classification"] = data.apply(classify_snapshot_data_source, axis=1)
         if not self.include_seeded_demo:
             data = data[~data["is_seeded_demo"]].copy()
-        return (
-            data["data_source_classification"]
-            .fillna("legacy_unknown")
-            .value_counts()
-            .rename_axis("data_source_classification")
-            .reset_index(name="count")
-        )
+        return data
 
     def exclusion_counts(self) -> dict[str, int]:
         """Return counts excluded from default real-data-only analytics."""

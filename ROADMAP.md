@@ -159,3 +159,8 @@ Goals:
 
 - Product dashboard semantics are now aligned around `Entry trigger`, fixed `Active entry` / `Tracked from`, after-hours `Closing price`, risk/reward helper text, and Results stock cards/filters driven by the same deduped symbol-level product rows as Home, Tony Picks, and Active Tracking.
 - Future Tony Explanation Engine work: Tony descriptions are still repetitive in some cards. A later pass should create more varied skill-specific explanations without surfacing raw history on the main dashboard.
+
+## V15.8C note
+
+- `eod-report` now includes a raw-vs-product reconciliation section showing that dashboard dedupe/hiding changes visibility only; it does not delete candidate snapshot history from `data/trading_bot.db`.
+- Settings / System Health includes a small reconciliation summary so product visibility counts can be compared against raw retained rows without exposing full history on the main dashboard.

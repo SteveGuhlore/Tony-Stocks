@@ -4,6 +4,7 @@ _Last updated: 2026-05-19_
 
 ## Immediate
 
+- V15.8C reconciliation reporting is implemented. Manual review is still useful after market-hours runs to confirm raw/history counts and current product counts remain intuitive as snapshot volume grows.
 - Tony descriptions are still repetitive across some dashboard cards. Future Tony Explanation Engine work should generate more varied skill-specific explanations while keeping the main product view history-free.
 - V15.8B dashboard semantics are implemented. Manual browser click-through is still pending to confirm Home text, Tony Picks trigger messaging, Active Tracking closing-price labeling, and Results filters/cards end to end.
 - V15.8A symbol-level dashboard dedupe is implemented. Manual browser click-through is still pending to confirm Home, Tony Picks, Active Tracking, and Results visually match the new product rules end to end.

@@ -48,6 +48,7 @@ from trading_bot.dashboard.helpers import (
     select_home_preview_picks,
     select_home_tracking_rows,
     summarize_results_product_counts,
+    summarize_product_reconciliation,
     summarize_research_pl,
     tony_status_home_message,
     summarize_results_plain_english,
@@ -1555,6 +1556,15 @@ def render_system_health(repo: ScannerRepository, results: pd.DataFrame) -> None
     if not stop_file_path.is_absolute():
         stop_file_path = Path.cwd() / stop_file_path
     st.caption(f"Watch stop file: `{stop_file_path}`")
+
+    reconciliation = summarize_product_reconciliation(ctx["research_snaps"])
+    st.markdown("#### Reconciliation")
+    rec = st.columns(4)
+    rec[0].metric("Raw snapshot rows", reconciliation["raw_snapshot_rows"])
+    rec[1].metric("Visible product symbols", reconciliation["product_visible_symbols"])
+    rec[2].metric("Incomplete hidden", reconciliation["incomplete_rows_hidden_from_product_views"])
+    rec[3].metric("History hidden", reconciliation["history_rows_hidden_from_product_views"])
+    st.caption("Dashboard dedupe and hiding change visibility only. Raw candidate snapshot history remains in `data/trading_bot.db` and legacy developer views.")
 
     with st.expander("Legacy developer views (tables, charts, raw events)", expanded=False):
         st.caption("Developer/debug only. Not part of the main Tony product flow.")
