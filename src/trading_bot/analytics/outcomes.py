@@ -525,6 +525,14 @@ def build_tony_self_review(
     what_failed: list[str] = []
     needs_more_data: list[str] = []
 
+    # Rows still waiting on future market days — label separately, not as failures
+    insufficient_count = int(data["outcome_label"].isin(INSUFFICIENT_OUTCOMES).sum())
+    if insufficient_count > 0:
+        needs_more_data.append(
+            f"{insufficient_count} triggered row(s) labeled insufficient_future_data — "
+            "outcome windows are still open; these are not failures."
+        )
+
     for setup_name, group in data.groupby("setup_category", dropna=False):
         setup = str(setup_name or "Unspecified setup")
         triggered = int(_memory_triggered_mask(group).sum())
@@ -534,6 +542,7 @@ def build_tony_self_review(
         target_hits = int(group["outcome_label"].isin(TARGET_OUTCOMES).sum())
         stop_hits = int(group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
         partial = int(group["outcome_label"].isin(PARTIAL_OUTCOMES).sum())
+        insufficient = int(group["outcome_label"].isin(INSUFFICIENT_OUTCOMES).sum())
 
         if target_hits > 0:
             note = f"{setup}: {target_hits} target hit(s)"
@@ -544,9 +553,10 @@ def build_tony_self_review(
             what_failed.append(
                 f"{setup}: {stop_hits} stop or failure outcome(s) out of {triggered} triggered row(s)."
             )
-        if triggered < 2 and target_hits == 0 and stop_hits == 0:
+        conclusive = triggered - insufficient
+        if conclusive < 2 and target_hits == 0 and stop_hits == 0:
             needs_more_data.append(
-                f"{setup}: only {total} row(s) today — not enough context to read direction."
+                f"{setup}: only {conclusive} conclusive row(s) today — not enough context to read direction."
             )
 
     needs_review_setups = (
@@ -559,19 +569,36 @@ def build_tony_self_review(
         if entry not in needs_more_data:
             needs_more_data.append(entry)
 
-    tomorrow_watch: list[str] = []
-    active_count = int(
-        (data["tracking_status"].eq("active") | data["outcome_label"].eq("still_open")).sum()
+    # Raw active = what Tony is currently tracking (for tomorrow_watch message)
+    # Deduped active = product-view count from reconciliation (for summary dict)
+    raw_triggered_rows = int(_memory_triggered_mask(data).sum())
+    active_mask = data["tracking_status"].eq("active") | data["outcome_label"].eq("still_open")
+    raw_active_count = int(active_mask.sum())
+    deduped_active = int(
+        (reconciliation or {}).get("deduped_active_positions", raw_active_count)
+        if reconciliation is not None
+        else raw_active_count
     )
+    waiting_picks = int((reconciliation or {}).get("deduped_waiting_picks", 0) or 0)
     pending_count = int((reconciliation or {}).get("pending_triggers", 0) or 0)
+    active_symbols = sorted(
+        data[active_mask]["symbol"].dropna().unique().tolist()
+    ) if "symbol" in data.columns else []
+
+    tomorrow_watch: list[str] = []
     label_counts = memory_summary.get("reassessment_label_counts") or {}
     weakening_count = int(label_counts.get("weakening", 0) or 0)
     invalidated_count = int(label_counts.get("invalidated", 0) or 0)
 
-    if active_count > 0:
+    if raw_active_count > 0:
         tomorrow_watch.append(
-            f"{active_count} active position(s) carry over — check reassessment labels at next open."
+            f"{deduped_active} active position(s) carry over — check reassessment labels at next open."
         )
+        if raw_triggered_rows > deduped_active:
+            tomorrow_watch.append(
+                f"{raw_triggered_rows} raw triggered row(s) in history "
+                f"({raw_triggered_rows - deduped_active} are earlier history rows for active symbols)."
+            )
     if pending_count > 0:
         tomorrow_watch.append(
             f"{pending_count} pending trigger(s) still waiting — watch for intraday trigger levels."
@@ -605,6 +632,11 @@ def build_tony_self_review(
         "what_failed": what_failed,
         "needs_more_data": needs_more_data,
         "tomorrow_watch": tomorrow_watch,
+        "active_symbols": active_symbols,
+        "deduped_active_positions": deduped_active,
+        "raw_triggered_rows": raw_triggered_rows,
+        "waiting_picks": waiting_picks,
+        "pending_triggers": pending_count,
         "rule_suggestions": generate_tony_rule_suggestions(data),
         "research_only": True,
     }
@@ -633,26 +665,50 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
     if total_triggered < _MIN_TRIGGERED_FOR_SUGGESTION:
         return [_no_data_suggestion(total_triggered)]
 
+    # Exclude rows still waiting on future data — they are not conclusive outcomes
+    conclusive_mask = data["outcome_label"].isin(
+        TARGET_OUTCOMES | STOP_OUTCOMES | PARTIAL_OUTCOMES | FAILURE_OUTCOMES
+    )
+    total_conclusive = int((_memory_triggered_mask(data) & conclusive_mask).sum())
+    if total_conclusive < _MIN_TRIGGERED_FOR_SUGGESTION:
+        insufficient = total_triggered - total_conclusive
+        reason = (
+            f"{total_conclusive} conclusive triggered row(s) available "
+            f"(+{insufficient} still waiting on future data); "
+            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} conclusive rows needed."
+        ) if insufficient > 0 else (
+            f"{total_conclusive} triggered row(s) available; "
+            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} are needed before suggestions are generated."
+        )
+        return [{
+            "suggestion": "No rule changes suggested yet — not enough conclusive real-only data.",
+            "reason": reason,
+            "confidence": "low",
+            "status": "needs_review",
+        }]
+
     suggestions: list[dict[str, Any]] = []
     for setup_name, group in data.groupby("setup_category", dropna=False):
         setup = str(setup_name or "Unspecified setup")
-        triggered = int(_memory_triggered_mask(group).sum())
-        if triggered < 2:
+        # Only count rows with a conclusive outcome for rate calculations
+        conclusive_group = group[conclusive_mask.reindex(group.index, fill_value=False)]
+        conclusive = int((_memory_triggered_mask(conclusive_group)).sum())
+        if conclusive < 2:
             continue
-        target_hits = int(group["outcome_label"].isin(TARGET_OUTCOMES).sum())
-        stop_hits = int(group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
-        target_rate = target_hits / triggered
-        stop_rate = stop_hits / triggered
+        target_hits = int(conclusive_group["outcome_label"].isin(TARGET_OUTCOMES).sum())
+        stop_hits = int(conclusive_group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
+        target_rate = target_hits / conclusive
+        stop_rate = stop_hits / conclusive
 
         if target_rate >= 0.67:
-            confidence = "high" if triggered >= 5 and target_rate >= 0.80 else "medium"
+            confidence = "high" if conclusive >= 5 and target_rate >= 0.80 else "medium"
             suggestions.append({
                 "suggestion": (
                     f"Consider prioritizing {setup} in the next scan — "
                     "it showed consistent follow-through today."
                 ),
                 "reason": (
-                    f"{target_hits} of {triggered} triggered row(s) hit target "
+                    f"{target_hits} of {conclusive} conclusive triggered row(s) hit target "
                     f"({target_rate:.0%} rate)."
                 ),
                 "confidence": confidence,
@@ -660,14 +716,14 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
             })
 
         if stop_rate >= 0.67:
-            confidence = "high" if triggered >= 5 and stop_rate >= 0.80 else "medium"
+            confidence = "high" if conclusive >= 5 and stop_rate >= 0.80 else "medium"
             suggestions.append({
                 "suggestion": (
                     f"Consider reducing watch frequency or raising the score threshold "
                     f"for {setup}."
                 ),
                 "reason": (
-                    f"{stop_hits} of {triggered} triggered row(s) stopped out "
+                    f"{stop_hits} of {conclusive} conclusive triggered row(s) stopped out "
                     f"({stop_rate:.0%} rate)."
                 ),
                 "confidence": confidence,
@@ -681,7 +737,7 @@ def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
                 "to recommend adjustments."
             ),
             "reason": (
-                f"{total_triggered} triggered row(s) available; no setup reached "
+                f"{total_conclusive} conclusive triggered row(s) available; no setup reached "
                 "the threshold for a confident suggestion."
             ),
             "confidence": "low",
@@ -711,6 +767,11 @@ def _empty_self_review() -> dict[str, Any]:
         "what_failed": ["No real-only rows were available today."],
         "needs_more_data": ["All setups need real data before patterns can emerge."],
         "tomorrow_watch": ["No specific items flagged — check tomorrow's scan results."],
+        "active_symbols": [],
+        "deduped_active_positions": 0,
+        "raw_triggered_rows": 0,
+        "waiting_picks": 0,
+        "pending_triggers": 0,
         "rule_suggestions": [_no_data_suggestion(0)],
         "research_only": True,
     }

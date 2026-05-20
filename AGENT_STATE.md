@@ -6,6 +6,90 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V18A handoff - Active vs Future Outcome Wording
+
+### Current active task
+
+V18A is complete. Tony self-review and EOD report now correctly distinguish same-day active tracking from future outcome windows.
+
+### Changes
+
+- **`build_tony_self_review`**: `tomorrow_watch` now uses the reconciliation `deduped_active_positions` for the carry-over count (one per symbol), while the raw active row count from tracking data drives the note trigger. Raw triggered rows are exposed separately. `insufficient_future_data` rows are now called out in `needs_more_data` as "outcome windows are still open; these are not failures" rather than silently disappearing. Added same-day summary fields: `active_symbols`, `deduped_active_positions`, `raw_triggered_rows`, `waiting_picks`, `pending_triggers`.
+- **`generate_tony_rule_suggestions`**: Now excludes `insufficient_future_data` rows from rate calculations. Only rows with conclusive outcomes (target/stop/partial/failure) count toward the denominator. If not enough conclusive rows exist, the no-data fallback message explains how many are still waiting.
+- **`eod-report` self-review print section**: Added "Same-day summary" block showing deduped active positions, active symbols, waiting picks, raw triggered rows, and pending triggers.
+- **`_empty_self_review`**: Added the new summary fields with zero defaults.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` — `build_tony_self_review`, `generate_tony_rule_suggestions`, `_empty_self_review`.
+- `src/trading_bot/cli.py` — self-review print section in `run_eod_report`.
+- `tests/test_outcome_analytics.py` — 4 new V18A tests.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **33 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **529 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, and no data deletion.
+
+## V16B handoff - Date Consistency for Reports
+
+### Current active task
+
+V16B is complete. `eod-report` and `outcome-analytics` now use the same America/New_York market-date filtering everywhere.
+
+- **`outcome-analytics --date YYYY-MM-DD`** added. Filters snapshots by ET market date. Prints `Report date: YYYY-MM-DD America/New_York`. Overrides `--today` when both are given.
+- **`eod-report --date` watch-run scoping fixed.** Previously used `latest_watch_run()` (globally newest), which caused cross-date contamination. Now uses `_watch_run_summary_for_date()` to filter recent watch runs by ET `started_at` date and sum `cycles_completed` across all runs on that date. A date with no watch runs correctly reports 0 cycles.
+- **`run_outcome_analytics` now returns a dict** (`snapshots_reviewed`, `symbols`, `date_filter`) for testability.
+
+### Files changed
+
+- `src/trading_bot/storage/repositories.py` — added `recent_watch_runs(limit=100)`.
+- `src/trading_bot/cli.py` — added `--date` to `outcome-analytics` argparser; updated `run_outcome_analytics` to handle `--date`, apply the ET mask post-`prepared()`, print date header, return result dict; added `_watch_run_summary_for_date()` helper; replaced `repo.latest_watch_run()` in `run_eod_report` with the date-scoped helper.
+- `tests/test_outcome_analytics.py` — added `_make_dummy_tony()` helper and 4 new V16B tests.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **29 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **525 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, and no data deletion. Stored timestamps remain UTC.
+
+## V18 handoff - Tony Rule Suggestions
+
+### Current active task
+
+V18 is complete. Tony self-review now includes `rule_suggestions` — plain-English research-only scoring/filter ideas derived from real-only outcome rows. Suggestions are never applied automatically; each carries a confidence level (`low`/`medium`/`high`) and `status: needs_review`. A no-data fallback is returned when fewer than 3 triggered rows exist. The `eod-report` prints suggestions under "Rule suggestions (research-only, not applied automatically)". Suggestions are stored inside the Tony learning event payload alongside the memory summary.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` — added `generate_tony_rule_suggestions()`, `_no_data_suggestion()`, `_MIN_TRIGGERED_FOR_SUGGESTION`; added `rule_suggestions` field to `build_tony_self_review()` return and `_empty_self_review()`.
+- `src/trading_bot/analytics/__init__.py` — exported `generate_tony_rule_suggestions`.
+- `src/trading_bot/cli.py` — `eod-report` prints rule suggestions with confidence label and reason.
+- `tests/test_outcome_analytics.py` — imported `generate_tony_rule_suggestions`; added 5 new tests.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **25 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **521 passed**
+
+### Suggestion logic
+
+| Condition | Suggestion | Confidence |
+|-----------|-----------|------------|
+| Triggered < 3 (total) | No rule changes suggested yet | low |
+| Setup target_rate ≥ 67%, triggered ≥ 2 | Consider prioritizing that setup | medium (high if ≥ 5 rows and ≥ 80%) |
+| Setup stop_rate ≥ 67%, triggered ≥ 2 | Consider raising score threshold / reducing frequency | medium (high if ≥ 5 rows and ≥ 80%) |
+| No setup meets threshold | Patterns not consistent enough | low |
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, and no data deletion. Suggestions have `status: needs_review` and are never auto-applied.
+
 ## V17 handoff - Tony Self-Review Report
 
 ### Current active task

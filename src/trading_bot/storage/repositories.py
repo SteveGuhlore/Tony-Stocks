@@ -793,6 +793,14 @@ class ScannerRepository:
             row = conn.execute("SELECT * FROM watch_runs ORDER BY id DESC LIMIT 1").fetchone()
             return dict(row) if row else None
 
+    def recent_watch_runs(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Return recent watch run records ordered newest-first."""
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM watch_runs ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+            return [dict(row) for row in rows]
+
     # ── Internal helpers ───────────────────────────────────────────────────────
 
     def _recent_snapshot_exists(self, conn: Any, symbol: str, setup_category: str, dedupe_minutes: int) -> bool:

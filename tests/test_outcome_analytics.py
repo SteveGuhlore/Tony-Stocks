@@ -886,3 +886,248 @@ def test_self_review_includes_rule_suggestions(tmp_path):
     assert len(review["rule_suggestions"]) >= 1
     assert all(s["status"] == "needs_review" for s in review["rule_suggestions"])
     assert review["research_only"] is True
+
+
+# ── V16B: date consistency ──────────────────────────────────────────────────────
+
+def _make_dummy_tony():
+    class DummyTony:
+        def __init__(self, repo, config):
+            pass
+        def start_cycle(self):
+            return None
+        def record_tony_learning_updated(self, **kwargs):
+            return None
+        def record_outcome_analytics(self, summary):
+            return None
+    return DummyTony
+
+
+def test_outcome_analytics_date_filter(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap_may19 = create_snapshot(repo, stock("MAY19", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    snap_may20 = create_snapshot(repo, stock("MAY20", 84, "Pullback Watch"), "stop_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time='2026-05-19T14:00:00+00:00' WHERE id=?", (snap_may19,))
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time='2026-05-20T14:00:00+00:00' WHERE id=?", (snap_may20,))
+
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+
+    result_19 = cli.run_outcome_analytics(SimpleNamespace(
+        config="ignored", date="2026-05-19", today=False, include_seeded=False,
+        days=None, min_score=None, real_only=True,
+        include_demo=False, include_legacy=False, exclude_demo=False,
+        provider=None, group_by=None,
+    ))
+    result_20 = cli.run_outcome_analytics(SimpleNamespace(
+        config="ignored", date="2026-05-20", today=False, include_seeded=False,
+        days=None, min_score=None, real_only=True,
+        include_demo=False, include_legacy=False, exclude_demo=False,
+        provider=None, group_by=None,
+    ))
+
+    assert result_19["snapshots_reviewed"] == 1
+    assert result_19["symbols"] == ["MAY19"]
+    assert result_20["snapshots_reviewed"] == 1
+    assert result_20["symbols"] == ["MAY20"]
+
+
+def test_outcome_analytics_date_prints_header(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap = create_snapshot(repo, stock("HDR", 85, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time='2026-05-19T15:00:00+00:00' WHERE id=?", (snap,))
+
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+
+    cli.run_outcome_analytics(SimpleNamespace(
+        config="ignored", date="2026-05-19", today=False, include_seeded=False,
+        days=None, min_score=None, real_only=True,
+        include_demo=False, include_legacy=False, exclude_demo=False,
+        provider=None, group_by=None,
+    ))
+    output = capsys.readouterr().out
+    assert "Report date: 2026-05-19 America/New_York" in output
+
+
+def test_eod_report_watch_run_scoped_to_report_date(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap = create_snapshot(repo, stock("DATE", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time='2026-05-19T14:00:00+00:00' WHERE id=?", (snap,))
+
+    # Insert a watch run that belongs to 2026-05-19 and one on 2026-05-20
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "INSERT INTO watch_runs (started_at, status, cycles_completed) VALUES (?, 'stopped', 5)",
+            ("2026-05-19T18:00:00+00:00",),
+        )
+        conn.execute(
+            "INSERT INTO watch_runs (started_at, status, cycles_completed) VALUES (?, 'stopped', 12)",
+            ("2026-05-20T14:00:00+00:00",),
+        )
+
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-21")
+
+    # Request 2026-05-19 — should see 5 cycles (the May-19 run), not 12
+    result_19 = cli.run_eod_report(SimpleNamespace(config="ignored", date="2026-05-19"))
+    assert result_19["cycles_completed"] == 5
+
+    # Request 2026-05-20 — should see 12 cycles (the May-20 run), not 5
+    result_20 = cli.run_eod_report(SimpleNamespace(config="ignored", date="2026-05-20"))
+    assert result_20["cycles_completed"] == 12
+
+    # Request 2026-05-21 (no runs) — should see 0
+    result_21 = cli.run_eod_report(SimpleNamespace(config="ignored", date="2026-05-21"))
+    assert result_21["cycles_completed"] == 0
+
+
+def test_eod_report_snapshot_count_scoped_to_date(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    s19 = create_snapshot(repo, stock("S19", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    s20 = create_snapshot(repo, stock("S20", 85, "Pullback Watch"), "stop_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time='2026-05-19T14:00:00+00:00' WHERE id=?", (s19,))
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time='2026-05-20T14:00:00+00:00' WHERE id=?", (s20,))
+
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-21")
+
+    result_19 = cli.run_eod_report(SimpleNamespace(config="ignored", date="2026-05-19"))
+    result_20 = cli.run_eod_report(SimpleNamespace(config="ignored", date="2026-05-20"))
+
+    assert result_19["real_only_snapshots_reviewed"] == 1
+    assert result_20["real_only_snapshots_reviewed"] == 1
+
+
+# ── V18A: active vs future outcome wording ─────────────────────────────────────
+
+def test_self_review_deduped_active_count_from_reconciliation(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    # Two raw rows for the same symbol ARM (history + current), one waiting pick DKNG
+    first = create_snapshot(repo, stock("ARM", 90, "Breakout Watch"), "still_open", provider="alpaca_iex")
+    second = create_snapshot(repo, stock("ARM", 91, "Breakout Watch"), "still_open", provider="alpaca_iex")
+    waiting = create_snapshot(repo, stock("DKNG", 84, "Breakout Watch"), "unreviewed", triggered=0, provider="alpaca_iex")
+
+    with connect(repo.database_path) as conn:
+        for snap_id in (first, second):
+            conn.execute(
+                "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=120.0, "
+                "actual_entry_time='2026-05-19T14:05:00+00:00', target=128.0, stop=116.0, "
+                "current_price=125.0, tracking_status='active' WHERE id=?", (snap_id,)
+            )
+        conn.execute(
+            "UPDATE candidate_snapshots SET entry_status='pending', planned_entry_price=41.5, "
+            "target=45.0, stop=39.5 WHERE id=?", (waiting,)
+        )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    prepared = analytics.prepared()
+    from trading_bot.dashboard.helpers import summarize_product_reconciliation
+    reconciliation = summarize_product_reconciliation(prepared)
+    memory = analytics.daily_tony_memory_summary(reconciliation=reconciliation)
+    review = build_tony_self_review(prepared, memory, reconciliation=reconciliation)
+
+    # reconciliation dedupes ARM to 1 active position; raw rows = 2 triggered
+    assert review["deduped_active_positions"] == reconciliation["deduped_active_positions"]
+    assert review["raw_triggered_rows"] == 2
+    assert review["waiting_picks"] == reconciliation["deduped_waiting_picks"]
+    assert any("active position" in item for item in review["tomorrow_watch"])
+    # history note should appear because raw > deduped
+    assert any("history row" in item for item in review["tomorrow_watch"])
+
+
+def test_self_review_insufficient_future_data_labeled_not_failure(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap = create_snapshot(repo, stock("NEW", 85, "Momentum Continuation"),
+                           "insufficient_future_data", triggered=1, provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=50.0 WHERE id=?",
+            (snap,)
+        )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    prepared = analytics.prepared()
+    memory = analytics.daily_tony_memory_summary()
+    review = build_tony_self_review(prepared, memory)
+
+    assert any("insufficient_future_data" in item or "still open" in item.lower() or "outcome windows" in item
+               for item in review["needs_more_data"]), \
+        "insufficient_future_data rows should be labeled as pending, not failures"
+    # Should not appear in what_failed
+    combined_failed = " ".join(review["what_failed"])
+    assert "insufficient_future_data" not in combined_failed
+
+
+def test_rule_suggestions_exclude_insufficient_future_data(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    # 4 triggered rows all labeled insufficient_future_data — should not generate suggestions
+    for _ in range(4):
+        snap = create_snapshot(repo, stock("WAIT", 82, "Breakout Watch"),
+                               "insufficient_future_data", triggered=1, provider="alpaca_iex")
+        with connect(repo.database_path) as conn:
+            conn.execute(
+                "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=80.0 WHERE id=?",
+                (snap,)
+            )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions = generate_tony_rule_suggestions(analytics.prepared())
+
+    assert len(suggestions) == 1
+    assert suggestions[0]["confidence"] == "low"
+    assert "conclusive" in suggestions[0]["reason"] or "future data" in suggestions[0]["reason"]
+
+
+def test_rule_suggestions_use_conclusive_rows_not_total(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    # 3 conclusive target hits + 2 insufficient_future_data for same setup
+    for _ in range(3):
+        create_snapshot(repo, stock("BO", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    for _ in range(2):
+        snap = create_snapshot(repo, stock("BO2", 88, "Breakout Watch"),
+                               "insufficient_future_data", triggered=1, provider="alpaca_iex")
+        with connect(repo.database_path) as conn:
+            conn.execute(
+                "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=90.0 WHERE id=?",
+                (snap,)
+            )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions = generate_tony_rule_suggestions(analytics.prepared())
+
+    # Rate should be based on 3 conclusive rows (all targets), not 5 total
+    texts = [s["suggestion"] for s in suggestions]
+    assert any("prioritiz" in t for t in texts), "Should still suggest prioritizing BO based on conclusive rows"
+    reasons = [s["reason"] for s in suggestions]
+    assert any("3 of 3" in r or "conclusive" in r for r in reasons)

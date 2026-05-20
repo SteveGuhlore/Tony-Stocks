@@ -118,6 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
     outcome_analytics.add_argument("--include-legacy", action="store_true", help="Explicitly include legacy rows with unknown data source.")
     outcome_analytics.add_argument("--exclude-demo", action="store_true", help="Exclude snapshots classified as demo generated rows.")
     outcome_analytics.add_argument("--today", action="store_true", help="Only include snapshots created on today's America/New_York market date.")
+    outcome_analytics.add_argument("--date", default=None, help="Only include snapshots from this America/New_York market date (YYYY-MM-DD). Overrides --today.")
     outcome_analytics.add_argument("--provider", default=None, help="Only include snapshots whose scan provider matches this value.")
     outcome_analytics.add_argument(
         "--group-by",
@@ -1093,6 +1094,8 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         days=args.days,
         min_score=args.min_score,
     )
+    explicit_date = getattr(args, "date", None)
+    use_today = bool(getattr(args, "today", False)) and not explicit_date
     analytics = OutcomeAnalytics(
         snapshots,
         include_seeded_demo=args.include_seeded,
@@ -1100,15 +1103,20 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         include_demo=bool(getattr(args, "include_demo", False)),
         include_legacy=bool(getattr(args, "include_legacy", False)),
         exclude_demo=bool(getattr(args, "exclude_demo", False)),
-        today=bool(getattr(args, "today", False)),
+        today=use_today,
         provider=getattr(args, "provider", None),
     )
     prepared = analytics.prepared()
+    if explicit_date and not prepared.empty and "snapshot_time" in prepared.columns:
+        prepared = prepared[market_date_mask(prepared["snapshot_time"], explicit_date)].copy()
     exclusions = analytics.exclusion_counts()
     groups = args.group_by or ["setup_category", "score_bucket", "universe_role", "outcome_label", "warning_type"]
 
+    active_date = explicit_date or (new_york_market_date() if use_today else None)
     print("Outcome analytics")
     print("Research only: analytics evaluate scanner output; they do not create trades or prove an edge.")
+    if active_date:
+        print(f"Report date: {active_date} {MARKET_TIMEZONE_LABEL}")
     if not getattr(args, "include_demo", False) and not getattr(args, "include_legacy", False):
         print("Real-data rows only. Demo and legacy rows excluded.")
     print(f"Seeded demo rows included: {bool(args.include_seeded)}")
@@ -1116,9 +1124,9 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
     print(f"Include demo rows: {bool(getattr(args, 'include_demo', False))}")
     print(f"Include legacy rows: {bool(getattr(args, 'include_legacy', False))}")
     print(f"Exclude demo filter: {bool(getattr(args, 'exclude_demo', False))}")
-    print(f"Today filter: {bool(getattr(args, 'today', False))}")
-    if getattr(args, "today", False):
-        print(f"Today market date: {new_york_market_date()} {MARKET_TIMEZONE_LABEL}")
+    print(f"Today filter: {use_today}")
+    if explicit_date:
+        print(f"Date filter: {explicit_date} {MARKET_TIMEZONE_LABEL}")
     print(f"Provider filter: {getattr(args, 'provider', None) or 'none'}")
     if args.include_seeded:
         print("Includes seeded demo fixtures; not evidence of real market edge.")
@@ -1189,6 +1197,12 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
             memory_summary=memory_summary,
         )
 
+    return {
+        "snapshots_reviewed": len(prepared),
+        "symbols": sorted(prepared["symbol"].tolist()) if not prepared.empty and "symbol" in prepared.columns else [],
+        "date_filter": active_date,
+    }
+
 
 def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     """Print a research-only end-of-day data quality report."""
@@ -1197,7 +1211,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     report_date = getattr(args, "date", None) or new_york_market_date()
     events = repo.list_tony_events(limit=1000)
     today_events = _events_on_date(events, report_date)
-    watch_run = repo.latest_watch_run()
+    watch_run, cycles_on_date = _watch_run_summary_for_date(repo, report_date)
     snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
     analytics = OutcomeAnalytics(snapshots, include_seeded_demo=True, real_only=True)
     classified = analytics.classified_snapshots()
@@ -1230,7 +1244,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
-    cycles_completed = int(watch_run.get("cycles_completed", 0) or 0) if watch_run else 0
+    cycles_completed = cycles_on_date
     provider_used = str(watch_run.get("provider", settings.provider)) if watch_run else settings.provider
     symbols_scanned = watch_run.get("latest_symbols_scored") if watch_run else None
     api_requests = watch_run.get("latest_api_requests_used") if watch_run else None
@@ -1333,6 +1347,13 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print("  What needs more data:")
     for item in self_review["needs_more_data"]:
         print(f"    - {item}")
+    print("  Same-day summary:")
+    print(f"    Deduped active positions: {self_review['deduped_active_positions']}")
+    if self_review["active_symbols"]:
+        print(f"    Active symbols: {', '.join(self_review['active_symbols'])}")
+    print(f"    Waiting picks: {self_review['waiting_picks']}")
+    print(f"    Raw triggered rows (history): {self_review['raw_triggered_rows']}")
+    print(f"    Pending triggers: {self_review['pending_triggers']}")
     print("  Tomorrow watch:")
     for item in self_review["tomorrow_watch"]:
         print(f"    - {item}")
@@ -1971,6 +1992,28 @@ def _events_on_date(events: pd.DataFrame, date_value: str) -> list[dict[str, Any
         return []
     mask = market_date_mask(events["created_at"], date_value)
     return events[mask].to_dict("records")
+
+
+def _watch_run_summary_for_date(
+    repo: Any, report_date: str
+) -> tuple[dict[str, Any] | None, int]:
+    """Return (latest watch run on report_date, total cycles_completed on report_date).
+
+    Falls back to the globally latest watch run only when no run matches the date,
+    so that eod-report --date never inherits watch cycles from a different day.
+    """
+    runs = repo.recent_watch_runs(limit=200)
+    on_date = [
+        r for r in runs
+        if r.get("started_at") and market_date_mask(
+            pd.Series([r["started_at"]]), report_date
+        ).iloc[0]
+    ]
+    if on_date:
+        latest = on_date[0]
+        total_cycles = sum(int(r.get("cycles_completed", 0) or 0) for r in on_date)
+        return latest, total_cycles
+    return None, 0
 
 
 def latest_event_of_type_records(events: list[dict[str, Any]], event_type: str) -> dict[str, Any] | None:
