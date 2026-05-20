@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -14,6 +15,8 @@ PARTIAL_OUTCOMES = {"partial_move"}
 NO_TRIGGER_OUTCOMES = {"entry_not_triggered", "expired_no_trigger"}
 INSUFFICIENT_OUTCOMES = {"insufficient_future_data"}
 RETURN_COLUMNS = ["result_eod", "result_3d", "result_5d", "result_10d", "result_20d"]
+MARKET_TIMEZONE = "America/New_York"
+MARKET_TZ = ZoneInfo(MARKET_TIMEZONE)
 
 
 @dataclass(frozen=True)
@@ -65,8 +68,8 @@ class OutcomeAnalytics:
         if self.provider:
             data = data[data["snapshot_provider"].fillna("").eq(self.provider)].copy()
         if self.today:
-            today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
-            data = data[data["snapshot_time"].fillna("").astype(str).str.slice(0, 10).eq(today)].copy()
+            today = new_york_market_date()
+            data = data[_market_date_mask(data["snapshot_time"], today)].copy()
         data["score_bucket"] = data["total_score"].apply(score_bucket)
         data["outcome_label"] = data["outcome_label"].fillna("unreviewed")
         data["entry_triggered"] = data["entry_triggered"].fillna(0).astype(int)
@@ -209,6 +212,21 @@ class OutcomeAnalytics:
             "missing_real_data_rows_excluded": counts.get("missing_real_data", 0),
         }
 
+    def daily_tony_memory_summary(
+        self,
+        *,
+        report_date: str | None = None,
+        reconciliation: dict[str, int] | None = None,
+        exclusions: dict[str, int] | None = None,
+    ) -> dict[str, Any]:
+        """Build a research-only daily memory summary from filtered rows."""
+        return build_daily_tony_memory_summary(
+            self.prepared(),
+            report_date=report_date,
+            reconciliation=reconciliation,
+            exclusions=exclusions,
+        )
+
 
 def score_bucket(score: float | int | None) -> str:
     """Assign a 0-100 score into research buckets."""
@@ -278,6 +296,217 @@ def classify_snapshot_data_source(row: pd.Series) -> str:
         return "missing_real_data"
     if real_markers:
         return "real_alpaca"
+    return "legacy_unknown"
+
+
+def build_daily_tony_memory_summary(
+    rows: pd.DataFrame,
+    *,
+    report_date: str | None = None,
+    reconciliation: dict[str, int] | None = None,
+    exclusions: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Summarize one day's real-only research memory without changing strategy logic."""
+    data = rows.copy()
+    if data.empty:
+        return {
+            "report_date": report_date,
+            "row_count": 0,
+            "setup_counts": {},
+            "triggered_count": 0,
+            "active_count": int((reconciliation or {}).get("deduped_active_positions", 0)),
+            "closed_count": int((reconciliation or {}).get("deduped_closed_results", 0)),
+            "target_hit_count": int((reconciliation or {}).get("target_hits", 0)),
+            "stop_hit_count": int((reconciliation or {}).get("stop_hits", 0)),
+            "partial_move_count": int((reconciliation or {}).get("partial_moves", 0)),
+            "reassessment_label_counts": {},
+            "best_setup_note": "No real-only rows were available for Tony memory today.",
+            "worst_setup_note": "No real-only rows were available for Tony memory today.",
+            "data_quality_notes": _memory_data_quality_notes(0, reconciliation, exclusions),
+        }
+
+    for column in ("setup_category", "outcome_label", "tracking_status", "entry_status", "reassessment_label"):
+        if column not in data.columns:
+            data[column] = ""
+        data[column] = data[column].fillna("").astype(str)
+    for column in ("entry_triggered", "actual_entry_price", "original_entry_price", "result_5d"):
+        if column not in data.columns:
+            data[column] = 0
+        data[column] = pd.to_numeric(data[column], errors="coerce")
+
+    setup_counts = (
+        data["setup_category"]
+        .replace("", "Unspecified setup")
+        .value_counts()
+        .sort_index()
+        .to_dict()
+    )
+    triggered_mask = _memory_triggered_mask(data)
+    closed_mask = _memory_closed_mask(data)
+    target_mask = data["outcome_label"].isin(TARGET_OUTCOMES)
+    stop_mask = data["outcome_label"].isin(STOP_OUTCOMES)
+    partial_mask = data["outcome_label"].isin(PARTIAL_OUTCOMES)
+
+    best_setup_note, worst_setup_note = _best_worst_setup_notes(data)
+    reassessment_counts = (
+        data["reassessment_label"]
+        .replace("", pd.NA)
+        .dropna()
+        .value_counts()
+        .sort_index()
+        .to_dict()
+    )
+
+    return {
+        "report_date": report_date,
+        "row_count": int(len(data)),
+        "setup_counts": {str(key): int(value) for key, value in setup_counts.items()},
+        "triggered_count": int(triggered_mask.sum()),
+        "active_count": int((reconciliation or {}).get("deduped_active_positions", _memory_active_count(data))),
+        "closed_count": int((reconciliation or {}).get("deduped_closed_results", closed_mask.sum())),
+        "target_hit_count": int((reconciliation or {}).get("target_hits", target_mask.sum())),
+        "stop_hit_count": int((reconciliation or {}).get("stop_hits", stop_mask.sum())),
+        "partial_move_count": int((reconciliation or {}).get("partial_moves", partial_mask.sum())),
+        "reassessment_label_counts": {str(key): int(value) for key, value in reassessment_counts.items()},
+        "best_setup_note": best_setup_note,
+        "worst_setup_note": worst_setup_note,
+        "data_quality_notes": _memory_data_quality_notes(len(data), reconciliation, exclusions),
+    }
+
+
+def _memory_triggered_mask(data: pd.DataFrame) -> pd.Series:
+    entry_status = data["entry_status"].str.lower()
+    outcome_label = data["outcome_label"].str.lower()
+    entry_triggered = data["entry_triggered"].fillna(0)
+    return (
+        entry_status.eq("triggered")
+        | entry_triggered.ge(1)
+        | data["actual_entry_price"].notna()
+        | data["original_entry_price"].notna()
+        | outcome_label.isin(TARGET_OUTCOMES | STOP_OUTCOMES | PARTIAL_OUTCOMES | FAILURE_OUTCOMES | {"still_open"})
+    )
+
+
+def _memory_active_count(data: pd.DataFrame) -> int:
+    tracking_status = data["tracking_status"].str.lower()
+    outcome_label = data["outcome_label"].str.lower()
+    return int((tracking_status.eq("active") | outcome_label.eq("still_open")).sum())
+
+
+def _memory_closed_mask(data: pd.DataFrame) -> pd.Series:
+    tracking_status = data["tracking_status"].str.lower()
+    outcome_label = data["outcome_label"].str.lower()
+    closed_outcomes = TARGET_OUTCOMES | STOP_OUTCOMES | PARTIAL_OUTCOMES | NO_TRIGGER_OUTCOMES | INSUFFICIENT_OUTCOMES | FAILURE_OUTCOMES
+    return tracking_status.isin({"closed", "expired", "invalidated"}) | outcome_label.isin(closed_outcomes)
+
+
+def _best_worst_setup_notes(data: pd.DataFrame) -> tuple[str, str]:
+    if data.empty or "setup_category" not in data.columns:
+        return (
+            "No real-only setup groups were available for Tony memory today.",
+            "No real-only setup groups were available for Tony memory today.",
+        )
+    rows: list[dict[str, Any]] = []
+    for setup_name, group in data.groupby("setup_category", dropna=False):
+        setup = str(setup_name or "Unspecified setup")
+        triggered = int(_memory_triggered_mask(group).sum())
+        if triggered <= 0:
+            continue
+        target_hits = int(group["outcome_label"].isin(TARGET_OUTCOMES).sum())
+        stop_hits = int(group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
+        partial_moves = int(group["outcome_label"].isin(PARTIAL_OUTCOMES).sum())
+        mean_result = float(group["result_5d"].dropna().mean()) if group["result_5d"].notna().any() else 0.0
+        score = (target_hits + (0.5 * partial_moves) - stop_hits) / max(triggered, 1)
+        rows.append(
+            {
+                "setup": setup,
+                "triggered": triggered,
+                "target_hits": target_hits,
+                "stop_hits": stop_hits,
+                "partial_moves": partial_moves,
+                "mean_result_5d": mean_result,
+                "score": score,
+            }
+        )
+    if not rows:
+        note = "No triggered real-only setups were available to rank in Tony memory today."
+        return note, note
+    ranked = pd.DataFrame(rows).sort_values(
+        ["score", "target_hits", "partial_moves", "mean_result_5d", "setup"],
+        ascending=[False, False, False, False, True],
+    ).reset_index(drop=True)
+    best = ranked.iloc[0]
+    worst = ranked.sort_values(
+        ["score", "stop_hits", "target_hits", "mean_result_5d", "setup"],
+        ascending=[True, False, True, True, True],
+    ).reset_index(drop=True).iloc[0]
+    best_note = (
+        f"Preliminary best follow-through: {best['setup']} recorded "
+        f"{int(best['target_hits'])} target hit(s) and {int(best['partial_moves'])} partial move(s) "
+        f"across {int(best['triggered'])} triggered row(s)."
+    )
+    worst_note = (
+        f"Preliminary weakest follow-through: {worst['setup']} logged "
+        f"{int(worst['stop_hits'])} stop/failure outcome(s) across {int(worst['triggered'])} triggered row(s)."
+    )
+    return best_note, worst_note
+
+
+def _memory_data_quality_notes(
+    row_count: int,
+    reconciliation: dict[str, int] | None,
+    exclusions: dict[str, int] | None,
+) -> list[str]:
+    notes = [
+        "Tony memory is research-only. It does not change scoring, trigger rules, or trading behavior automatically."
+    ]
+    if row_count <= 0:
+        notes.append("No real-only rows were available for this memory summary.")
+    else:
+        notes.append("This memory summary only uses filtered real-only rows.")
+    if reconciliation:
+        history_hidden = int(reconciliation.get("history_rows_hidden_from_product_views", 0) or 0)
+        incomplete_hidden = int(reconciliation.get("incomplete_rows_hidden_from_product_views", 0) or 0)
+        if history_hidden > 0:
+            notes.append(
+                f"{history_hidden} historical row(s) stayed in raw history but were hidden from current product views."
+            )
+        if incomplete_hidden > 0:
+            notes.append(
+                f"{incomplete_hidden} incomplete row(s) were hidden from product views and preserved in raw history."
+            )
+    if exclusions:
+        demo_rows = int(exclusions.get("demo_rows_excluded", 0) or 0)
+        legacy_rows = int(exclusions.get("legacy_unknown_rows_excluded", 0) or 0)
+        missing_rows = int(exclusions.get("missing_real_data_rows_excluded", 0) or 0)
+        if demo_rows > 0:
+            notes.append(f"{demo_rows} demo row(s) were excluded.")
+        if legacy_rows > 0:
+            notes.append(f"{legacy_rows} legacy/unknown row(s) were excluded.")
+        if missing_rows > 0:
+            notes.append(f"{missing_rows} fallback or missing real-data row(s) were excluded.")
+    return notes
+
+
+def new_york_market_date(now: pd.Timestamp | None = None) -> str:
+    """Return the current market date in America/New_York."""
+    timestamp = now if now is not None else pd.Timestamp.now(tz=MARKET_TZ)
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.tz_localize("UTC")
+    else:
+        timestamp = timestamp.tz_convert(MARKET_TZ)
+    return timestamp.strftime("%Y-%m-%d")
+
+
+def market_date_mask(values: pd.Series, market_date: str) -> pd.Series:
+    """Public wrapper for ET market-date filtering against stored timestamps."""
+    return _market_date_mask(values, market_date)
+
+
+def _market_date_mask(values: pd.Series, market_date: str) -> pd.Series:
+    parsed = pd.to_datetime(values, errors="coerce", utc=True)
+    local_dates = parsed.dt.tz_convert(MARKET_TZ).dt.strftime("%Y-%m-%d")
+    return local_dates.eq(market_date).fillna(False)
     return "legacy_unknown"
 
 

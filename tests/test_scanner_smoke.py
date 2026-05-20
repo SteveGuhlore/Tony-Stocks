@@ -589,7 +589,9 @@ tony_stocks:
         {"enabled": True, "min_score": 0, "include_roles": ["primary_candidate"], "include_categories": ["Breakout Watch"]},
         tony_analyses={"PLTR": {"data_quality_read": "daily_real_alpaca"}},
     )
-    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    from trading_bot.analytics import new_york_market_date
+
+    today = new_york_market_date()
     with connect(database_path) as conn:
         conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", (f"{today}T12:00:00+00:00", ids[0]))
 
@@ -646,7 +648,9 @@ tony_stocks:
     repo = ScannerRepository(database_path)
     repo.create_watch_run("alpaca_iex", 5, True)
     repo.update_watch_run_heartbeat(1, cycles_completed=40, latest_symbols_scored=167, latest_api_requests_used=3)
-    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    from trading_bot.analytics import new_york_market_date
+
+    today = new_york_market_date()
     for symbols in (["HCP", "SAMSF"], ["SMAR", "SQ"]):
         repo.create_tony_event(
             "intraday_analysis_summary",

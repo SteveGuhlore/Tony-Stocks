@@ -1,6 +1,14 @@
 import pandas as pd
+from types import SimpleNamespace
 
-from trading_bot.analytics import OutcomeAnalytics, score_bucket
+import trading_bot.cli as cli
+from trading_bot.analytics import (
+    OutcomeAnalytics,
+    build_daily_tony_memory_summary,
+    market_date_mask,
+    new_york_market_date,
+    score_bucket,
+)
 from trading_bot.dashboard.helpers import summarize_product_reconciliation
 from trading_bot.scoring.score_models import ScoredStock
 from trading_bot.storage.database import connect
@@ -231,18 +239,127 @@ def test_today_and_provider_filters(tmp_path):
     real_id = create_snapshot(repo, stock("TODAY"), "target_hit", provider="alpaca_iex")
     old_id = create_snapshot(repo, stock("OLD"), "target_hit", provider="alpaca_iex")
     create_snapshot(repo, stock("DEMO"), "target_hit", provider="demo_generated", data_source="demo_generated")
-    today = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    market_date = "2026-05-19"
     with connect(repo.database_path) as conn:
-        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", (f"{today}T12:00:00+00:00", real_id))
-        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", ("2026-01-01T12:00:00+00:00", old_id))
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", ("2026-05-20T01:00:00+00:00", real_id))
+        conn.execute("UPDATE candidate_snapshots SET snapshot_time = ? WHERE id = ?", ("2026-05-20T05:30:00+00:00", old_id))
+
+    original = OutcomeAnalytics.prepared.__globals__["new_york_market_date"]
+    OutcomeAnalytics.prepared.__globals__["new_york_market_date"] = lambda now=None: market_date
+    try:
+        analytics = OutcomeAnalytics(
+            repo.list_snapshots_for_analytics(include_seeded_demo=True),
+            include_seeded_demo=True,
+            today=True,
+            provider="alpaca_iex",
+        )
+        assert list(analytics.prepared()["symbol"]) == ["TODAY"]
+    finally:
+        OutcomeAnalytics.prepared.__globals__["new_york_market_date"] = original
+
+
+def test_new_york_market_date_uses_et_boundary():
+    assert new_york_market_date(pd.Timestamp("2026-05-20T01:30:00+00:00")) == "2026-05-19"
+    assert market_date_mask(pd.Series(["2026-05-20T01:30:00+00:00", "2026-05-20T05:30:00+00:00"]), "2026-05-19").tolist() == [True, False]
+
+
+def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snapshot_id = create_snapshot(repo, stock("ETDAY", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET snapshot_time = '2026-05-20T01:15:00+00:00',
+                last_checked_at = '2026-05-20T02:00:00+00:00',
+                entry_status = 'triggered',
+                actual_entry_price = 100.0,
+                actual_entry_time = '2026-05-20T01:20:00+00:00',
+                target = 108.0,
+                stop = 96.0,
+                current_price = 101.0,
+                tracking_status = 'active',
+                reassessment_label = 'still_valid'
+            WHERE id = ?
+            """,
+            (snapshot_id,),
+        )
+
+    class DummyTony:
+        def __init__(self, repo, config):
+            self.repo = repo
+            self.config = config
+
+        def start_cycle(self):
+            return None
+
+        def record_tony_learning_updated(self, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        cli,
+        "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path,
+            provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(),
+            symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", DummyTony)
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
+    output = capsys.readouterr().out
+
+    assert result["date"] == "2026-05-19"
+    assert result["tony_memory_summary"]["report_date"] == "2026-05-19"
+    assert result["real_only_snapshots_reviewed"] == 1
+    assert "Report date: 2026-05-19 America/New_York" in output
+
+
+def test_run_eod_report_date_override_uses_explicit_market_date(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snapshot_id = create_snapshot(repo, stock("OVRD", 84, "Pullback Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET snapshot_time = '2026-05-19T02:30:00+00:00' WHERE id = ?",
+            (snapshot_id,),
+        )
+
+    class DummyTony:
+        def __init__(self, repo, config):
+            pass
+
+        def start_cycle(self):
+            return None
+
+        def record_tony_learning_updated(self, **kwargs):
+            return None
+
+    monkeypatch.setattr(
+        cli,
+        "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path,
+            provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(),
+            symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", DummyTony)
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-20")
 
     analytics = OutcomeAnalytics(
         repo.list_snapshots_for_analytics(include_seeded_demo=True),
         include_seeded_demo=True,
-        today=True,
-        provider="alpaca_iex",
+        real_only=True,
     )
-    assert list(analytics.prepared()["symbol"]) == ["TODAY"]
+    assert analytics.daily_tony_memory_summary(report_date="2026-05-18")["report_date"] == "2026-05-18"
+
+    result = cli.run_eod_report(SimpleNamespace(config="ignored", date="2026-05-18"))
+    assert result["date"] == "2026-05-18"
+    assert result["tony_memory_summary"]["report_date"] == "2026-05-18"
 
 
 def test_classified_snapshots_and_reconciliation_distinguish_raw_vs_product(tmp_path):
@@ -393,3 +510,167 @@ def test_reconciliation_counts_incomplete_hidden_rows_without_deleting_history(t
     assert reconciliation["incomplete_rows_hidden_from_product_views"] == 1
     assert len(snapshots_after) == before_count
     assert set(snapshots_after["symbol"]) == {"OXY", "JOBY"}
+
+
+def test_daily_tony_memory_summary_counts_real_only_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    closed = create_snapshot(repo, stock("ARM", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    active = create_snapshot(repo, stock("OXY", 82, "Pullback Watch"), "still_open", provider="alpaca_iex")
+    create_snapshot(
+        repo,
+        stock("DEMO", 75, "Speculative Watchlist"),
+        "target_hit",
+        provider="demo_generated",
+        data_source="demo_generated",
+    )
+
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status = 'triggered',
+                actual_entry_price = 120.0,
+                actual_entry_time = '2026-05-19T14:05:00+00:00',
+                target = 128.0,
+                stop = 116.0,
+                tracking_status = 'closed',
+                reassessment_label = 'still_valid'
+            WHERE id = ?
+            """,
+            (closed,),
+        )
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status = 'triggered',
+                actual_entry_price = 48.0,
+                actual_entry_time = '2026-05-19T15:05:00+00:00',
+                target = 52.0,
+                stop = 46.0,
+                current_price = 49.0,
+                tracking_status = 'active',
+                reassessment_label = 'weakening'
+            WHERE id = ?
+            """,
+            (active,),
+        )
+
+    analytics = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        real_only=True,
+    )
+    memory = analytics.daily_tony_memory_summary(
+        report_date="2026-05-19",
+        reconciliation={
+            "deduped_active_positions": 1,
+            "deduped_closed_results": 1,
+            "target_hits": 1,
+            "stop_hits": 0,
+            "partial_moves": 0,
+            "history_rows_hidden_from_product_views": 0,
+            "incomplete_rows_hidden_from_product_views": 0,
+        },
+        exclusions=analytics.exclusion_counts(),
+    )
+
+    assert memory["report_date"] == "2026-05-19"
+    assert memory["row_count"] == 2
+    assert memory["setup_counts"] == {"Breakout Watch": 1, "Pullback Watch": 1}
+    assert memory["triggered_count"] == 2
+    assert memory["active_count"] == 1
+    assert memory["closed_count"] == 1
+    assert memory["target_hit_count"] == 1
+    assert memory["stop_hit_count"] == 0
+    assert memory["partial_move_count"] == 0
+    assert memory["reassessment_label_counts"] == {"still_valid": 1, "weakening": 1}
+    assert "Breakout Watch" in memory["best_setup_note"]
+    assert "Pullback Watch" in memory["worst_setup_note"]
+    assert any("research-only" in note.lower() for note in memory["data_quality_notes"])
+    assert any("demo row(s) were excluded" in note for note in memory["data_quality_notes"])
+
+
+def test_daily_tony_memory_summary_filters_demo_and_legacy_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    create_snapshot(repo, stock("REAL", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
+    create_snapshot(
+        repo,
+        stock("DEMO", 75, "Speculative Watchlist"),
+        "target_hit",
+        provider="demo_generated",
+        data_source="demo_generated",
+    )
+    legacy_id = create_snapshot(repo, stock("LEG", 70, "Momentum Continuation"), "stop_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE candidate_snapshots SET data_source = 'legacy_unknown' WHERE id = ?", (legacy_id,))
+
+    analytics = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        real_only=True,
+    )
+    memory = build_daily_tony_memory_summary(analytics.prepared(), exclusions=analytics.exclusion_counts())
+
+    assert memory["row_count"] == 1
+    assert memory["setup_counts"] == {"Breakout Watch": 1}
+    assert memory["triggered_count"] == 1
+    assert "DEMO" not in str(memory)
+    assert "LEG" not in str(memory)
+
+
+def test_daily_tony_memory_summary_preserves_raw_history_notes(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    first = create_snapshot(repo, stock("ARM", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
+    second = create_snapshot(repo, stock("ARM", 89, "Breakout Watch"), "still_open", provider="alpaca_iex")
+
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status = 'triggered',
+                actual_entry_price = 120.0,
+                actual_entry_time = '2026-05-19T14:05:00+00:00',
+                target = 128.0,
+                stop = 116.0,
+                current_price = 125.0,
+                tracking_status = 'active',
+                reassessment_label = 'still_valid'
+            WHERE id = ?
+            """,
+            (first,),
+        )
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status = 'triggered',
+                actual_entry_price = 124.0,
+                actual_entry_time = '2026-05-19T15:05:00+00:00',
+                target = 130.0,
+                stop = 118.0,
+                current_price = 126.5,
+                tracking_status = 'active',
+                reassessment_label = 'needs_review'
+            WHERE id = ?
+            """,
+            (second,),
+        )
+
+    analytics = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        real_only=True,
+    )
+    reconciliation = summarize_product_reconciliation(analytics.prepared())
+    memory = analytics.daily_tony_memory_summary(
+        report_date="2026-05-19",
+        reconciliation=reconciliation,
+        exclusions=analytics.exclusion_counts(),
+    )
+    snapshots_after = repo.list_snapshots_for_analytics(include_seeded_demo=True)
+
+    assert memory["row_count"] == 2
+    assert memory["active_count"] == 1
+    assert memory["triggered_count"] == 2
+    assert memory["reassessment_label_counts"] == {"needs_review": 1, "still_valid": 1}
+    assert any("hidden from current product views" in note for note in memory["data_quality_notes"])
+    assert len(snapshots_after) == 2

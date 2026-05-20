@@ -14,7 +14,12 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from trading_bot.analytics import OutcomeAnalytics
+from trading_bot.analytics import (
+    OutcomeAnalytics,
+    build_daily_tony_memory_summary,
+    market_date_mask,
+    new_york_market_date,
+)
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance
@@ -59,6 +64,7 @@ from trading_bot.utils.time_utils import utc_now_iso
 
 
 LOGGER = logging.getLogger(__name__)
+MARKET_TIMEZONE_LABEL = "America/New_York"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -110,7 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     outcome_analytics.add_argument("--include-demo", action="store_true", help="Explicitly include old demo-generated rows.")
     outcome_analytics.add_argument("--include-legacy", action="store_true", help="Explicitly include legacy rows with unknown data source.")
     outcome_analytics.add_argument("--exclude-demo", action="store_true", help="Exclude snapshots classified as demo generated rows.")
-    outcome_analytics.add_argument("--today", action="store_true", help="Only include snapshots created today in UTC.")
+    outcome_analytics.add_argument("--today", action="store_true", help="Only include snapshots created on today's America/New_York market date.")
     outcome_analytics.add_argument("--provider", default=None, help="Only include snapshots whose scan provider matches this value.")
     outcome_analytics.add_argument(
         "--group-by",
@@ -140,7 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     eod_report = subparsers.add_parser("eod-report", help="Print a research-only market-day data quality report.")
     eod_report.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
-    eod_report.add_argument("--date", default=None, help="UTC date to review as YYYY-MM-DD. Defaults to today.")
+    eod_report.add_argument("--date", default=None, help="America/New_York market date to review as YYYY-MM-DD. Defaults to today's market date.")
 
     return parser
 
@@ -1110,6 +1116,8 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
     print(f"Include legacy rows: {bool(getattr(args, 'include_legacy', False))}")
     print(f"Exclude demo filter: {bool(getattr(args, 'exclude_demo', False))}")
     print(f"Today filter: {bool(getattr(args, 'today', False))}")
+    if getattr(args, "today", False):
+        print(f"Today market date: {new_york_market_date()} {MARKET_TIMEZONE_LABEL}")
     print(f"Provider filter: {getattr(args, 'provider', None) or 'none'}")
     if args.include_seeded:
         print("Includes seeded demo fixtures; not evidence of real market edge.")
@@ -1138,6 +1146,11 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         _print_dataframe(table)
 
     outcome_counts = analytics.outcome_counts()
+    memory_summary = build_daily_tony_memory_summary(
+        prepared,
+        reconciliation=None,
+        exclusions=exclusions,
+    )
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
 
@@ -1172,6 +1185,7 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
             snapshot_count=len(prepared),
             analyzed_count=analyzed_count,
             by_priority=by_priority,
+            memory_summary=memory_summary,
         )
 
 
@@ -1179,7 +1193,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     """Print a research-only end-of-day data quality report."""
     settings = load_scanner_settings(args.config)
     repo = ScannerRepository(settings.database_path)
-    report_date = getattr(args, "date", None) or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    report_date = getattr(args, "date", None) or new_york_market_date()
     events = repo.list_tony_events(limit=1000)
     today_events = _events_on_date(events, report_date)
     watch_run = repo.latest_watch_run()
@@ -1188,9 +1202,9 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     classified = analytics.classified_snapshots()
     prepared = analytics.prepared()
     if not classified.empty and "snapshot_time" in classified.columns:
-        classified = classified[classified["snapshot_time"].astype(str).str.slice(0, 10).eq(report_date)].copy()
+        classified = classified[market_date_mask(classified["snapshot_time"], report_date)].copy()
     if not prepared.empty:
-        prepared = prepared[prepared["snapshot_time"].astype(str).str.slice(0, 10).eq(report_date)].copy()
+        prepared = prepared[market_date_mask(prepared["snapshot_time"], report_date)].copy()
     source_counts = (
         classified["data_source_classification"]
         .fillna("legacy_unknown")
@@ -1207,6 +1221,12 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     outcome_counts = _outcome_counts(prepared)
     warning_counts = _warning_counts(prepared)
     reconciliation = summarize_product_reconciliation(prepared)
+    memory_summary = build_daily_tony_memory_summary(
+        prepared,
+        report_date=report_date,
+        reconciliation=reconciliation,
+        exclusions=exclusions,
+    )
 
     latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
     cycles_completed = int(watch_run.get("cycles_completed", 0) or 0) if watch_run else 0
@@ -1233,12 +1253,12 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     top_hypotheses = _top_hypotheses(today_events)
 
     created_today = len(prepared)
-    updated_today = int(prepared["last_checked_at"].fillna("").astype(str).str.slice(0, 10).eq(report_date).sum()) if not prepared.empty and "last_checked_at" in prepared else 0
+    updated_today = int(market_date_mask(prepared["last_checked_at"], report_date).sum()) if not prepared.empty and "last_checked_at" in prepared else 0
 
     print("End-of-day market data review")
     print("Research only: no trade recommendations, no broker execution, no paper trades, no live trades.")
     print("Tony has no proven edge from this report; it is data-quality review only.")
-    print(f"Date reviewed: {report_date}")
+    print(f"Report date: {report_date} {MARKET_TIMEZONE_LABEL}")
     print(f"Watch cycles completed today: {cycles_completed}")
     print(f"Latest watch status: {latest_watch_status}")
     print(f"Provider used: {provider_used}")
@@ -1282,6 +1302,21 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Legacy rows excluded from product/analytics views: {exclusions['legacy_unknown_rows_excluded']}")
     print(f"Top repeated high-priority symbols: {_format_counter(top_symbols)}")
     print(f"Top Tony hypotheses: {_format_counter(top_hypotheses)}")
+    print("\nTony memory summary:")
+    print("  Research only. This summary is stored for later review and does not auto-apply learning changes.")
+    print(f"  Setup counts: {_format_count_dict(memory_summary['setup_counts'])}")
+    print(f"  Triggered rows: {memory_summary['triggered_count']}")
+    print(f"  Active positions now: {memory_summary['active_count']}")
+    print(f"  Closed results now: {memory_summary['closed_count']}")
+    print(f"  Target hits: {memory_summary['target_hit_count']}")
+    print(f"  Stop hits: {memory_summary['stop_hit_count']}")
+    print(f"  Partial moves: {memory_summary['partial_move_count']}")
+    print(f"  Reassessment labels: {_format_count_dict(memory_summary['reassessment_label_counts'])}")
+    print(f"  Best setup note: {memory_summary['best_setup_note']}")
+    print(f"  Worst setup note: {memory_summary['worst_setup_note']}")
+    print("  Data-quality notes:")
+    for note in memory_summary["data_quality_notes"]:
+        print(f"    - {note}")
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
     print("\nWarning counts:")
@@ -1305,6 +1340,18 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print("  Product dashboard dedupe/hiding changes visibility only; raw candidate snapshot history remains in data/trading_bot.db.")
     print("  Alpaca IEX is a single-exchange feed and may differ from consolidated SIP data.")
 
+    tony = TonyStocksService(repo, settings.tony_stocks)
+    tony.start_cycle()
+    analyzed_count = 0
+    if not prepared.empty and "tony_analysis_version" in prepared.columns:
+        analyzed_count = int(prepared["tony_analysis_version"].notna().sum())
+    tony.record_tony_learning_updated(
+        snapshot_count=len(prepared),
+        analyzed_count=analyzed_count,
+        by_priority=memory_summary["setup_counts"],
+        memory_summary=memory_summary,
+    )
+
     return {
         "date": report_date,
         "cycles_completed": cycles_completed,
@@ -1327,6 +1374,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "legacy_unknown_rows_excluded": exclusions["legacy_unknown_rows_excluded"],
         "missing_real_data_rows_excluded": exclusions["missing_real_data_rows_excluded"],
         "reconciliation": reconciliation,
+        "tony_memory_summary": memory_summary,
     }
 
 
@@ -1896,11 +1944,8 @@ def _print_dataframe(data: pd.DataFrame) -> None:
 def _events_on_date(events: pd.DataFrame, date_value: str) -> list[dict[str, Any]]:
     if events.empty or "created_at" not in events.columns:
         return []
-    rows = []
-    for row in events.to_dict("records"):
-        if str(row.get("created_at", "")).startswith(date_value):
-            rows.append(row)
-    return rows
+    mask = market_date_mask(events["created_at"], date_value)
+    return events[mask].to_dict("records")
 
 
 def latest_event_of_type_records(events: list[dict[str, Any]], event_type: str) -> dict[str, Any] | None:
@@ -1974,6 +2019,16 @@ def _format_counter(counts: Counter[str], limit: int = 5) -> str:
     if not counts:
         return "none"
     return ", ".join(f"{key}: {value}" for key, value in counts.most_common(limit))
+
+
+def _format_count_dict(counts: dict[str, Any], limit: int = 8) -> str:
+    if not counts:
+        return "none"
+    pairs = sorted(((str(key), int(value)) for key, value in counts.items()), key=lambda item: (-item[1], item[0]))
+    parts = [f"{key}: {value}" for key, value in pairs[:limit]]
+    if len(pairs) > limit:
+        parts.append(f"+{len(pairs) - limit} more")
+    return ", ".join(parts)
 
 
 def _warning_counts(prepared: pd.DataFrame) -> pd.DataFrame:

@@ -6,6 +6,75 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V16A handoff - Market-Date Fix
+
+### Current active task
+
+V16A is complete. `eod-report`, `outcome-analytics --today`, and the daily Tony memory summary now use the America/New_York market date by default instead of the UTC calendar date.
+
+### Root cause
+
+Daily reporting code was mixing UTC-date string slicing with local-market expectations. That caused after-hours or near-midnight UTC rows to fall onto the wrong “today” bucket for `eod-report`, `outcome-analytics --today`, and the Tony memory summary.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` - added ET market-date helpers and switched `today=True` filtering from UTC date slicing to parsed America/New_York market-date matching.
+- `src/trading_bot/analytics/__init__.py` - exported the ET market-date helpers.
+- `src/trading_bot/cli.py` - `eod-report` now defaults to the ET market date, filters snapshots/events/update timestamps by ET market date, keeps explicit `--date` overrides, and prints `Report date: YYYY-MM-DD America/New_York`.
+- `tests/test_outcome_analytics.py` - added ET boundary coverage, `eod-report` default-date coverage, explicit override coverage, and Tony memory date-alignment coverage.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md` - updated.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q --basetemp .pytest_tmp_v16a_outcomes` -> **16 passed**
+
+### Known limitations
+
+- This change only updates daily filtering/report semantics. Stored timestamps remain UTC and existing raw history is unchanged.
+
+### Safety
+
+No scoring logic changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, and no data deletion.
+
+## V16 handoff - Tony Memory Engine Foundation
+
+### Current active task
+
+V16 is complete. `eod-report` now builds a daily Tony memory summary from real-only outcome rows and stores the same research-only summary in the existing Tony learning event payload for later review.
+
+### Root cause
+
+Tony already stored raw outcome rows and could print grouped analytics, but there was no compact daily research memory artifact summarizing what triggered, what stayed active vs closed, what hit target/stop/partial outcomes, how reassessment labels were distributed, and what data-quality exclusions shaped that view.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` - added `daily_tony_memory_summary()` / `build_daily_tony_memory_summary()` plus setup, triggered, active/closed, reassessment, best/worst, and data-quality summary helpers.
+- `src/trading_bot/analytics/__init__.py` - exported the new daily memory summary helper.
+- `src/trading_bot/cli.py` - `eod-report` now prints a Tony memory summary section, returns it in the report payload, and stores it through the existing Tony learning event path; outcome-analytics learning events now also carry the same summary payload when applicable.
+- `src/trading_bot/storage/database.py` - made additive migration loops idempotent against already-present columns so local DB initialization no longer fails on duplicate-column retries.
+- `src/trading_bot/tony/events.py` - extended `record_tony_learning_updated()` payload to accept an optional `memory_summary`.
+- `src/trading_bot/dashboard/helpers.py` - fixed boolean-index alignment when product filtering receives non-contiguous snapshot indexes.
+- `tests/test_outcome_analytics.py` - added daily memory summary coverage for counts, real-only filtering, demo/legacy exclusion, reassessment rollups, raw-history-preserved notes, and no-deletion behavior.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md` - updated.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q --basetemp .pytest_tmp_v16_outcomes` -> **13 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q --basetemp .pytest_tmp_v16_outcomes_fix` -> **13 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_dashboard_helpers.py -q --basetemp .pytest_tmp_v16_dashboard_helpers` -> **128 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` -> **509 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli eod-report --config config/default_config.yaml` -> succeeded
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m trading_bot.cli outcome-analytics --config config/default_config.yaml --real-only --today` -> succeeded
+
+### Known limitations
+
+- Best/worst setup notes are intentionally labeled preliminary and are only as useful as the current day’s real-only sample size.
+- The memory summary is stored in the existing Tony event/reporting path, not in a new dedicated memory table.
+
+### Safety
+
+No scoring logic changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion in Tony memory, no active-entry rewrites, and no raw-history deletion.
+
 ## V15.9 handoff - Tony Reassessment Labels
 
 ### Current active task

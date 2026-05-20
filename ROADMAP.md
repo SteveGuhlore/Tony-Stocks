@@ -169,3 +169,13 @@ Goals:
 
 - Active tracked research setups now receive deterministic Tony reassessment labels: `still_valid`, `weakening`, `invalidated`, or `needs_review`.
 - Reassessment uses stored tracking data only and does not move the fixed active entry or alter trigger/scoring behavior.
+
+## V16 note
+
+- Daily Tony memory summaries now roll up real-only outcome rows into setup counts, triggered/active/closed counts, target/stop/partial counts, reassessment-label counts, preliminary best/worst setup notes, and data-quality notes.
+- Tony memory is stored through the existing learning-event/reporting path for later review only. It does not auto-apply learning changes to scoring, triggers, or execution behavior.
+
+## V16A note
+
+- Daily reporting semantics now use the America/New_York market date by default instead of the UTC calendar date.
+- `eod-report`, `outcome-analytics --today`, and Tony memory now align on the same ET market day while keeping stored timestamps in UTC.

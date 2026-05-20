@@ -4,6 +4,10 @@ _Last updated: 2026-05-19_
 
 ## Overall status
 
+**V16** - Tony memory engine foundation. `eod-report` now builds a daily Tony memory summary from real-only outcome rows and stores the same summary in the existing Tony learning event payload for later review. The memory summary includes setup counts, triggered counts, active/closed counts, target/stop/partial counts, reassessment-label counts, preliminary best/worst setup notes, and data-quality notes explaining exclusions and raw-history preservation. This is research-only reporting memory; it does not change scoring, trigger rules, fixed active entries, broker behavior, or stored raw history.
+
+**V16A** - Market-date fix for reporting and daily analytics. `eod-report`, `outcome-analytics --today`, and the daily Tony memory summary now default to the America/New_York market date instead of the UTC calendar date. Explicit `--date YYYY-MM-DD` still overrides `eod-report`, and report output now prints `Report date: YYYY-MM-DD America/New_York`. Stored timestamps remain UTC; only daily filtering/report semantics changed.
+
 **V15.9** - Tony reassessment labels for active tracked setups. Active tracked research positions now get a deterministic reassessment label derived from stored tracking data only: `still_valid`, `weakening`, `invalidated`, or `needs_review`. The refresh step stores `reassessment_label`, a plain-English `reassessment_note`, and `last_reassessed_at`, and Tony’s tracked-setup summary event now includes reassessment counts. This is research-only status labeling on existing active tracking fields; it does not change scoring, trigger rules, fixed active entry anchoring, broker behavior, or stored history.
 
 **V15.8C** - EOD data reconciliation. `eod-report` now prints a raw-vs-product reconciliation section showing raw snapshot rows, raw triggered entry rows, deduped active positions, deduped waiting picks, closed/current product-result counts, incomplete rows hidden from product views, history rows hidden by dedupe/current-state rules, and excluded demo/legacy/missing-real-data rows. Settings / System Health also shows a compact reconciliation summary. This confirms that dashboard dedupe/hiding changes visibility only; raw candidate snapshot history remains in `data/trading_bot.db`. V15.8C is reporting/aggregation only; it does not change scoring, trigger rules, broker behavior, or stored snapshot history.
@@ -101,10 +105,12 @@ V7 Outcome Analytics has been added on top of the swing/day-trade scanner. The p
 - Dashboard Tony Stocks tab with filters, status cards, event table, and payload detail.
 - Outcome analytics service in `src/trading_bot/analytics/outcomes.py`.
 - CLI command: `python -m trading_bot.cli outcome-analytics --config config/default_config.yaml`.
+- Daily Tony memory summary helper in `src/trading_bot/analytics/outcomes.py` built from real-only outcome rows.
 - Outcome analytics exclude seeded demo fixture rows by default and can include them with `--include-seeded`.
 - Outcome analytics can derive snapshot data-source classes (`real_alpaca`, `missing_real_data`, `recorded_real_fixture`, `legacy_unknown`, and old `demo_generated`) from snapshot metadata and legacy provider/warning/tag/note/Tony fields.
 - Outcome analytics defaults to real-data rows only; CLI filters include `--real-only`, `--include-demo`, `--include-legacy`, `--today`, and `--provider alpaca_iex`.
 - CLI command: `python -m trading_bot.cli eod-report --config config/default_config.yaml` for research-only market-day data-quality review.
+- `eod-report` prints a Tony memory summary section and stores the same research-only summary through the existing Tony learning event path.
 - Dashboard Outcome Analytics tab with setup-category, score-bucket, universe-role, outcome-label, and warning-type summaries.
 - Dashboard Command Center includes a compact Market Day Review with real/demo/mixed rows, fallback symbols, snapshots today, real/stale intraday counts, and research-only warnings.
 - Tony event integration for outcome analytics runs.
