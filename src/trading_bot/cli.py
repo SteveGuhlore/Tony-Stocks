@@ -160,6 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     after_market.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     after_market.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
     after_market.add_argument("--skip-update-snapshots", action="store_true", help="Skip running update-snapshots before the report.")
+    after_market.add_argument("--force-update-snapshots", action="store_true", help="Run update-snapshots even when outside regular market hours.")
     after_market.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
 
     return parser
@@ -1555,6 +1556,18 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _is_within_regular_market_hours(now: datetime | None = None) -> bool:
+    """Return True if the current America/New_York time is a weekday inside 9:30–16:00 ET.
+
+    No holiday calendar is applied; weekends are treated as outside market hours.
+    """
+    et_now = now if now is not None else datetime.now(tz=ZoneInfo("America/New_York"))
+    if et_now.weekday() >= 5:  # Saturday=5, Sunday=6
+        return False
+    t = et_now.time()
+    return datetime_time(9, 30) <= t <= datetime_time(16, 0)
+
+
 def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     """Run after-market review: update snapshots, EOD report, real-only analytics, save reports."""
     report_date = getattr(args, "date", None) or new_york_market_date()
@@ -1564,13 +1577,25 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     print(f"After-market review — {report_date} {MARKET_TIMEZONE_LABEL}")
     print("Research only: no scoring changes, no trading, no suggestions auto-applied.")
 
-    # 1. Update snapshots (optional)
-    if not getattr(args, "skip_update_snapshots", False):
-        print("\nUpdating open snapshots...")
-        update_args = SimpleNamespace(config=args.config, limit=500)
-        run_update_snapshots(update_args)
-    else:
+    # 1. Update snapshots — guard against stale intraday refresh outside market hours
+    skip_update = getattr(args, "skip_update_snapshots", False)
+    force_update = getattr(args, "force_update_snapshots", False)
+    in_market_hours = _is_within_regular_market_hours()
+
+    if skip_update:
         print("\nSkipping update-snapshots (--skip-update-snapshots).")
+        did_update = False
+    elif force_update:
+        print("\nUpdating open snapshots (--force-update-snapshots)...")
+        run_update_snapshots(SimpleNamespace(config=args.config, limit=500))
+        did_update = True
+    elif not in_market_hours:
+        print("\nOutside market hours; skipping live snapshot refresh. Using stored close/tracking data.")
+        did_update = False
+    else:
+        print("\nUpdating open snapshots...")
+        run_update_snapshots(SimpleNamespace(config=args.config, limit=500))
+        did_update = True
 
     # 2. EOD report
     print("\n--- EOD Report ---")
@@ -1616,6 +1641,8 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
         "files_created": created,
         "eod_report": eod_result,
         "outcome_analytics": analytics_result,
+        "market_hours_active": in_market_hours,
+        "snapshot_refresh_ran": did_update,
     }
 
 

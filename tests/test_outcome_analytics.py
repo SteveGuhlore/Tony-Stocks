@@ -1611,3 +1611,134 @@ def test_after_market_review_markdown_contains_key_sections(tmp_path, monkeypatc
     assert "Rule Suggestions" in md
     assert "Replay Summary" in md
     assert "Not Applied" in md
+
+
+# --- V21A: After-hours review guard ---
+
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo as _ZoneInfo
+
+def _make_et_time(hour, minute, weekday=0):
+    """Return a timezone-aware ET datetime for the given weekday (0=Mon…4=Fri, 5=Sat, 6=Sun)."""
+    from datetime import date, timedelta
+    base = _dt(2026, 5, 18, hour, minute, 0, tzinfo=_ZoneInfo("America/New_York"))
+    # 2026-05-18 is a Monday (weekday=0)
+    delta = weekday - base.weekday()
+    return base + timedelta(days=delta)
+
+
+def _amr_base_patches(monkeypatch, tmp_path):
+    """Apply common monkeypatches for after-market-review tests."""
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result(args.date or "2026-05-19"))
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": args.date})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+
+def test_outside_hours_skips_refresh_by_default(tmp_path, monkeypatch, capsys):
+    update_called = []
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: update_called.append(True) or {})
+    _amr_base_patches(monkeypatch, tmp_path)
+    # 18:00 ET weekday — after close
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=False,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+    output = capsys.readouterr().out
+
+    assert update_called == []
+    assert result["snapshot_refresh_ran"] is False
+    assert result["market_hours_active"] is False
+    assert "Outside market hours" in output
+    assert "skipping live snapshot refresh" in output
+
+
+def test_force_update_runs_despite_outside_hours(tmp_path, monkeypatch, capsys):
+    update_called = []
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: update_called.append(True) or {})
+    _amr_base_patches(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=False,
+        force_update_snapshots=True, output_dir=str(tmp_path / "reports"),
+    ))
+    output = capsys.readouterr().out
+
+    assert update_called == [True]
+    assert result["snapshot_refresh_ran"] is True
+    assert "--force-update-snapshots" in output
+
+
+def test_inside_hours_runs_refresh_normally(tmp_path, monkeypatch):
+    update_called = []
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: update_called.append(True) or {})
+    _amr_base_patches(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: True)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=False,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert update_called == [True]
+    assert result["snapshot_refresh_ran"] is True
+    assert result["market_hours_active"] is True
+
+
+def test_skip_flag_still_skips_even_during_hours(tmp_path, monkeypatch):
+    update_called = []
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: update_called.append(True) or {})
+    _amr_base_patches(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: True)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert update_called == []
+    assert result["snapshot_refresh_ran"] is False
+
+
+def test_outside_hours_still_creates_report_files(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    _amr_base_patches(monkeypatch, tmp_path)
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=False,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    ))
+
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    assert (report_dir / "eod_report.json").exists()
+    assert (report_dir / "eod_report.md").exists()
+    assert (report_dir / "outcome_analytics.json").exists()
+    assert len(result["files_created"]) == 3
+
+
+def test_market_hours_helper_weekday_inside():
+    et = _make_et_time(10, 0, weekday=2)  # Wednesday 10:00 ET
+    assert cli._is_within_regular_market_hours(now=et) is True
+
+
+def test_market_hours_helper_weekday_before_open():
+    et = _make_et_time(8, 0, weekday=1)  # Tuesday 08:00 ET
+    assert cli._is_within_regular_market_hours(now=et) is False
+
+
+def test_market_hours_helper_weekday_after_close():
+    et = _make_et_time(17, 0, weekday=3)  # Thursday 17:00 ET
+    assert cli._is_within_regular_market_hours(now=et) is False
+
+
+def test_market_hours_helper_saturday():
+    et = _make_et_time(11, 0, weekday=5)  # Saturday 11:00 ET
+    assert cli._is_within_regular_market_hours(now=et) is False
+
+
+def test_market_hours_helper_sunday():
+    et = _make_et_time(14, 0, weekday=6)  # Sunday 14:00 ET
+    assert cli._is_within_regular_market_hours(now=et) is False

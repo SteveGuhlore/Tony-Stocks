@@ -6,6 +6,39 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V21A handoff - After-Hours Review Guard
+
+### Current active task
+
+V21A is complete. `after-market-review` now detects whether the current ET time is within regular market hours (9:30–16:00 weekdays) and skips live snapshot refresh by default when outside, preventing stale intraday loops.
+
+### Changes
+
+- **`_is_within_regular_market_hours(now=None)`** — new helper in `cli.py`. Returns True only for weekday 9:30–16:00 ET. No holiday calendar; weekends always treated as outside.
+- **`after-market-review`** guard logic (priority order):
+  1. `--skip-update-snapshots` → always skip (unchanged)
+  2. `--force-update-snapshots` → always run, even outside hours
+  3. Outside market hours → skip + print `"Outside market hours; skipping live snapshot refresh. Using stored close/tracking data."`
+  4. Inside market hours → run normally
+- Return dict gains `market_hours_active` and `snapshot_refresh_ran` for testability.
+- `--force-update-snapshots` flag added to `after-market-review` parser.
+- `update-snapshots` command behavior is **unchanged**.
+
+### Files changed
+
+- `src/trading_bot/cli.py` — `after-market-review` parser (`--force-update-snapshots`); `_is_within_regular_market_hours`; updated guard in `run_after_market_review`.
+- `tests/test_outcome_analytics.py` — 10 new V21A tests (outside-hours skip, force override, inside-hours normal, skip-flag priority, report files still created, helper unit tests).
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **559 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. The guard only controls whether `update-snapshots` is called; the EOD report and analytics always run.
+
+---
+
 ## V21 handoff - After-Market Review Package
 
 ### Current active task
