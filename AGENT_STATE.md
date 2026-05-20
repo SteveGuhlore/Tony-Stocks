@@ -6,6 +6,34 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V22 handoff - Approval Package
+
+### Current active task
+
+V22 is complete. `after-market-review` now builds and saves a research-only approval package for pending rule suggestions.
+
+### Changes
+
+- **`_build_approval_package(report_date, suggestions, strategy_version)`** — assembles the approval dict: filters to `needs_review` suggestions, includes `pending_count`, `not_applied_note`, `research_only: True`.
+- **`_build_approval_package_markdown(report_date, package)`** — builds readable markdown with numbered suggestion entries (confidence, reason, status, version) or "No approval items today." when empty.
+- **`run_after_market_review`** — extracts suggestions from `eod_result["tony_self_review"]["rule_suggestions"]`, builds package, saves `approval_package.json` + `approval_package.md`, prints summary, adds both to `files_created` (now 5 total), adds `"approval_package"` to return dict.
+- No suggestions auto-applied; all remain `status: needs_review`.
+
+### Files changed
+
+- `src/trading_bot/cli.py` — `_build_approval_package`, `_build_approval_package_markdown`, updated `run_after_market_review`.
+- `tests/test_outcome_analytics.py` — 6 new V22 tests + `_sample_eod_with_suggestions` helper; updated 2 V21 tests (file count 3→5, added approval file assertions).
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **570 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. All suggestions remain `needs_review`; the `not_applied_note` field explicitly states nothing has been applied.
+
+---
+
 ## V21B handoff - Report Cleanup Consistency
 
 ### Current active task

@@ -1562,6 +1562,57 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _build_approval_package(
+    report_date: str,
+    suggestions: list[dict[str, Any]],
+    strategy_version: str,
+) -> dict[str, Any]:
+    """Assemble the research-only approval package from pending rule suggestions."""
+    pending = [s for s in suggestions if s.get("status") == "needs_review"]
+    return {
+        "report_date": report_date,
+        "strategy_version": strategy_version,
+        "pending_count": len(pending),
+        "suggestions": pending,
+        "not_applied_note": (
+            "These suggestions have not been applied. "
+            "Status is needs_review only. "
+            "No scoring, trigger, or trading behavior has changed."
+        ),
+        "research_only": True,
+    }
+
+
+def _build_approval_package_markdown(report_date: str, package: dict[str, Any]) -> str:
+    """Build a markdown approval package from the approval dict."""
+    lines: list[str] = []
+    lines.append(f"# Approval Package — {report_date}")
+    lines.append("")
+    lines.append(f"**Strategy version:** {package['strategy_version']}  ")
+    lines.append(f"**Pending suggestions:** {package['pending_count']}  ")
+    lines.append("")
+    lines.append(f"> {package['not_applied_note']}")
+    lines.append("")
+
+    if not package["suggestions"]:
+        lines.append("No approval items today.")
+    else:
+        lines.append("## Pending Suggestions (needs_review)")
+        lines.append("")
+        for i, s in enumerate(package["suggestions"], 1):
+            conf = str(s.get("confidence", "")).upper()
+            lines.append(f"### {i}. [{conf}] {s.get('suggestion', '')}")
+            lines.append(f"- **Reason:** {s.get('reason', '')}")
+            lines.append(f"- **Confidence:** {s.get('confidence', 'low')}")
+            lines.append(f"- **Status:** {s.get('status', 'needs_review')}")
+            lines.append(f"- **Strategy version:** {s.get('strategy_version', 'v1')}")
+            lines.append("")
+
+    lines.append("---")
+    lines.append("*Research only. Not applied. No scoring, trigger, or trading behavior changed.*")
+    return "\n".join(lines)
+
+
 def _is_within_regular_market_hours(now: datetime | None = None) -> bool:
     """Return True if the current America/New_York time is a weekday inside 9:30–16:00 ET.
 
@@ -1626,7 +1677,7 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     )
     analytics_result = run_outcome_analytics(analytics_args)
 
-    # 4. Save report files
+    # 4. Save core report files
     eod_json_path = output_base / "eod_report.json"
     eod_md_path = output_base / "eod_report.md"
     analytics_json_path = output_base / "outcome_analytics.json"
@@ -1635,7 +1686,30 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     analytics_json_path.write_text(json.dumps(analytics_result, indent=2, default=str), encoding="utf-8")
     eod_md_path.write_text(_build_eod_report_markdown(report_date, eod_result), encoding="utf-8")
 
-    created = [str(eod_json_path), str(eod_md_path), str(analytics_json_path)]
+    # 5. Build and save approval package
+    sr = eod_result.get("tony_self_review") or {}
+    suggestions = sr.get("rule_suggestions") or []
+    sv = (eod_result.get("strategy_version_report") or {}).get("current_version", CURRENT_STRATEGY_VERSION)
+    approval = _build_approval_package(report_date, suggestions, sv)
+
+    approval_json_path = output_base / "approval_package.json"
+    approval_md_path = output_base / "approval_package.md"
+    approval_json_path.write_text(json.dumps(approval, indent=2, default=str), encoding="utf-8")
+    approval_md_path.write_text(_build_approval_package_markdown(report_date, approval), encoding="utf-8")
+
+    print("\nApproval package (research only — not applied):")
+    print(f"  Strategy version: {approval['strategy_version']}")
+    print(f"  Pending suggestions: {approval['pending_count']}")
+    if approval["suggestions"]:
+        for s in approval["suggestions"]:
+            print(f"  - [{s['confidence'].upper()}] {s['suggestion']}")
+    else:
+        print("  No approval items today.")
+
+    created = [
+        str(eod_json_path), str(eod_md_path), str(analytics_json_path),
+        str(approval_json_path), str(approval_md_path),
+    ]
     print("\nAfter-market review complete.")
     print(f"Report date: {report_date} {MARKET_TIMEZONE_LABEL}")
     print("Reports saved:")
@@ -1647,6 +1721,7 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
         "files_created": created,
         "eod_report": eod_result,
         "outcome_analytics": analytics_result,
+        "approval_package": approval,
         "market_hours_active": in_market_hours,
         "snapshot_refresh_ran": did_update,
     }

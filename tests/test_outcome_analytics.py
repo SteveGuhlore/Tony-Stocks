@@ -1466,16 +1466,18 @@ def test_after_market_review_creates_report_files(tmp_path, monkeypatch, capsys)
 
     result = cli.run_after_market_review(SimpleNamespace(
         config="ignored", date=None, skip_update_snapshots=False,
-        output_dir=str(tmp_path / "reports"),
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
     ))
 
     assert result["report_date"] == "2026-05-19"
-    assert len(result["files_created"]) == 3
+    assert len(result["files_created"]) == 5  # eod json+md, analytics json, approval json+md
 
     report_dir = tmp_path / "reports" / "2026-05-19"
     assert (report_dir / "eod_report.json").exists()
     assert (report_dir / "eod_report.md").exists()
     assert (report_dir / "outcome_analytics.json").exists()
+    assert (report_dir / "approval_package.json").exists()
+    assert (report_dir / "approval_package.md").exists()
 
 
 def test_after_market_review_uses_et_date(tmp_path, monkeypatch):
@@ -1716,7 +1718,9 @@ def test_outside_hours_still_creates_report_files(tmp_path, monkeypatch):
     assert (report_dir / "eod_report.json").exists()
     assert (report_dir / "eod_report.md").exists()
     assert (report_dir / "outcome_analytics.json").exists()
-    assert len(result["files_created"]) == 3
+    assert (report_dir / "approval_package.json").exists()
+    assert (report_dir / "approval_package.md").exists()
+    assert len(result["files_created"]) == 5
 
 
 def test_market_hours_helper_weekday_inside():
@@ -1838,3 +1842,137 @@ def test_eod_report_reconciliation_section_has_clarifying_note(tmp_path, monkeyp
 
     assert "Raw rows" in output or "raw rows" in output.lower()
     assert "deduped" in output.lower()
+
+
+# --- V22: Approval package ---
+
+def _sample_eod_with_suggestions(report_date="2026-05-19"):
+    result = _sample_eod_result(report_date)
+    result["tony_self_review"]["rule_suggestions"] = [
+        {
+            "suggestion": "Consider prioritizing Breakout Watch",
+            "reason": "Target rate 80% across 5 conclusive rows",
+            "confidence": "high",
+            "status": "needs_review",
+            "strategy_version": "v1",
+        }
+    ]
+    result["strategy_version_report"]["pending_suggestions"] = 1
+    return result
+
+
+def _amr_args(tmp_path, date=None):
+    return SimpleNamespace(
+        config="ignored", date=date, skip_update_snapshots=True,
+        force_update_snapshots=False, output_dir=str(tmp_path / "reports"),
+    )
+
+
+def test_approval_package_files_created(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_with_suggestions())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args(tmp_path))
+
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    assert (report_dir / "approval_package.json").exists()
+    assert (report_dir / "approval_package.md").exists()
+    assert "approval_package" in result
+    assert str(report_dir / "approval_package.json") in result["files_created"]
+    assert str(report_dir / "approval_package.md") in result["files_created"]
+
+
+def test_approval_package_includes_suggestions(tmp_path, monkeypatch):
+    import json as json_mod
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_with_suggestions())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args(tmp_path))
+
+    pkg = result["approval_package"]
+    assert pkg["pending_count"] == 1
+    assert pkg["suggestions"][0]["status"] == "needs_review"
+    assert pkg["strategy_version"] == "v1"
+    assert pkg["research_only"] is True
+
+    # Verify JSON file content
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    data = json_mod.loads((report_dir / "approval_package.json").read_text(encoding="utf-8"))
+    assert data["pending_count"] == 1
+    assert data["suggestions"][0]["suggestion"] == "Consider prioritizing Breakout Watch"
+
+
+def test_approval_package_empty_fallback(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())  # has 1 suggestion from fixture
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    # Use eod result with empty suggestions
+    empty_eod = _sample_eod_result()
+    empty_eod["tony_self_review"]["rule_suggestions"] = []
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: empty_eod)
+
+    result = cli.run_after_market_review(_amr_args(tmp_path))
+    pkg = result["approval_package"]
+
+    assert pkg["pending_count"] == 0
+    assert pkg["suggestions"] == []
+
+    md = (tmp_path / "reports" / "2026-05-19" / "approval_package.md").read_text(encoding="utf-8")
+    assert "No approval items today." in md
+
+
+def test_approval_package_no_auto_apply(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_with_suggestions())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args(tmp_path))
+
+    pkg = result["approval_package"]
+    for s in pkg["suggestions"]:
+        assert s["status"] == "needs_review"
+        assert s.get("applied") is not True
+    assert "not_applied_note" in pkg
+    assert "not been applied" in pkg["not_applied_note"]
+
+
+def test_approval_package_markdown_structure(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_with_suggestions())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    cli.run_after_market_review(_amr_args(tmp_path))
+
+    md = (tmp_path / "reports" / "2026-05-19" / "approval_package.md").read_text(encoding="utf-8")
+    assert "Approval Package" in md
+    assert "needs_review" in md
+    assert "Research only" in md
+    assert "Not applied" in md
+    assert "[HIGH]" in md  # confidence label
+    assert "not been applied" in md or "Not applied" in md
+
+
+def test_after_market_review_total_files_count(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args(tmp_path))
+
+    # eod_report.json, eod_report.md, outcome_analytics.json, approval_package.json, approval_package.md
+    assert len(result["files_created"]) == 5
