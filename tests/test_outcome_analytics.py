@@ -5,6 +5,7 @@ import trading_bot.cli as cli
 from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
+    build_tony_self_review,
     market_date_mask,
     new_york_market_date,
     score_bucket,
@@ -674,3 +675,139 @@ def test_daily_tony_memory_summary_preserves_raw_history_notes(tmp_path):
     assert memory["reassessment_label_counts"] == {"needs_review": 1, "still_valid": 1}
     assert any("hidden from current product views" in note for note in memory["data_quality_notes"])
     assert len(snapshots_after) == 2
+
+
+def test_tony_self_review_from_sample_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    closed = create_snapshot(repo, stock("ARM", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    stopped = create_snapshot(repo, stock("OXY", 82, "Pullback Watch"), "stop_hit", result_5d=-0.03, provider="alpaca_iex")
+    active = create_snapshot(repo, stock("DKNG", 84, "Momentum Continuation"), "still_open", provider="alpaca_iex")
+
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=120.0, tracking_status='closed', reassessment_label='still_valid' WHERE id=?",
+            (closed,),
+        )
+        conn.execute(
+            "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=48.0, tracking_status='closed', reassessment_label='weakening' WHERE id=?",
+            (stopped,),
+        )
+        conn.execute(
+            "UPDATE candidate_snapshots SET entry_status='triggered', actual_entry_price=41.0, current_price=42.0, tracking_status='active', reassessment_label='needs_review' WHERE id=?",
+            (active,),
+        )
+
+    analytics = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        real_only=True,
+    )
+    prepared = analytics.prepared()
+    reconciliation = summarize_product_reconciliation(prepared)
+    memory = analytics.daily_tony_memory_summary(report_date="2026-05-19", reconciliation=reconciliation)
+    review = build_tony_self_review(prepared, memory, reconciliation=reconciliation)
+
+    assert review["research_only"] is True
+    assert "Breakout Watch" in review["strongest_setup"]
+    assert any("Breakout Watch" in item for item in review["what_worked"])
+    assert any("Pullback Watch" in item for item in review["what_failed"])
+    assert any("needs_review" in item or "Momentum Continuation" in item for item in review["needs_more_data"])
+    assert any("active position" in item for item in review["tomorrow_watch"])
+    assert any("weakening" in item for item in review["tomorrow_watch"])
+
+
+def test_tony_self_review_empty_day_fallback():
+    empty_df = pd.DataFrame()
+    memory = {
+        "best_setup_note": "No real-only setup groups were available for Tony memory today.",
+        "worst_setup_note": "No real-only setup groups were available for Tony memory today.",
+        "active_count": 0,
+        "reassessment_label_counts": {},
+    }
+    review = build_tony_self_review(empty_df, memory)
+
+    assert review["research_only"] is True
+    assert "No real-only rows" in review["strongest_setup"]
+    assert review["what_worked"] == ["No real-only rows were available today."]
+    assert review["what_failed"] == ["No real-only rows were available today."]
+    assert "real data" in review["needs_more_data"][0]
+    assert "tomorrow" in review["tomorrow_watch"][0].lower() or "No specific" in review["tomorrow_watch"][0]
+
+
+def test_tony_self_review_real_only_filtering(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    create_snapshot(repo, stock("REAL", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    create_snapshot(
+        repo,
+        stock("DEMO", 75, "Speculative Watchlist"),
+        "target_hit",
+        provider="demo_generated",
+        data_source="demo_generated",
+    )
+
+    analytics = OutcomeAnalytics(
+        repo.list_snapshots_for_analytics(include_seeded_demo=True),
+        include_seeded_demo=True,
+        real_only=True,
+    )
+    prepared = analytics.prepared()
+    memory = analytics.daily_tony_memory_summary()
+    review = build_tony_self_review(prepared, memory)
+
+    assert prepared["symbol"].tolist() == ["REAL"]
+    assert any("Breakout Watch" in item for item in review["what_worked"])
+    assert "DEMO" not in str(review)
+    assert "Speculative Watchlist" not in str(review)
+
+
+def test_eod_report_includes_self_review(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap_id = create_snapshot(repo, stock("NVDA", 91, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET snapshot_time='2026-05-20T01:00:00+00:00', entry_status='triggered', actual_entry_price=100.0, tracking_status='closed' WHERE id=?",
+            (snap_id,),
+        )
+
+    class DummyTony:
+        def __init__(self, repo, config):
+            self.repo = repo
+            self.config = config
+
+        def start_cycle(self):
+            return None
+
+        def record_tony_learning_updated(self, **kwargs):
+            self._last_kwargs = kwargs
+            return None
+
+    dummy_tony_instance = None
+
+    class CapturingDummyTony(DummyTony):
+        def __init__(self, repo, config):
+            super().__init__(repo, config)
+            nonlocal dummy_tony_instance
+            dummy_tony_instance = self
+
+    monkeypatch.setattr(
+        cli,
+        "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path,
+            provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(),
+            symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", CapturingDummyTony)
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
+    output = capsys.readouterr().out
+
+    assert "tony_self_review" in result
+    assert result["tony_self_review"]["research_only"] is True
+    assert "Tony self-review:" in output
+    assert "Research only" in output
+    assert dummy_tony_instance is not None
+    assert "self_review" in dummy_tony_instance._last_kwargs.get("memory_summary", {})

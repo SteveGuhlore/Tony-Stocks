@@ -17,6 +17,7 @@ import pandas as pd
 from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
+    build_tony_self_review,
     market_date_mask,
     new_york_market_date,
 )
@@ -1317,6 +1318,25 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print("  Data-quality notes:")
     for note in memory_summary["data_quality_notes"]:
         print(f"    - {note}")
+
+    self_review = build_tony_self_review(prepared, memory_summary, reconciliation=reconciliation)
+    print("\nTony self-review:")
+    print("  Research only. No scoring changes. No trigger changes. No trading behavior changes.")
+    print(f"  Strongest setup: {self_review['strongest_setup']}")
+    print(f"  Weakest setup: {self_review['weakest_setup']}")
+    print("  What worked:")
+    for item in self_review["what_worked"]:
+        print(f"    - {item}")
+    print("  What failed:")
+    for item in self_review["what_failed"]:
+        print(f"    - {item}")
+    print("  What needs more data:")
+    for item in self_review["needs_more_data"]:
+        print(f"    - {item}")
+    print("  Tomorrow watch:")
+    for item in self_review["tomorrow_watch"]:
+        print(f"    - {item}")
+
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
     print("\nWarning counts:")
@@ -1349,7 +1369,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         snapshot_count=len(prepared),
         analyzed_count=analyzed_count,
         by_priority=memory_summary["setup_counts"],
-        memory_summary=memory_summary,
+        memory_summary={**memory_summary, "self_review": self_review},
     )
 
     return {
@@ -1375,6 +1395,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "missing_real_data_rows_excluded": exclusions["missing_real_data_rows_excluded"],
         "reconciliation": reconciliation,
         "tony_memory_summary": memory_summary,
+        "tony_self_review": self_review,
     }
 
 

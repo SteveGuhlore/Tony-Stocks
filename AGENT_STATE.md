@@ -6,6 +6,53 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V17 handoff - Tony Self-Review Report
+
+### Current active task
+
+V17 is complete. `eod-report` now prints a plain-English Tony self-review section after the Tony memory summary. The self-review is derived from real-only outcome rows using V16 memory summary data and V15.9 reassessment labels. It covers: strongest setup, weakest setup, what worked, what failed, what needs more data, and tomorrow watch notes. The self-review is also stored in the Tony learning event payload inside `memory_summary.self_review`.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` — added `build_tony_self_review()` standalone function and `_empty_self_review()` helper; added `tony_self_review()` method on `OutcomeAnalytics`.
+- `src/trading_bot/analytics/__init__.py` — exported `build_tony_self_review`.
+- `src/trading_bot/cli.py` — imported `build_tony_self_review`; `eod-report` now computes and prints the self-review section; includes `tony_self_review` in the return payload; stores self-review inside the Tony learning event `memory_summary` payload.
+- `tests/test_outcome_analytics.py` — imported `build_tony_self_review`; added four new tests: `test_tony_self_review_from_sample_rows`, `test_tony_self_review_empty_day_fallback`, `test_tony_self_review_real_only_filtering`, `test_eod_report_includes_self_review`.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **20 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **516 passed**
+
+### Self-review output structure
+
+```
+Tony self-review:
+  Research only. No scoring changes. No trigger changes. No trading behavior changes.
+  Strongest setup: <best_setup_note from V16 memory>
+  Weakest setup: <worst_setup_note from V16 memory>
+  What worked:
+    - <setup>: N target hit(s)... out of N triggered row(s).
+  What failed:
+    - <setup>: N stop or failure outcome(s) out of N triggered row(s).
+  What needs more data:
+    - <setup>: only N row(s) today — not enough context to read direction.
+    - <setup>: reassessment flagged as needs_review — check current conditions.
+  Tomorrow watch:
+    - N active position(s) carry over — check reassessment labels at next open.
+    - N pending trigger(s) still waiting — watch for intraday trigger levels.
+    - N setup(s) flagged weakening — monitor for further deterioration.
+```
+
+### Known limitations
+
+- Strongest/weakest setup notes are derived from the same `_best_worst_setup_notes` logic introduced in V16 and are only as meaningful as the current day's real-only sample size.
+- The self-review is stored inside `memory_summary.self_review` in the Tony learning event payload, not in a separate dedicated field.
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, and no data deletion.
+
 ## V16A handoff - Market-Date Fix
 
 ### Current active task

@@ -227,6 +227,19 @@ class OutcomeAnalytics:
             exclusions=exclusions,
         )
 
+    def tony_self_review(
+        self,
+        memory_summary: dict[str, Any],
+        *,
+        reconciliation: dict[str, int] | None = None,
+    ) -> dict[str, Any]:
+        """Build a plain-English self-review from filtered real-only rows."""
+        return build_tony_self_review(
+            self.prepared(),
+            memory_summary,
+            reconciliation=reconciliation,
+        )
+
 
 def score_bucket(score: float | int | None) -> str:
     """Assign a 0-100 score into research buckets."""
@@ -486,6 +499,126 @@ def _memory_data_quality_notes(
         if missing_rows > 0:
             notes.append(f"{missing_rows} fallback or missing real-data row(s) were excluded.")
     return notes
+
+
+def build_tony_self_review(
+    rows: pd.DataFrame,
+    memory_summary: dict[str, Any],
+    *,
+    reconciliation: dict[str, int] | None = None,
+) -> dict[str, Any]:
+    """Generate a plain-English daily self-review from real-only rows and memory summary.
+
+    Derives what worked, what failed, what needs more data, and what to watch tomorrow.
+    Research-only. Does not change scoring, trigger rules, or trading behavior.
+    """
+    if rows.empty:
+        return _empty_self_review()
+
+    data = rows.copy()
+    for column in ("setup_category", "outcome_label", "tracking_status", "entry_status", "reassessment_label"):
+        if column not in data.columns:
+            data[column] = ""
+        data[column] = data[column].fillna("").astype(str)
+
+    what_worked: list[str] = []
+    what_failed: list[str] = []
+    needs_more_data: list[str] = []
+
+    for setup_name, group in data.groupby("setup_category", dropna=False):
+        setup = str(setup_name or "Unspecified setup")
+        triggered = int(_memory_triggered_mask(group).sum())
+        total = len(group)
+        if triggered <= 0 or total <= 0:
+            continue
+        target_hits = int(group["outcome_label"].isin(TARGET_OUTCOMES).sum())
+        stop_hits = int(group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
+        partial = int(group["outcome_label"].isin(PARTIAL_OUTCOMES).sum())
+
+        if target_hits > 0:
+            note = f"{setup}: {target_hits} target hit(s)"
+            if partial > 0:
+                note += f", {partial} partial move(s)"
+            what_worked.append(note + f" out of {triggered} triggered row(s).")
+        if stop_hits > 0:
+            what_failed.append(
+                f"{setup}: {stop_hits} stop or failure outcome(s) out of {triggered} triggered row(s)."
+            )
+        if triggered < 2 and target_hits == 0 and stop_hits == 0:
+            needs_more_data.append(
+                f"{setup}: only {total} row(s) today — not enough context to read direction."
+            )
+
+    needs_review_setups = (
+        data[data["reassessment_label"].eq("needs_review")]["setup_category"]
+        .unique()
+        .tolist()
+    )
+    for setup in needs_review_setups:
+        entry = f"{setup}: reassessment flagged as needs_review — check current conditions."
+        if entry not in needs_more_data:
+            needs_more_data.append(entry)
+
+    tomorrow_watch: list[str] = []
+    active_count = int(
+        (data["tracking_status"].eq("active") | data["outcome_label"].eq("still_open")).sum()
+    )
+    pending_count = int((reconciliation or {}).get("pending_triggers", 0) or 0)
+    label_counts = memory_summary.get("reassessment_label_counts") or {}
+    weakening_count = int(label_counts.get("weakening", 0) or 0)
+    invalidated_count = int(label_counts.get("invalidated", 0) or 0)
+
+    if active_count > 0:
+        tomorrow_watch.append(
+            f"{active_count} active position(s) carry over — check reassessment labels at next open."
+        )
+    if pending_count > 0:
+        tomorrow_watch.append(
+            f"{pending_count} pending trigger(s) still waiting — watch for intraday trigger levels."
+        )
+    if weakening_count > 0:
+        tomorrow_watch.append(
+            f"{weakening_count} setup(s) flagged weakening — monitor for further deterioration."
+        )
+    if invalidated_count > 0:
+        tomorrow_watch.append(
+            f"{invalidated_count} setup(s) invalidated today — review before next scan."
+        )
+    if not tomorrow_watch:
+        tomorrow_watch.append("No specific items flagged for tomorrow based on today's real-only data.")
+
+    if not what_worked:
+        what_worked.append("No setups recorded a target or partial hit in today's real-only rows.")
+    if not what_failed:
+        what_failed.append("No setups recorded a stop or failure outcome in today's real-only rows.")
+    if not needs_more_data:
+        needs_more_data.append("All active setups had enough data to classify today.")
+
+    return {
+        "strongest_setup": memory_summary.get(
+            "best_setup_note", "No best setup note available."
+        ),
+        "weakest_setup": memory_summary.get(
+            "worst_setup_note", "No weakest setup note available."
+        ),
+        "what_worked": what_worked,
+        "what_failed": what_failed,
+        "needs_more_data": needs_more_data,
+        "tomorrow_watch": tomorrow_watch,
+        "research_only": True,
+    }
+
+
+def _empty_self_review() -> dict[str, Any]:
+    return {
+        "strongest_setup": "No real-only rows were available for Tony self-review today.",
+        "weakest_setup": "No real-only rows were available for Tony self-review today.",
+        "what_worked": ["No real-only rows were available today."],
+        "what_failed": ["No real-only rows were available today."],
+        "needs_more_data": ["All setups need real data before patterns can emerge."],
+        "tomorrow_watch": ["No specific items flagged — check tomorrow's scan results."],
+        "research_only": True,
+    }
 
 
 def new_york_market_date(now: pd.Timestamp | None = None) -> str:
