@@ -1310,6 +1310,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Legacy unknown rows excluded: {exclusions['legacy_unknown_rows_excluded']}")
     print(f"Fallback/missing rows excluded: {exclusions['missing_real_data_rows_excluded']}")
     print("\nEOD reconciliation (raw history vs product views):")
+    print("  Raw rows = full stored history; product rows = deduped, current-state-only view.")
     print(f"Raw snapshot rows kept in history: {reconciliation['raw_snapshot_rows']}")
     print(f"Raw triggered entry rows kept in history: {reconciliation['raw_triggered_entry_rows']}")
     print(f"Product-eligible real rows: {reconciliation['product_eligible_rows']}")
@@ -1420,6 +1421,11 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print("  Active analytics review real-data rows only; demo, missing, and legacy rows are excluded by default.")
     print("  Product dashboard dedupe/hiding changes visibility only; raw candidate snapshot history remains in data/trading_bot.db.")
     print("  Alpaca IEX is a single-exchange feed and may differ from consolidated SIP data.")
+    print("  Row-type guide:")
+    print("    raw rows          = all stored candidate snapshot history (never deleted)")
+    print("    product rows      = deduped, current-state-only view (one per symbol)")
+    print("    insufficient_future_data = outcome window still open — not a failure")
+    print("    conclusive rows   = rows eligible for target/stop/partial/failure rate calculations")
 
     tony = TonyStocksService(repo, settings.tony_stocks)
     tony.start_cycle()
@@ -2208,7 +2214,7 @@ def _print_dataframe(data: pd.DataFrame) -> None:
     if data.empty:
         print("No rows.")
         return
-    print(data.to_string(index=False))
+    print(data.fillna("N/A").to_string(index=False))
 
 
 def _events_on_date(events: pd.DataFrame, date_value: str) -> list[dict[str, Any]]:

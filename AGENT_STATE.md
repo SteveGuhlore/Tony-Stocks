@@ -6,6 +6,45 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V21B handoff - Report Cleanup Consistency
+
+### Current active task
+
+V21B is complete. EOD/report wording now clearly separates raw rows, deduped positions, conclusive outcomes, and future-pending rows. NaN values render as N/A in tables. Negative conclusive count is prevented.
+
+### Changes
+
+- **`outcomes.py: build_tony_self_review`**
+  - `conclusive = max(0, triggered - insufficient)` — prevents a negative count when insufficient > triggered due to data anomalies.
+  - "conclusive row(s)" in needs_more_data → "rows with a finalized outcome" (clearer: this is triggered-minus-insufficient, not the rate-eligible conclusive set).
+  - `{insufficient_count} triggered row(s) labeled insufficient_future_data` → `{insufficient_count} row(s) labeled insufficient_future_data` (not all of these are triggered; the label applies to the outcome window, not the trigger state).
+
+- **`cli.py: _print_dataframe`** — `data.fillna("N/A").to_string()` replaces NaN with N/A in all report tables.
+
+- **`cli.py: run_eod_report`**
+  - Added `"Raw rows = full stored history; product rows = deduped, current-state-only view."` to the reconciliation section header.
+  - Expanded data-quality notes with a row-type guide:
+    - `raw rows` = all stored candidate snapshot history
+    - `product rows` = deduped, current-state-only view
+    - `insufficient_future_data` = outcome window still open, not a failure
+    - `conclusive rows` = rows eligible for target/stop/partial/failure rate calculations
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` — `build_tony_self_review`: `max(0, ...)` guard, wording fixes.
+- `src/trading_bot/cli.py` — `_print_dataframe` NaN fix; EOD reconciliation note; data-quality row-type guide.
+- `tests/test_outcome_analytics.py` — 5 new V21B tests.
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **564 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. All changes are display/wording only.
+
+---
+
 ## V21A handoff - After-Hours Review Guard
 
 ### Current active task

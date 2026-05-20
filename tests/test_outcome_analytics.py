@@ -1742,3 +1742,99 @@ def test_market_hours_helper_saturday():
 def test_market_hours_helper_sunday():
     et = _make_et_time(14, 0, weekday=6)  # Sunday 14:00 ET
     assert cli._is_within_regular_market_hours(now=et) is False
+
+
+# --- V21B: Report cleanup consistency ---
+
+def test_self_review_no_negative_conclusive_count(tmp_path):
+    repo = ScannerRepository(tmp_path / "neg.db")
+    # Create 2 insufficient_future_data rows with triggered=1 each — conclusive should be 0 not -1
+    create_snapshot(repo, stock("X1", 80, "Breakout Watch"), "insufficient_future_data", triggered=1, provider="alpaca_iex")
+    create_snapshot(repo, stock("X2", 78, "Breakout Watch"), "insufficient_future_data", triggered=1, provider="alpaca_iex")
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    rows = OutcomeAnalytics(snapshots, real_only=True).prepared()
+    mem = build_daily_tony_memory_summary(rows, reconciliation=None, exclusions=None)
+    result = build_tony_self_review(rows, mem, reconciliation=None)
+
+    for item in result["needs_more_data"]:
+        # Ensure no negative number appears (e.g. "-1 row(s)")
+        import re
+        numbers = re.findall(r"-\d+", item)
+        assert numbers == [], f"Negative count found in needs_more_data: {item!r}"
+
+
+def test_self_review_insufficient_wording_not_triggered(tmp_path):
+    repo = ScannerRepository(tmp_path / "insuf.db")
+    create_snapshot(repo, stock("PEND", 82, "Pullback Watch"), "insufficient_future_data", triggered=1, provider="alpaca_iex")
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    rows = OutcomeAnalytics(snapshots, real_only=True).prepared()
+    mem = build_daily_tony_memory_summary(rows, reconciliation=None, exclusions=None)
+    result = build_tony_self_review(rows, mem, reconciliation=None)
+
+    needs_more = " ".join(result["needs_more_data"])
+    assert "triggered row" not in needs_more  # should NOT say "triggered row(s)"
+    assert "insufficient_future_data" in needs_more
+    assert "not failure" in needs_more or "not failures" in needs_more
+
+
+def test_print_dataframe_nan_renders_as_na(capsys):
+    import pandas as pd
+    df = pd.DataFrame({"setup": ["Breakout Watch", "Pullback Watch"], "target_rate": [0.5, float("nan")]})
+    cli._print_dataframe(df)
+    output = capsys.readouterr().out
+    assert "NaN" not in output
+    assert "N/A" in output
+
+
+def test_eod_report_data_quality_notes_include_row_type_guide(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "notes.db")
+    snap = create_snapshot(repo, stock("RNG", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET snapshot_time='2026-05-20T01:00:00+00:00' WHERE id=?",
+            (snap,),
+        )
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
+    output = capsys.readouterr().out
+
+    assert "raw rows" in output.lower()
+    assert "product rows" in output.lower()
+    assert "insufficient_future_data" in output
+    assert "conclusive rows" in output.lower()
+
+
+def test_eod_report_reconciliation_section_has_clarifying_note(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "rec_note.db")
+    snap = create_snapshot(repo, stock("REC", 85, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET snapshot_time='2026-05-20T01:00:00+00:00' WHERE id=?",
+            (snap,),
+        )
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
+    output = capsys.readouterr().out
+
+    assert "Raw rows" in output or "raw rows" in output.lower()
+    assert "deduped" in output.lower()

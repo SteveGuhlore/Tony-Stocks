@@ -230,6 +230,13 @@ class OutcomeAnalytics:
             exclusions=exclusions,
         )
 
+    def replay_summary(
+        self,
+        strategy_version: str = CURRENT_STRATEGY_VERSION,
+    ) -> dict[str, Any]:
+        """Build a research-only replay summary from filtered real-only rows."""
+        return build_replay_summary(self.prepared(), strategy_version=strategy_version)
+
     def tony_self_review(
         self,
         memory_summary: dict[str, Any],
@@ -532,8 +539,8 @@ def build_tony_self_review(
     insufficient_count = int(data["outcome_label"].isin(INSUFFICIENT_OUTCOMES).sum())
     if insufficient_count > 0:
         needs_more_data.append(
-            f"{insufficient_count} triggered row(s) labeled insufficient_future_data — "
-            "outcome windows are still open; these are not failures."
+            f"{insufficient_count} row(s) labeled insufficient_future_data — "
+            "outcome windows are still open, not failures."
         )
 
     for setup_name, group in data.groupby("setup_category", dropna=False):
@@ -556,10 +563,10 @@ def build_tony_self_review(
             what_failed.append(
                 f"{setup}: {stop_hits} stop or failure outcome(s) out of {triggered} triggered row(s)."
             )
-        conclusive = triggered - insufficient
+        conclusive = max(0, triggered - insufficient)
         if conclusive < 2 and target_hits == 0 and stop_hits == 0:
             needs_more_data.append(
-                f"{setup}: only {conclusive} conclusive row(s) today — not enough context to read direction."
+                f"{setup}: only {conclusive} row(s) with a finalized outcome — not enough context to read direction."
             )
 
     needs_review_setups = (
@@ -740,6 +747,104 @@ def generate_tony_rule_suggestions(
         })
 
     return suggestions
+
+
+def build_replay_summary(
+    rows: pd.DataFrame,
+    strategy_version: str = CURRENT_STRATEGY_VERSION,
+) -> dict[str, Any]:
+    """Research-only replay summary comparing real-only rows against v1 setup expectations.
+
+    Groups by setup_category (and tony_analysis_version when present). Reports
+    triggered, target hit, stop hit, partial move, and insufficient_future_data counts
+    per setup. Rates are computed on conclusive rows only. Does not change scoring,
+    trigger rules, or trading behavior.
+    """
+    if rows.empty:
+        return _empty_replay_summary(strategy_version)
+
+    data = rows.copy()
+    for col in ("setup_category", "outcome_label", "tony_analysis_version"):
+        if col not in data.columns:
+            data[col] = ""
+        data[col] = data[col].fillna("").astype(str)
+
+    total_rows = len(data)
+    total_triggered = int(_memory_triggered_mask(data).sum())
+    total_insufficient = int(data["outcome_label"].isin(INSUFFICIENT_OUTCOMES).sum())
+    total_conclusive = int(
+        (_memory_triggered_mask(data) & data["outcome_label"].isin(
+            TARGET_OUTCOMES | STOP_OUTCOMES | PARTIAL_OUTCOMES | FAILURE_OUTCOMES
+        )).sum()
+    )
+
+    setups: list[dict[str, Any]] = []
+    for setup_name, group in data.groupby("setup_category", dropna=False):
+        setup = str(setup_name or "Unspecified setup")
+        triggered = int(_memory_triggered_mask(group).sum())
+        target_hits = int(group["outcome_label"].isin(TARGET_OUTCOMES).sum())
+        stop_hits = int(group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
+        partial_moves = int(group["outcome_label"].isin(PARTIAL_OUTCOMES).sum())
+        insufficient = int(group["outcome_label"].isin(INSUFFICIENT_OUTCOMES).sum())
+        conclusive = target_hits + stop_hits + partial_moves
+        target_rate = round(target_hits / conclusive, 4) if conclusive > 0 else None
+        stop_rate = round(stop_hits / conclusive, 4) if conclusive > 0 else None
+        setups.append({
+            "setup": setup,
+            "total_rows": len(group),
+            "triggered": triggered,
+            "target_hits": target_hits,
+            "stop_hits": stop_hits,
+            "partial_moves": partial_moves,
+            "insufficient_future_data": insufficient,
+            "conclusive_rows": conclusive,
+            "target_rate": target_rate,
+            "stop_rate": stop_rate,
+            "strategy_version": strategy_version,
+        })
+
+    notes: list[str] = [
+        "This is a research-only replay. It does not change scoring, trigger rules, or trading behavior."
+    ]
+    if total_insufficient > 0:
+        notes.append(
+            f"{total_insufficient} row(s) labeled insufficient_future_data — "
+            "outcome windows are still open and are excluded from rate calculations."
+        )
+    if total_conclusive == 0:
+        notes.append(
+            "No conclusive outcomes yet. All rates are unavailable until future market data is collected."
+        )
+    elif total_conclusive < _MIN_TRIGGERED_FOR_SUGGESTION:
+        notes.append(
+            f"Only {total_conclusive} conclusive row(s) — patterns are preliminary. "
+            "More data is needed before rates are meaningful."
+        )
+
+    return {
+        "strategy_version": strategy_version,
+        "total_rows": total_rows,
+        "total_triggered": total_triggered,
+        "total_conclusive": total_conclusive,
+        "total_insufficient_future_data": total_insufficient,
+        "setups": setups,
+        "notes": notes,
+    }
+
+
+def _empty_replay_summary(strategy_version: str = CURRENT_STRATEGY_VERSION) -> dict[str, Any]:
+    return {
+        "strategy_version": strategy_version,
+        "total_rows": 0,
+        "total_triggered": 0,
+        "total_conclusive": 0,
+        "total_insufficient_future_data": 0,
+        "setups": [],
+        "notes": [
+            "No real-only rows available for replay summary.",
+            "This is a research-only replay. It does not change scoring, trigger rules, or trading behavior.",
+        ],
+    }
 
 
 def build_strategy_version_report(
