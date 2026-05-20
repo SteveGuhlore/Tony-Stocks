@@ -6,6 +6,40 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V21 handoff - After-Market Review Package
+
+### Current active task
+
+V21 is complete. A single `after-market-review` CLI command now runs the full post-session review in one step: update-snapshots → EOD report → real-only outcome analytics → save reports to `reports/YYYY-MM-DD/`.
+
+### Changes
+
+- **`after-market-review` CLI command** added to `build_parser()` with `--config`, `--date`, `--skip-update-snapshots`, `--output-dir` flags.
+- **`run_after_market_review(args)`** — calls `run_update_snapshots`, `run_eod_report`, and `run_outcome_analytics` in sequence; saves three files:
+  - `eod_report.json` — full EOD report return dict (includes memory, self-review, suggestions, strategy version, replay, reconciliation)
+  - `eod_report.md` — formatted markdown built from the return dict
+  - `outcome_analytics.json` — slim outcome analytics return dict
+  - Prints file paths to stdout.
+- **`_build_eod_report_markdown(report_date, eod)`** — builds human-readable markdown from the eod-report dict; sections: Operational Summary, EOD Reconciliation, Tony Self-Review, Rule Suggestions, Strategy Version, Replay Summary.
+- Uses America/New_York market date by default; `--date` overrides.
+- Real-only filtering is always enforced for `outcome-analytics` step.
+- Suggestions remain `status: needs_review` — nothing is auto-applied.
+
+### Files changed
+
+- `src/trading_bot/cli.py` — `after-market-review` parser; `run_after_market_review`; `_build_eod_report_markdown`; `main()` wire-up.
+- `tests/test_outcome_analytics.py` — 8 new V21 tests + `_sample_eod_result()` helper.
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **549 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. All suggestions remain `needs_review` and are never auto-applied. Report files are read-only JSON/markdown artifacts.
+
+---
+
 ## V20 handoff - Backtest Replay Foundation
 
 ### Current active task

@@ -1349,3 +1349,265 @@ def test_eod_report_includes_replay_summary(tmp_path, monkeypatch, capsys):
     assert "Replay summary" in output
     assert "Strategy version: v1" in output
     assert "research-only" in output
+
+
+# --- V21: After-market review package ---
+
+def _sample_eod_result(report_date="2026-05-19"):
+    return {
+        "date": report_date,
+        "cycles_completed": 3,
+        "latest_watch_status": "stopped",
+        "provider": "alpaca_iex",
+        "symbols_scanned": 100,
+        "real_symbols_scanned": 97,
+        "api_requests": 200,
+        "fallback_symbols": [],
+        "missing_real_data_symbols": [],
+        "configured_quarantined_symbols": [],
+        "configured_quarantine_entries": [],
+        "replacement_symbols": [],
+        "real_intraday_count": 5,
+        "stale_intraday_count": 0,
+        "snapshots_created_today": 3,
+        "snapshots_updated_today": 2,
+        "real_only_snapshots_reviewed": 3,
+        "demo_rows_excluded": 0,
+        "legacy_unknown_rows_excluded": 0,
+        "missing_real_data_rows_excluded": 0,
+        "reconciliation": {
+            "raw_snapshot_rows": 10,
+            "raw_triggered_entry_rows": 2,
+            "product_eligible_rows": 8,
+            "product_visible_symbols": 5,
+            "deduped_active_positions": 1,
+            "deduped_waiting_picks": 3,
+            "deduped_closed_results": 2,
+            "target_hits": 1,
+            "stop_hits": 1,
+            "partial_moves": 0,
+            "pending_triggers": 2,
+            "expired_no_trigger": 1,
+            "insufficient_data": 0,
+            "incomplete_rows_hidden_from_product_views": 0,
+            "history_rows_hidden_from_product_views": 2,
+        },
+        "tony_memory_summary": {
+            "setup_counts": {"Breakout Watch": 2},
+            "triggered_count": 1,
+            "active_count": 1,
+            "closed_count": 0,
+            "target_hit_count": 0,
+            "stop_hit_count": 0,
+            "partial_move_count": 0,
+            "reassessment_label_counts": {},
+            "best_setup_note": "none",
+            "worst_setup_note": "none",
+            "data_quality_notes": [],
+            "report_date": report_date,
+        },
+        "tony_self_review": {
+            "strongest_setup": "Breakout Watch",
+            "weakest_setup": "none",
+            "what_worked": ["Breakout Watch: 1 target hit"],
+            "what_failed": [],
+            "needs_more_data": [],
+            "tomorrow_watch": ["1 active position(s) carry over"],
+            "active_symbols": ["AAPL"],
+            "deduped_active_positions": 1,
+            "raw_triggered_rows": 1,
+            "waiting_picks": 3,
+            "pending_triggers": 2,
+            "rule_suggestions": [{
+                "suggestion": "Consider prioritizing Breakout Watch",
+                "reason": "High target rate",
+                "confidence": "medium",
+                "status": "needs_review",
+                "strategy_version": "v1",
+            }],
+            "research_only": True,
+        },
+        "strategy_version_report": {
+            "current_version": "v1",
+            "pending_suggestions": 1,
+            "status_counts": {"needs_review": 1},
+            "suggestions": [],
+            "note": "Research-only.",
+        },
+        "replay_summary": {
+            "strategy_version": "v1",
+            "total_rows": 3,
+            "total_triggered": 1,
+            "total_conclusive": 1,
+            "total_insufficient_future_data": 0,
+            "setups": [{
+                "setup": "Breakout Watch",
+                "total_rows": 3,
+                "triggered": 1,
+                "target_hits": 1,
+                "stop_hits": 0,
+                "partial_moves": 0,
+                "insufficient_future_data": 0,
+                "conclusive_rows": 1,
+                "target_rate": 1.0,
+                "stop_rate": 0.0,
+                "strategy_version": "v1",
+            }],
+            "notes": ["This is a research-only replay."],
+        },
+    }
+
+
+def test_after_market_review_creates_report_files(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result(args.date or "2026-05-19"))
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 3, "symbols": ["AAPL"], "date_filter": "2026-05-19"})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=False,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert result["report_date"] == "2026-05-19"
+    assert len(result["files_created"]) == 3
+
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    assert (report_dir / "eod_report.json").exists()
+    assert (report_dir / "eod_report.md").exists()
+    assert (report_dir / "outcome_analytics.json").exists()
+
+
+def test_after_market_review_uses_et_date(tmp_path, monkeypatch):
+    captured = {}
+    def fake_eod(args):
+        captured["date"] = args.date
+        return _sample_eod_result(args.date)
+    def fake_analytics(args):
+        captured["analytics_date"] = args.date
+        return {"snapshots_reviewed": 0, "symbols": [], "date_filter": args.date}
+
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", fake_eod)
+    monkeypatch.setattr(cli, "run_outcome_analytics", fake_analytics)
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert captured["date"] == "2026-05-19"
+    assert captured["analytics_date"] == "2026-05-19"
+
+
+def test_after_market_review_date_override(tmp_path, monkeypatch):
+    captured = {}
+    def fake_eod(args):
+        captured["date"] = args.date
+        return _sample_eod_result(args.date)
+
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", fake_eod)
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": args.date})
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date="2026-05-18", skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert captured["date"] == "2026-05-18"
+    report_dir = tmp_path / "reports" / "2026-05-18"
+    assert (report_dir / "eod_report.json").exists()
+
+
+def test_after_market_review_skip_update_snapshots(tmp_path, monkeypatch):
+    update_called = []
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: update_called.append(True) or {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+    assert update_called == []
+
+
+def test_after_market_review_real_only_analytics(tmp_path, monkeypatch):
+    captured = {}
+    def fake_analytics(args):
+        captured["real_only"] = getattr(args, "real_only", False)
+        captured["include_demo"] = getattr(args, "include_demo", False)
+        return {"snapshots_reviewed": 0, "symbols": [], "date_filter": args.date}
+
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", fake_analytics)
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert captured["real_only"] is True
+    assert captured["include_demo"] is False
+
+
+def test_after_market_review_no_auto_apply(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    sr = result["eod_report"].get("tony_self_review", {})
+    for suggestion in sr.get("rule_suggestions", []):
+        assert suggestion["status"] == "needs_review"
+        assert suggestion.get("applied") is not True
+
+
+def test_after_market_review_json_files_valid(tmp_path, monkeypatch):
+    import json as json_mod
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 2, "symbols": ["AAPL"], "date_filter": "2026-05-19"})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    eod_data = json_mod.loads((report_dir / "eod_report.json").read_text(encoding="utf-8"))
+    analytics_data = json_mod.loads((report_dir / "outcome_analytics.json").read_text(encoding="utf-8"))
+    assert eod_data["date"] == "2026-05-19"
+    assert analytics_data["snapshots_reviewed"] == 2
+
+
+def test_after_market_review_markdown_contains_key_sections(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    cli.run_after_market_review(SimpleNamespace(
+        config="ignored", date=None, skip_update_snapshots=True,
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    md = (tmp_path / "reports" / "2026-05-19" / "eod_report.md").read_text(encoding="utf-8")
+    assert "After-Market Review" in md
+    assert "2026-05-19" in md
+    assert "Research only" in md
+    assert "Tony Self-Review" in md
+    assert "Rule Suggestions" in md
+    assert "Replay Summary" in md
+    assert "Not Applied" in md

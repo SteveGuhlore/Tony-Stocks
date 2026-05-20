@@ -153,6 +153,15 @@ def build_parser() -> argparse.ArgumentParser:
     eod_report.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     eod_report.add_argument("--date", default=None, help="America/New_York market date to review as YYYY-MM-DD. Defaults to today's market date.")
 
+    after_market = subparsers.add_parser(
+        "after-market-review",
+        help="Run after-market review: update snapshots, EOD report, outcome analytics, save reports.",
+    )
+    after_market.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    after_market.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
+    after_market.add_argument("--skip-update-snapshots", action="store_true", help="Skip running update-snapshots before the report.")
+    after_market.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
+
     return parser
 
 
@@ -1452,6 +1461,164 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
+    """Build a markdown summary from the eod-report return dict."""
+    lines: list[str] = []
+    lines.append(f"# After-Market Review — {report_date}")
+    lines.append("")
+    lines.append(f"**Report date:** {report_date} America/New_York  ")
+    lines.append("**Research only.** No scoring changes, no trading, no suggestions auto-applied.")
+    lines.append("")
+
+    # Operational summary
+    lines.append("## Operational Summary")
+    lines.append(f"- Watch cycles completed: {eod.get('cycles_completed', 0)}")
+    lines.append(f"- Latest watch status: {eod.get('latest_watch_status', 'none')}")
+    lines.append(f"- Provider: {eod.get('provider', 'unknown')}")
+    lines.append(f"- Real-only snapshots reviewed: {eod.get('real_only_snapshots_reviewed', 0)}")
+    lines.append(f"- Demo rows excluded: {eod.get('demo_rows_excluded', 0)}")
+    lines.append(f"- Legacy rows excluded: {eod.get('legacy_unknown_rows_excluded', 0)}")
+    lines.append("")
+
+    # Reconciliation
+    rec = eod.get("reconciliation") or {}
+    if rec:
+        lines.append("## EOD Reconciliation")
+        lines.append(f"- Raw snapshot rows: {rec.get('raw_snapshot_rows', 0)}")
+        lines.append(f"- Deduped active positions: {rec.get('deduped_active_positions', 0)}")
+        lines.append(f"- Waiting picks: {rec.get('deduped_waiting_picks', 0)}")
+        lines.append(f"- Target hits: {rec.get('target_hits', 0)}")
+        lines.append(f"- Stop hits: {rec.get('stop_hits', 0)}")
+        lines.append(f"- Partial moves: {rec.get('partial_moves', 0)}")
+        lines.append(f"- Pending triggers: {rec.get('pending_triggers', 0)}")
+        lines.append("")
+
+    # Tony self-review
+    sr = eod.get("tony_self_review") or {}
+    if sr:
+        lines.append("## Tony Self-Review")
+        lines.append(f"- **Strongest setup:** {sr.get('strongest_setup', 'none')}")
+        lines.append(f"- **Weakest setup:** {sr.get('weakest_setup', 'none')}")
+        if sr.get("what_worked"):
+            lines.append("### What Worked")
+            for item in sr["what_worked"]:
+                lines.append(f"- {item}")
+        if sr.get("what_failed"):
+            lines.append("### What Failed")
+            for item in sr["what_failed"]:
+                lines.append(f"- {item}")
+        if sr.get("needs_more_data"):
+            lines.append("### Needs More Data")
+            for item in sr["needs_more_data"]:
+                lines.append(f"- {item}")
+        if sr.get("tomorrow_watch"):
+            lines.append("### Tomorrow Watch")
+            for item in sr["tomorrow_watch"]:
+                lines.append(f"- {item}")
+        lines.append("")
+
+    # Rule suggestions
+    suggestions = sr.get("rule_suggestions") or []
+    if suggestions:
+        lines.append("## Rule Suggestions (Research Only — Not Applied)")
+        for s in suggestions:
+            conf = str(s.get("confidence", "")).upper()
+            lines.append(f"- [{conf}] {s.get('suggestion', '')}")
+            lines.append(f"  - Reason: {s.get('reason', '')}")
+            lines.append(f"  - Status: {s.get('status', 'needs_review')} | Version: {s.get('strategy_version', 'v1')}")
+        lines.append("")
+
+    # Strategy version
+    sv = eod.get("strategy_version_report") or {}
+    if sv:
+        lines.append("## Strategy Version")
+        lines.append(f"- Current version: {sv.get('current_version', 'v1')}")
+        lines.append(f"- Pending suggestions: {sv.get('pending_suggestions', 0)}")
+        lines.append(f"- Note: {sv.get('note', '')}")
+        lines.append("")
+
+    # Replay summary
+    replay = eod.get("replay_summary") or {}
+    if replay:
+        lines.append("## Replay Summary (Research Only)")
+        lines.append(f"- Strategy version: {replay.get('strategy_version', 'v1')}")
+        lines.append(f"- Total rows: {replay.get('total_rows', 0)} | Triggered: {replay.get('total_triggered', 0)} | Conclusive: {replay.get('total_conclusive', 0)} | Pending future data: {replay.get('total_insufficient_future_data', 0)}")
+        for entry in replay.get("setups") or []:
+            rate_str = f"{entry['target_rate']:.0%}" if entry.get("target_rate") is not None else "n/a"
+            lines.append(f"- {entry['setup']}: triggered={entry['triggered']} target={entry['target_hits']} stop={entry['stop_hits']} partial={entry['partial_moves']} pending={entry['insufficient_future_data']} target_rate={rate_str}")
+        for note in replay.get("notes") or []:
+            lines.append(f"- Note: {note}")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("*Generated by after-market-review. Research only. No trade recommendations.*")
+    return "\n".join(lines)
+
+
+def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
+    """Run after-market review: update snapshots, EOD report, real-only analytics, save reports."""
+    report_date = getattr(args, "date", None) or new_york_market_date()
+    output_base = Path(getattr(args, "output_dir", "reports")) / report_date
+    output_base.mkdir(parents=True, exist_ok=True)
+
+    print(f"After-market review — {report_date} {MARKET_TIMEZONE_LABEL}")
+    print("Research only: no scoring changes, no trading, no suggestions auto-applied.")
+
+    # 1. Update snapshots (optional)
+    if not getattr(args, "skip_update_snapshots", False):
+        print("\nUpdating open snapshots...")
+        update_args = SimpleNamespace(config=args.config, limit=500)
+        run_update_snapshots(update_args)
+    else:
+        print("\nSkipping update-snapshots (--skip-update-snapshots).")
+
+    # 2. EOD report
+    print("\n--- EOD Report ---")
+    eod_args = SimpleNamespace(config=args.config, date=report_date)
+    eod_result = run_eod_report(eod_args)
+
+    # 3. Real-only outcome analytics (date-scoped)
+    print("\n--- Outcome Analytics (real-only) ---")
+    analytics_args = SimpleNamespace(
+        config=args.config,
+        date=report_date,
+        today=False,
+        include_seeded=False,
+        days=None,
+        min_score=None,
+        real_only=True,
+        include_demo=False,
+        include_legacy=False,
+        exclude_demo=False,
+        provider=None,
+        group_by=None,
+    )
+    analytics_result = run_outcome_analytics(analytics_args)
+
+    # 4. Save report files
+    eod_json_path = output_base / "eod_report.json"
+    eod_md_path = output_base / "eod_report.md"
+    analytics_json_path = output_base / "outcome_analytics.json"
+
+    eod_json_path.write_text(json.dumps(eod_result, indent=2, default=str), encoding="utf-8")
+    analytics_json_path.write_text(json.dumps(analytics_result, indent=2, default=str), encoding="utf-8")
+    eod_md_path.write_text(_build_eod_report_markdown(report_date, eod_result), encoding="utf-8")
+
+    created = [str(eod_json_path), str(eod_md_path), str(analytics_json_path)]
+    print("\nAfter-market review complete.")
+    print(f"Report date: {report_date} {MARKET_TIMEZONE_LABEL}")
+    print("Reports saved:")
+    for path in created:
+        print(f"  {path}")
+
+    return {
+        "report_date": report_date,
+        "files_created": created,
+        "eod_report": eod_result,
+        "outcome_analytics": analytics_result,
+    }
+
+
 def run_data_check(args: argparse.Namespace) -> None:
     """Test the configured market data provider for one or more symbols. Does not scan or trade."""
     settings = load_scanner_settings(args.config)
@@ -1921,6 +2088,8 @@ def main() -> None:
         run_outcome_analytics(args)
     elif args.command == "eod-report":
         run_eod_report(args)
+    elif args.command == "after-market-review":
+        run_after_market_review(args)
     elif args.command == "data-check":
         run_data_check(args)
     elif args.command == "provider-health":
