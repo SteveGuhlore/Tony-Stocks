@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import time
@@ -162,6 +163,21 @@ def build_parser() -> argparse.ArgumentParser:
     after_market.add_argument("--skip-update-snapshots", action="store_true", help="Skip running update-snapshots before the report.")
     after_market.add_argument("--force-update-snapshots", action="store_true", help="Run update-snapshots even when outside regular market hours.")
     after_market.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
+
+    record_decision = subparsers.add_parser(
+        "record-suggestion-decision",
+        help="Record an approval decision for a pending rule suggestion. Does not apply the suggestion.",
+    )
+    record_decision.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
+    record_decision.add_argument("--index", type=int, required=True, help="1-based position of the suggestion in the approval package for that date.")
+    record_decision.add_argument(
+        "--status",
+        required=True,
+        choices=["approved", "rejected", "needs_review", "applied_later"],
+        help="Decision status to record.",
+    )
+    record_decision.add_argument("--note", default="", help="Optional human note about this decision.")
+    record_decision.add_argument("--output-dir", default="reports", help="Base directory where reports are saved (default: reports/).")
 
     return parser
 
@@ -1562,21 +1578,124 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_DECISIONS_FILENAME = "suggestion_decisions.json"
+_VALID_DECISION_STATUSES = {"approved", "rejected", "needs_review", "applied_later"}
+
+
+def _suggestion_key(suggestion: str, strategy_version: str) -> str:
+    """Stable 12-char hex key for a (suggestion, strategy_version) pair."""
+    raw = f"{strategy_version}:{suggestion}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
+
+
+def _load_suggestion_decisions(output_dir: str) -> dict[str, dict[str, Any]]:
+    """Return decisions dict keyed by suggestion_key, or empty dict if file missing."""
+    path = Path(output_dir) / _DECISIONS_FILENAME
+    if not path.exists():
+        return {}
+    try:
+        records = json.loads(path.read_text(encoding="utf-8"))
+        return {r["suggestion_key"]: r for r in records if "suggestion_key" in r}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def _save_suggestion_decision(output_dir: str, record: dict[str, Any]) -> None:
+    """Upsert a decision record into the global decisions file."""
+    path = Path(output_dir) / _DECISIONS_FILENAME
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    existing: dict[str, dict[str, Any]] = {}
+    if path.exists():
+        try:
+            for r in json.loads(path.read_text(encoding="utf-8")):
+                if "suggestion_key" in r:
+                    existing[r["suggestion_key"]] = r
+        except (json.JSONDecodeError, TypeError):
+            pass
+    existing[record["suggestion_key"]] = record
+    path.write_text(json.dumps(list(existing.values()), indent=2, default=str), encoding="utf-8")
+
+
+def run_record_suggestion_decision(args: argparse.Namespace) -> dict[str, Any]:
+    """Record an approval decision for a pending rule suggestion. Does not apply it."""
+    report_date = getattr(args, "date", None) or new_york_market_date()
+    output_dir = getattr(args, "output_dir", "reports")
+    idx = args.index  # 1-based
+    status = args.status
+    note = getattr(args, "note", "") or ""
+
+    pkg_path = Path(output_dir) / report_date / "approval_package.json"
+    if not pkg_path.exists():
+        print(f"No approval package found for {report_date} at {pkg_path}")
+        print("Run after-market-review first to generate the approval package.")
+        return {"error": "approval_package_not_found", "path": str(pkg_path)}
+
+    pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+    suggestions = pkg.get("suggestions") or []
+    if idx < 1 or idx > len(suggestions):
+        print(f"Index {idx} is out of range — package has {len(suggestions)} suggestion(s).")
+        return {"error": "index_out_of_range", "count": len(suggestions)}
+
+    s = suggestions[idx - 1]
+    key = _suggestion_key(s["suggestion"], s.get("strategy_version", "v1"))
+
+    record = {
+        "suggestion_key": key,
+        "suggestion": s["suggestion"],
+        "reason": s.get("reason", ""),
+        "confidence": s.get("confidence", "low"),
+        "strategy_version": s.get("strategy_version", "v1"),
+        "status": status,
+        "decided_at": datetime.now(tz=ZoneInfo("America/New_York")).isoformat(),
+        "note": note,
+        "date": report_date,
+        "not_applied": True,
+    }
+    _save_suggestion_decision(output_dir, record)
+
+    print(f"Decision recorded: [{status.upper()}] {s['suggestion']}")
+    if note:
+        print(f"  Note: {note}")
+    print("  Approved does not mean applied. No scoring, trigger, or trading behavior has changed.")
+
+    return {"suggestion_key": key, "status": status, "suggestion": s["suggestion"], "not_applied": True}
+
+
 def _build_approval_package(
     report_date: str,
     suggestions: list[dict[str, Any]],
     strategy_version: str,
+    decisions: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Assemble the research-only approval package from pending rule suggestions."""
-    pending = [s for s in suggestions if s.get("status") == "needs_review"]
+    """Assemble the research-only approval package from pending rule suggestions.
+
+    If prior decisions are provided, each suggestion's status is updated to reflect
+    the recorded decision. Approved suggestions remain not applied.
+    """
+    enriched = []
+    for s in suggestions:
+        entry = dict(s)
+        if decisions:
+            key = _suggestion_key(entry["suggestion"], entry.get("strategy_version", "v1"))
+            if key in decisions:
+                dec = decisions[key]
+                entry["status"] = dec["status"]
+                entry["decided_at"] = dec.get("decided_at")
+                entry["decision_note"] = dec.get("note", "")
+                entry["not_applied"] = True
+        enriched.append(entry)
+
+    pending = [s for s in enriched if s.get("status") == "needs_review"]
+    decided = [s for s in enriched if s.get("status") != "needs_review"]
     return {
         "report_date": report_date,
         "strategy_version": strategy_version,
         "pending_count": len(pending),
-        "suggestions": pending,
+        "decided_count": len(decided),
+        "suggestions": enriched,
         "not_applied_note": (
             "These suggestions have not been applied. "
-            "Status is needs_review only. "
+            "Approved does not mean applied. "
             "No scoring, trigger, or trading behavior has changed."
         ),
         "research_only": True,
@@ -1686,11 +1805,12 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     analytics_json_path.write_text(json.dumps(analytics_result, indent=2, default=str), encoding="utf-8")
     eod_md_path.write_text(_build_eod_report_markdown(report_date, eod_result), encoding="utf-8")
 
-    # 5. Build and save approval package
+    # 5. Build and save approval package (load prior decisions if available)
     sr = eod_result.get("tony_self_review") or {}
     suggestions = sr.get("rule_suggestions") or []
     sv = (eod_result.get("strategy_version_report") or {}).get("current_version", CURRENT_STRATEGY_VERSION)
-    approval = _build_approval_package(report_date, suggestions, sv)
+    decisions = _load_suggestion_decisions(getattr(args, "output_dir", "reports"))
+    approval = _build_approval_package(report_date, suggestions, sv, decisions=decisions)
 
     approval_json_path = output_base / "approval_package.json"
     approval_md_path = output_base / "approval_package.md"
@@ -2198,6 +2318,8 @@ def main() -> None:
         run_eod_report(args)
     elif args.command == "after-market-review":
         run_after_market_review(args)
+    elif args.command == "record-suggestion-decision":
+        run_record_suggestion_decision(args)
     elif args.command == "data-check":
         run_data_check(args)
     elif args.command == "provider-health":

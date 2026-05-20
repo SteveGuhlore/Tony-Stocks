@@ -6,6 +6,37 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V23 handoff - Human Approval Gate
+
+### Current active task
+
+V23 is complete. Rule suggestions can now be marked approved, rejected, applied_later, or needs_review via `record-suggestion-decision`. Decisions are stored in `reports/suggestion_decisions.json` and reflected in the approval package on the next `after-market-review` run. Approved never means applied.
+
+### Changes
+
+- **`_suggestion_key(suggestion, strategy_version)`** — 12-char sha256 key for stable suggestion identification across dates.
+- **`_load_suggestion_decisions(output_dir)`** — reads `reports/suggestion_decisions.json`, returns dict keyed by suggestion_key.
+- **`_save_suggestion_decision(output_dir, record)`** — upserts a decision record by suggestion_key.
+- **`run_record_suggestion_decision(args)`** — reads the date's `approval_package.json`, looks up suggestion at `--index` (1-based), writes decision record with `{status, decided_at, note, not_applied: True}` to `suggestion_decisions.json`. Prints "Approved does not mean applied."
+- **`_build_approval_package`** — now accepts optional `decisions` dict; enriches each suggestion with `status`, `decided_at`, `decision_note`, `not_applied` from prior decisions; returns `pending_count` (needs_review only) and new `decided_count`.
+- **`run_after_market_review`** — loads decisions before building the approval package so prior decisions appear in the next day's package.
+- **`record-suggestion-decision` CLI command** — `--date`, `--index` (required), `--status` (required, choices: approved/rejected/needs_review/applied_later), `--note`, `--output-dir`.
+
+### Files changed
+
+- `src/trading_bot/cli.py` — `hashlib` import; parser entry; `_suggestion_key`, `_load_suggestion_decisions`, `_save_suggestion_decision`, `run_record_suggestion_decision`; updated `_build_approval_package`; updated `run_after_market_review`; `main()` wire-up.
+- `tests/test_outcome_analytics.py` — 8 new V23 tests + `_write_approval_package` helper.
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **577 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. Every decision record carries `not_applied: True`. The `not_applied_note` in the package explicitly states "Approved does not mean applied." Decisions only update the JSON ledger.
+
+---
+
 ## V22 handoff - Approval Package
 
 ### Current active task

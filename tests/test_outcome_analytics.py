@@ -1976,3 +1976,153 @@ def test_after_market_review_total_files_count(tmp_path, monkeypatch):
 
     # eod_report.json, eod_report.md, outcome_analytics.json, approval_package.json, approval_package.md
     assert len(result["files_created"]) == 5
+
+
+# --- V23: Human approval gate ---
+
+def _write_approval_package(tmp_path, date="2026-05-19", suggestions=None):
+    """Write a minimal approval_package.json for record-suggestion-decision tests."""
+    import json as _json
+    if suggestions is None:
+        suggestions = [
+            {
+                "suggestion": "Consider prioritizing Breakout Watch",
+                "reason": "High target rate",
+                "confidence": "high",
+                "status": "needs_review",
+                "strategy_version": "v1",
+            }
+        ]
+    pkg = {
+        "report_date": date,
+        "strategy_version": "v1",
+        "pending_count": len(suggestions),
+        "decided_count": 0,
+        "suggestions": suggestions,
+        "not_applied_note": "Not applied.",
+        "research_only": True,
+    }
+    report_dir = tmp_path / "reports" / date
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "approval_package.json").write_text(_json.dumps(pkg, indent=2), encoding="utf-8")
+    return pkg
+
+
+def test_record_decision_approve(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    _write_approval_package(tmp_path)
+
+    result = cli.run_record_suggestion_decision(SimpleNamespace(
+        date="2026-05-19", index=1, status="approved", note="Looks good",
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert result["status"] == "approved"
+    assert result["not_applied"] is True
+
+    decisions_path = tmp_path / "reports" / "suggestion_decisions.json"
+    assert decisions_path.exists()
+    import json as _json
+    records = _json.loads(decisions_path.read_text(encoding="utf-8"))
+    assert len(records) == 1
+    assert records[0]["status"] == "approved"
+    assert records[0]["not_applied"] is True
+    assert records[0]["note"] == "Looks good"
+
+
+def test_record_decision_reject(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    _write_approval_package(tmp_path)
+
+    result = cli.run_record_suggestion_decision(SimpleNamespace(
+        date="2026-05-19", index=1, status="rejected", note="Not enough data",
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert result["status"] == "rejected"
+    assert result["not_applied"] is True
+    import json as _json
+    records = _json.loads((tmp_path / "reports" / "suggestion_decisions.json").read_text(encoding="utf-8"))
+    assert records[0]["status"] == "rejected"
+
+
+def test_approved_decision_not_applied(tmp_path, monkeypatch):
+    """Approved status must never trigger scoring or strategy changes."""
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    _write_approval_package(tmp_path)
+
+    result = cli.run_record_suggestion_decision(SimpleNamespace(
+        date="2026-05-19", index=1, status="approved", note="",
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    # The decision record must carry not_applied=True
+    assert result["not_applied"] is True
+    # Verify the stored record also marks it not applied
+    import json as _json
+    records = _json.loads((tmp_path / "reports" / "suggestion_decisions.json").read_text(encoding="utf-8"))
+    assert records[0]["not_applied"] is True
+    assert records[0]["status"] == "approved"
+
+
+def test_record_decision_missing_package(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_record_suggestion_decision(SimpleNamespace(
+        date="2026-05-19", index=1, status="approved", note="",
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert result.get("error") == "approval_package_not_found"
+
+
+def test_record_decision_index_out_of_range(tmp_path, monkeypatch):
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    _write_approval_package(tmp_path)
+
+    result = cli.run_record_suggestion_decision(SimpleNamespace(
+        date="2026-05-19", index=99, status="approved", note="",
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    assert result.get("error") == "index_out_of_range"
+
+
+def test_prior_decisions_shown_in_approval_package(tmp_path, monkeypatch):
+    """After a decision is recorded, rebuild shows it in the enriched suggestions."""
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    _write_approval_package(tmp_path)
+
+    # Record an approval decision
+    cli.run_record_suggestion_decision(SimpleNamespace(
+        date="2026-05-19", index=1, status="approved", note="Confirmed",
+        output_dir=str(tmp_path / "reports"),
+    ))
+
+    # Load the decisions and rebuild the package
+    decisions = cli._load_suggestion_decisions(str(tmp_path / "reports"))
+    suggestions = [
+        {
+            "suggestion": "Consider prioritizing Breakout Watch",
+            "reason": "High target rate",
+            "confidence": "high",
+            "status": "needs_review",
+            "strategy_version": "v1",
+        }
+    ]
+    pkg = cli._build_approval_package("2026-05-19", suggestions, "v1", decisions=decisions)
+
+    assert pkg["decided_count"] == 1
+    assert pkg["pending_count"] == 0
+    assert pkg["suggestions"][0]["status"] == "approved"
+    assert pkg["suggestions"][0]["decision_note"] == "Confirmed"
+    assert pkg["suggestions"][0]["not_applied"] is True
+
+
+def test_suggestion_key_is_stable():
+    key1 = cli._suggestion_key("Consider prioritizing Breakout Watch", "v1")
+    key2 = cli._suggestion_key("Consider prioritizing Breakout Watch", "v1")
+    key3 = cli._suggestion_key("Consider prioritizing Breakout Watch", "v2")
+    assert key1 == key2
+    assert key1 != key3
+    assert len(key1) == 12
