@@ -6,6 +6,39 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V15.9 handoff - Tony Reassessment Labels
+
+### Current active task
+
+V15.9 is complete. Active tracked research setups now receive deterministic Tony reassessment labels during the existing refresh path: `still_valid`, `weakening`, `invalidated`, or `needs_review`.
+
+### Root cause
+
+Active Tracking already refreshed current price, research P/L, and status, but it had no compact research-only interpretation of whether the tracked setup still looked intact, was weakening, had effectively invalidated, or simply lacked enough current real context for a clean read.
+
+### Files changed
+
+- `src/trading_bot/storage/database.py` - added additive `reassessment_label` snapshot column.
+- `src/trading_bot/storage/repositories.py` - repository updates now accept `reassessment_label`.
+- `src/trading_bot/snapshots/active_tracking.py` - added deterministic reassessment derivation and stored label/note updates during active tracking refresh; tracked summary counts now include reassessment buckets.
+- `src/trading_bot/snapshots/__init__.py` - exported reassessment constants/helper.
+- `src/trading_bot/tony/events.py` - enabled `tracked_setup_updated` by default and expanded its payload/message with reassessment counts.
+- `tests/test_v15_8_active_tracking.py` - label assignment, fixed entry preservation, demo-skip behavior, migration/repository support, and no-deletion coverage.
+- `CURRENT_STATUS.md`, `ROADMAP.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md` - updated.
+
+### Tests/checks run
+
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_v15_8_active_tracking.py -q --basetemp .pytest_tmp_v159_tracking` -> **23 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q --basetemp .pytest_tmp_v159_outcomes` -> **10 passed**
+
+### Known limitations
+
+- Reassessment currently renders through the existing `reassessment_note` path on Active Tracking; there is not yet a dedicated visual pill/field for `reassessment_label`.
+
+### Safety
+
+No scoring logic changes, no trigger rule changes, no broker/paper/live execution changes, no order placement, no demo-data injection, no active-entry rewrites, and no snapshot deletion.
+
 ## V15.8C handoff - EOD Data Reconciliation
 
 ### Current active task

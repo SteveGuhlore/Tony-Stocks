@@ -164,3 +164,8 @@ Goals:
 
 - `eod-report` now includes a raw-vs-product reconciliation section showing that dashboard dedupe/hiding changes visibility only; it does not delete candidate snapshot history from `data/trading_bot.db`.
 - Settings / System Health includes a small reconciliation summary so product visibility counts can be compared against raw retained rows without exposing full history on the main dashboard.
+
+## V15.9 note
+
+- Active tracked research setups now receive deterministic Tony reassessment labels: `still_valid`, `weakening`, `invalidated`, or `needs_review`.
+- Reassessment uses stored tracking data only and does not move the fixed active entry or alter trigger/scoring behavior.

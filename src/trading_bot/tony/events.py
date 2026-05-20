@@ -56,6 +56,8 @@ class TonyConfig:
         "watch_waiting_for_market_open",
         "tony_learning_updated",
         "entry_trigger_summary",
+        "tracked_setup_updated",
+        "symbol_quarantine_applied",
     )
     high_score_threshold: float = 85.0
     include_seeded_demo_events: bool = False
@@ -508,6 +510,70 @@ class TonyStocksService:
         )
 
     # ── Watch run lifecycle events ─────────────────────────────────────────────
+
+    def record_symbol_quarantine_applied(
+        self,
+        entries: list[Any],
+        real_data_only: bool = True,
+    ) -> None:
+        """Record symbols excluded from a real-data-only scan/watch by configured quarantine."""
+        if not entries:
+            return
+        symbols = [getattr(entry, "symbol", None) or entry.get("symbol") for entry in entries]
+        symbols = [str(symbol) for symbol in symbols if symbol]
+        self.create_event(
+            event_type="symbol_quarantine_applied",
+            severity="info",
+            title=f"{self.config.agent_name}: Symbol quarantine applied",
+            message=(
+                f"Excluded {len(symbols)} quarantined symbol(s) from real-data-only scan/watch: "
+                f"{', '.join(symbols)}. Symbols remain in universe YAML; not scored or snapshotted."
+            ),
+            payload={
+                "quarantined_symbols": symbols,
+                "quarantine_entries": [
+                    entry.to_dict() if hasattr(entry, "to_dict") else dict(entry)
+                    for entry in entries
+                ],
+                "real_data_only": bool(real_data_only),
+                "count": len(symbols),
+            },
+        )
+
+    def record_tracked_setup_updated(self, summary: dict[str, Any]) -> None:
+        """Summarize V15.8 research-only active tracking refresh (no trades placed)."""
+        self.create_event(
+            event_type="tracked_setup_updated",
+            severity="info",
+            title=f"{self.config.agent_name}: Active tracking updated",
+            message=(
+                f"Active tracked setups: {summary.get('total_active', 0)}. "
+                f"Updated live research prices: {summary.get('updated_current_price_count', 0)}. "
+                f"Missing live price: {summary.get('missing_current_price_count', 0)}. "
+                f"Still valid: {summary.get('still_valid_count', 0)}. "
+                f"Weakening: {summary.get('weakening_count', 0)}. "
+                f"Invalidated: {summary.get('invalidated_count', 0)}. "
+                f"Needs review: {summary.get('needs_review_count', 0)}. "
+                f"Positive research P/L: {summary.get('positive_research_pl_count', 0)}. "
+                f"Negative research P/L: {summary.get('negative_research_pl_count', 0)}. "
+                f"Target reached: {summary.get('target_hit_count', 0)}. "
+                f"Stop reached: {summary.get('stop_hit_count', 0)}. "
+                "Research-only active tracking; no paper trades or broker orders."
+            ),
+            payload={
+                "total_active": summary.get("total_active", 0),
+                "updated_current_price_count": summary.get("updated_current_price_count", 0),
+                "missing_current_price_count": summary.get("missing_current_price_count", 0),
+                "still_valid_count": summary.get("still_valid_count", 0),
+                "weakening_count": summary.get("weakening_count", 0),
+                "invalidated_count": summary.get("invalidated_count", 0),
+                "needs_review_count": summary.get("needs_review_count", 0),
+                "positive_research_pl_count": summary.get("positive_research_pl_count", 0),
+                "negative_research_pl_count": summary.get("negative_research_pl_count", 0),
+                "target_hit_count": summary.get("target_hit_count", 0),
+                "stop_hit_count": summary.get("stop_hit_count", 0),
+            },
+        )
 
     def record_entry_trigger_summary(self, summary: dict[str, Any]) -> None:
         """Create one event summarizing V15 research-only intraday entry trigger simulation."""

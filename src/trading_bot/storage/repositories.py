@@ -597,6 +597,23 @@ class ScannerRepository:
             "result_20d",
             "outcome_label",
             "notes",
+            "original_entry_price",
+            "original_target_price",
+            "original_stop_price",
+            "original_plan_captured_at",
+            "tracking_status",
+            "tracking_started_at",
+            "current_price",
+            "current_price_at",
+            "research_unrealized_pl_pct",
+            "current_target_price",
+            "current_stop_price",
+            "reassessment_label",
+            "reassessment_note",
+            "last_reassessed_at",
+            "invalidation_reason",
+            "time_active_minutes",
+            "pick_phase",
         }
         updates = {key: value for key, value in fields.items() if key in allowed}
         if not updates:

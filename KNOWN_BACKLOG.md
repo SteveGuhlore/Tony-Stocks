@@ -4,6 +4,7 @@ _Last updated: 2026-05-19_
 
 ## Immediate
 
+- Review V15.9 reassessment labels after several real market-hours refresh cycles to confirm `still_valid / weakening / invalidated / needs_review` wording stays intuitive without implying trading instructions.
 - V15.8C reconciliation reporting is implemented. Manual review is still useful after market-hours runs to confirm raw/history counts and current product counts remain intuitive as snapshot volume grows.
 - Tony descriptions are still repetitive across some dashboard cards. Future Tony Explanation Engine work should generate more varied skill-specific explanations while keeping the main product view history-free.
 - V15.8B dashboard semantics are implemented. Manual browser click-through is still pending to confirm Home text, Tony Picks trigger messaging, Active Tracking closing-price labeling, and Results filters/cards end to end.

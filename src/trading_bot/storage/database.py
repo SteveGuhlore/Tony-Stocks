@@ -247,6 +247,23 @@ CANDIDATE_SNAPSHOT_MIGRATIONS = (
     "ALTER TABLE candidate_snapshots ADD COLUMN entry_trigger_source TEXT",
     "ALTER TABLE candidate_snapshots ADD COLUMN entry_trigger_timeframe TEXT",
     "ALTER TABLE candidate_snapshots ADD COLUMN entry_trigger_notes TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN original_entry_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN original_target_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN original_stop_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN original_plan_captured_at TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tracking_status TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN tracking_started_at TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN current_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN current_price_at TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN research_unrealized_pl_pct REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN current_target_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN current_stop_price REAL",
+    "ALTER TABLE candidate_snapshots ADD COLUMN reassessment_label TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN reassessment_note TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN last_reassessed_at TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN invalidation_reason TEXT",
+    "ALTER TABLE candidate_snapshots ADD COLUMN time_active_minutes INTEGER",
+    "ALTER TABLE candidate_snapshots ADD COLUMN pick_phase TEXT",
 )
 
 WATCH_RUN_MIGRATIONS: tuple[str, ...] = ()  # reserved for future additive columns
