@@ -6,6 +6,37 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V25 handoff - Replay Strategy Proposal
+
+### Current active task
+
+V25 is complete. `after-market-review` now builds and saves a research-only proposal replay that compares the current baseline replay against any approved strategy proposal. Approved never means applied.
+
+### Changes
+
+- **`_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION = 3`** — local threshold constant in `cli.py`.
+- **`_build_proposal_replay(report_date, proposal, baseline_replay)`** — three paths:
+  - `no_approved_suggestions`: no approved decisions exist → replay skipped.
+  - `insufficient_data`: approved decisions exist but `total_conclusive == 0` → "proposal cannot be validated yet."
+  - `validated` / `preliminary`: has conclusive data; attaches each approved suggestion with baseline setup rates as context. `validated=True` when `total_conclusive >= 3`.
+- **`_build_proposal_replay_markdown(replay)`** — markdown with header, validation status, baseline stats + setup rates table, approved suggestions list.
+- **`run_after_market_review`** — step 7: builds replay from `analytics_result["replay_summary"]` (already computed) and `proposal`; saves `proposal_replay.json` + `proposal_replay.md`; prints validation status; adds to `files_created` (now 9 total); adds `proposal_replay` to return dict.
+
+### Files changed
+
+- `src/trading_bot/cli.py` — `_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION`, `_build_proposal_replay`, `_build_proposal_replay_markdown`, updated `run_after_market_review`.
+- `tests/test_outcome_analytics.py` — 7 new V25 tests + `_amr_args_v25` / `_baseline_replay_with_conclusive` helpers; 3 existing file-count assertions updated (7→9).
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **590 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config/default_config.yaml changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. Every replay carries `research_only: True` and a `not_applied_note`. Approved does not mean applied.
+
+---
+
 ## V24 handoff - Strategy Proposal Package
 
 ### Current active task

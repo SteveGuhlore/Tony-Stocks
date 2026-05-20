@@ -1470,7 +1470,7 @@ def test_after_market_review_creates_report_files(tmp_path, monkeypatch, capsys)
     ))
 
     assert result["report_date"] == "2026-05-19"
-    assert len(result["files_created"]) == 7  # eod json+md, analytics json, approval json+md, proposal json+md
+    assert len(result["files_created"]) == 9  # eod json+md, analytics json, approval json+md, proposal json+md, replay json+md
 
     report_dir = tmp_path / "reports" / "2026-05-19"
     assert (report_dir / "eod_report.json").exists()
@@ -1724,7 +1724,7 @@ def test_outside_hours_still_creates_report_files(tmp_path, monkeypatch):
     assert (report_dir / "approval_package.md").exists()
     assert (report_dir / "strategy_proposal.json").exists()
     assert (report_dir / "strategy_proposal.md").exists()
-    assert len(result["files_created"]) == 7
+    assert len(result["files_created"]) == 9
 
 
 def test_market_hours_helper_weekday_inside():
@@ -1978,8 +1978,8 @@ def test_after_market_review_total_files_count(tmp_path, monkeypatch):
 
     result = cli.run_after_market_review(_amr_args(tmp_path))
 
-    # eod json+md, analytics json, approval json+md, proposal json+md
-    assert len(result["files_created"]) == 7
+    # eod json+md, analytics json, approval json+md, proposal json+md, replay json+md
+    assert len(result["files_created"]) == 9
 
 
 # --- V23: Human approval gate ---
@@ -2266,3 +2266,184 @@ def test_proposal_markdown_contains_key_sections(tmp_path, monkeypatch):
     assert "Not applied" in md
     assert "Research only" in md
     assert "Approved does not mean applied" in md
+
+
+# --- V25: Replay strategy proposal ---
+
+
+def _amr_args_v25(tmp_path, date=None):
+    return SimpleNamespace(
+        config="ignored",
+        date=date,
+        skip_update_snapshots=True,
+        force_update_snapshots=False,
+        output_dir=str(tmp_path / "reports"),
+    )
+
+
+def _baseline_replay_with_conclusive(n=5):
+    """Return a minimal replay_summary dict with n conclusive rows."""
+    return {
+        "strategy_version": "v1",
+        "total_rows": n,
+        "total_triggered": n,
+        "total_conclusive": n,
+        "total_insufficient_future_data": 0,
+        "setups": [
+            {
+                "setup": "Breakout Watch",
+                "total_rows": n,
+                "triggered": n,
+                "target_hits": n,
+                "stop_hits": 0,
+                "partial_moves": 0,
+                "insufficient_future_data": 0,
+                "conclusive_rows": n,
+                "target_rate": 1.0,
+                "stop_rate": 0.0,
+                "strategy_version": "v1",
+            }
+        ],
+        "notes": [],
+    }
+
+
+def test_proposal_replay_files_created(tmp_path, monkeypatch):
+    """After-market-review creates proposal_replay.json and proposal_replay.md."""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    report_dir = tmp_path / "reports" / "2026-05-19"
+    assert (report_dir / "proposal_replay.json").exists()
+    assert (report_dir / "proposal_replay.md").exists()
+    assert "proposal_replay" in result
+    assert len(result["files_created"]) == 9
+
+
+def test_proposal_replay_no_approved_fallback(tmp_path, monkeypatch):
+    """No approved suggestions → validation_status is no_approved_suggestions."""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0, "symbols": [], "date_filter": None})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    # no decisions written → no approved suggestions
+
+    result = cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    replay = result["proposal_replay"]
+    assert replay["validation_status"] == "no_approved_suggestions"
+    assert replay["validated"] is False
+    assert replay["research_only"] is True
+    assert replay["approved_suggestions"] == []
+
+
+def test_proposal_replay_insufficient_data(tmp_path, monkeypatch):
+    """Approved suggestions but zero conclusive rows → insufficient_data."""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    # replay_summary has 0 conclusive rows
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {
+        "snapshots_reviewed": 0,
+        "symbols": [],
+        "date_filter": None,
+        "replay_summary": {"total_conclusive": 0, "setups": [], "notes": []},
+    })
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    result = cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    replay = result["proposal_replay"]
+    assert replay["validation_status"] == "insufficient_data"
+    assert replay["validated"] is False
+    assert any("cannot be validated" in n for n in replay["notes"])
+
+
+def test_proposal_replay_validated(tmp_path, monkeypatch):
+    """Approved suggestions + enough conclusive rows → validated status."""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {
+        "snapshots_reviewed": 5,
+        "symbols": [],
+        "date_filter": None,
+        "replay_summary": _baseline_replay_with_conclusive(5),
+    })
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    result = cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    replay = result["proposal_replay"]
+    assert replay["validation_status"] == "validated"
+    assert replay["validated"] is True
+    assert len(replay["approved_suggestions"]) == 1
+    assert replay["approved_suggestions"][0]["baseline_total_conclusive"] == 5
+
+
+def test_proposal_replay_not_applied(tmp_path, monkeypatch):
+    """Proposal replay always carries not_applied_note and research_only."""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {"snapshots_reviewed": 0})
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+
+    result = cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    replay = result["proposal_replay"]
+    assert "not_applied_note" in replay
+    assert "Approved does not mean applied" in replay["not_applied_note"]
+    assert replay["research_only"] is True
+
+
+def test_proposal_replay_json_valid(tmp_path, monkeypatch):
+    """proposal_replay.json is valid JSON with required keys."""
+    import json as _json
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {
+        "snapshots_reviewed": 5,
+        "replay_summary": _baseline_replay_with_conclusive(5),
+    })
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    raw = (tmp_path / "reports" / "2026-05-19" / "proposal_replay.json").read_text(encoding="utf-8")
+    data = _json.loads(raw)
+    for key in ("report_date", "current_version", "proposed_version", "validated",
+                "validation_status", "baseline_replay", "approved_suggestions",
+                "notes", "not_applied_note", "research_only"):
+        assert key in data, f"Missing key: {key}"
+
+
+def test_proposal_replay_markdown_contains_key_sections(tmp_path, monkeypatch):
+    """proposal_replay.md contains expected sections."""
+    monkeypatch.setattr(cli, "run_update_snapshots", lambda args: {})
+    monkeypatch.setattr(cli, "run_eod_report", lambda args: _sample_eod_result())
+    monkeypatch.setattr(cli, "run_outcome_analytics", lambda args: {
+        "snapshots_reviewed": 5,
+        "replay_summary": _baseline_replay_with_conclusive(5),
+    })
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "_is_within_regular_market_hours", lambda now=None: False)
+    _approved_decisions("reports", tmp_path)
+
+    cli.run_after_market_review(_amr_args_v25(tmp_path))
+
+    md = (tmp_path / "reports" / "2026-05-19" / "proposal_replay.md").read_text(encoding="utf-8")
+    assert "Proposal Replay" in md
+    assert "Approved does not mean applied" in md
+    assert "Research only" in md
+    assert "Not applied" in md

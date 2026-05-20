@@ -1806,6 +1806,166 @@ def _build_strategy_proposal_markdown(proposal: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION = 3
+
+
+def _build_proposal_replay(
+    report_date: str,
+    proposal: dict[str, Any],
+    baseline_replay: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare current baseline replay against an approved strategy proposal.
+
+    Research-only. Does not change scoring, trigger rules, or trading behavior.
+    Approved does not mean applied.
+    """
+    current_version = proposal.get("current_version", CURRENT_STRATEGY_VERSION)
+    proposed_version = proposal.get("proposed_version", current_version)
+    approved = proposal.get("approved_suggestions") or []
+    total_conclusive = int(baseline_replay.get("total_conclusive", 0) or 0)
+
+    not_applied_note = (
+        "This replay has not been applied. "
+        "Approved does not mean applied. "
+        "No config, scoring, trigger, or trading behavior has changed."
+    )
+
+    if not approved:
+        return {
+            "report_date": report_date,
+            "current_version": current_version,
+            "proposed_version": proposed_version,
+            "validated": False,
+            "validation_status": "no_approved_suggestions",
+            "baseline_replay": baseline_replay,
+            "approved_suggestions": [],
+            "notes": [
+                "No approved suggestions. No proposal to replay.",
+                "This is a research-only replay. It does not change scoring, trigger rules, or trading behavior.",
+            ],
+            "not_applied_note": not_applied_note,
+            "research_only": True,
+        }
+
+    if total_conclusive == 0:
+        return {
+            "report_date": report_date,
+            "current_version": current_version,
+            "proposed_version": proposed_version,
+            "validated": False,
+            "validation_status": "insufficient_data",
+            "baseline_replay": baseline_replay,
+            "approved_suggestions": approved,
+            "notes": [
+                "Proposal cannot be validated yet. No conclusive outcome data available.",
+                "Collect more real-data outcomes before evaluating this proposal.",
+                "This is a research-only replay. It does not change scoring, trigger rules, or trading behavior.",
+            ],
+            "not_applied_note": not_applied_note,
+            "research_only": True,
+        }
+
+    validated = total_conclusive >= _MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION
+    validation_status = "validated" if validated else "preliminary"
+
+    suggestion_context: list[dict[str, Any]] = []
+    for s in approved:
+        suggestion_context.append({
+            "suggestion": s.get("suggestion", ""),
+            "reason": s.get("reason", ""),
+            "confidence": s.get("confidence", ""),
+            "strategy_version": s.get("strategy_version", "v1"),
+            "baseline_total_conclusive": total_conclusive,
+            "baseline_setups": baseline_replay.get("setups", []),
+            "note": "Replay is research-only. Scoring and trigger rules are unchanged.",
+        })
+
+    notes = [
+        "This replay compares the current strategy baseline against the approved proposal.",
+        "No scoring or trigger rules have changed.",
+        f"Baseline conclusive rows: {total_conclusive}.",
+        "This is a research-only replay. It does not change scoring, trigger rules, or trading behavior.",
+    ]
+    if not validated:
+        notes.append(
+            f"Only {total_conclusive} conclusive row(s) — patterns are preliminary. "
+            f"At least {_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION} are needed for a meaningful comparison."
+        )
+
+    return {
+        "report_date": report_date,
+        "current_version": current_version,
+        "proposed_version": proposed_version,
+        "validated": validated,
+        "validation_status": validation_status,
+        "baseline_replay": baseline_replay,
+        "approved_suggestions": suggestion_context,
+        "notes": notes,
+        "not_applied_note": not_applied_note,
+        "research_only": True,
+    }
+
+
+def _build_proposal_replay_markdown(replay: dict[str, Any]) -> str:
+    """Build markdown for the proposal replay report."""
+    report_date = replay["report_date"]
+    lines: list[str] = []
+    lines.append(f"# Proposal Replay — {report_date}")
+    lines.append("")
+    lines.append(f"**Current version:** {replay['current_version']}  ")
+    lines.append(f"**Proposed version:** {replay['proposed_version']}  ")
+    lines.append(f"**Validation status:** {replay['validation_status']}  ")
+    lines.append("")
+    lines.append(f"> {replay['not_applied_note']}")
+    lines.append("")
+
+    for note in replay.get("notes", []):
+        lines.append(f"- {note}")
+    lines.append("")
+
+    approved = replay.get("approved_suggestions") or []
+    if not approved:
+        lines.append("No approved suggestions. No proposal to replay.")
+    else:
+        baseline = replay.get("baseline_replay") or {}
+        lines.append("## Baseline Replay (Current Version)")
+        lines.append("")
+        lines.append(f"- Total rows: {baseline.get('total_rows', 0)}")
+        lines.append(f"- Total triggered: {baseline.get('total_triggered', 0)}")
+        lines.append(f"- Conclusive rows: {baseline.get('total_conclusive', 0)}")
+        lines.append(f"- Pending future data: {baseline.get('total_insufficient_future_data', 0)}")
+        lines.append("")
+
+        setups = baseline.get("setups") or []
+        if setups:
+            lines.append("### Setup Rates")
+            lines.append("")
+            for s in setups:
+                target_rate = s.get("target_rate")
+                stop_rate = s.get("stop_rate")
+                t_str = f"{target_rate:.1%}" if target_rate is not None else "N/A"
+                s_str = f"{stop_rate:.1%}" if stop_rate is not None else "N/A"
+                lines.append(
+                    f"- **{s['setup']}**: {s['conclusive_rows']} conclusive "
+                    f"| target {t_str} | stop {s_str}"
+                )
+            lines.append("")
+
+        lines.append("## Approved Suggestions (not applied)")
+        lines.append("")
+        for i, s in enumerate(approved, 1):
+            conf = str(s.get("confidence", "")).upper()
+            lines.append(f"### {i}. [{conf}] {s.get('suggestion', '')}")
+            lines.append(f"- **Reason:** {s.get('reason', '')}")
+            lines.append(f"- **Source version:** {s.get('strategy_version', 'v1')}")
+            lines.append(f"- **Note:** {s.get('note', '')}")
+            lines.append("")
+
+    lines.append("---")
+    lines.append("*Research only. Not applied. No config, scoring, trigger, or trading behavior changed.*")
+    return "\n".join(lines)
+
+
 def _is_within_regular_market_hours(now: datetime | None = None) -> bool:
     """Return True if the current America/New_York time is a weekday inside 9:30–16:00 ET.
 
@@ -1914,10 +2074,23 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     if not proposal["approved_suggestions"]:
         print("  No strategy proposal today.")
 
+    # 7. Build and save proposal replay — compares baseline vs approved proposal
+    baseline_replay = analytics_result.get("replay_summary") or {}
+    proposal_replay = _build_proposal_replay(report_date, proposal, baseline_replay)
+    replay_json_path = output_base / "proposal_replay.json"
+    replay_md_path = output_base / "proposal_replay.md"
+    replay_json_path.write_text(json.dumps(proposal_replay, indent=2, default=str), encoding="utf-8")
+    replay_md_path.write_text(_build_proposal_replay_markdown(proposal_replay), encoding="utf-8")
+
+    print("\nProposal replay (research only — not applied):")
+    print(f"  Validation status: {proposal_replay['validation_status']}")
+    print(f"  Baseline conclusive rows: {baseline_replay.get('total_conclusive', 0)}")
+
     created = [
         str(eod_json_path), str(eod_md_path), str(analytics_json_path),
         str(approval_json_path), str(approval_md_path),
         str(proposal_json_path), str(proposal_md_path),
+        str(replay_json_path), str(replay_md_path),
     ]
     print("\nAfter-market review complete.")
     print(f"Report date: {report_date} {MARKET_TIMEZONE_LABEL}")
@@ -1932,6 +2105,7 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
         "outcome_analytics": analytics_result,
         "approval_package": approval,
         "strategy_proposal": proposal,
+        "proposal_replay": proposal_replay,
         "market_hours_active": in_market_hours,
         "snapshot_refresh_ran": did_update,
     }
