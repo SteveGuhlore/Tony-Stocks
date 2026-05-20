@@ -1336,6 +1336,10 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print("  Tomorrow watch:")
     for item in self_review["tomorrow_watch"]:
         print(f"    - {item}")
+    print("  Rule suggestions (research-only, not applied automatically):")
+    for s in self_review["rule_suggestions"]:
+        print(f"    - [{s['confidence'].upper()}] {s['suggestion']}")
+        print(f"      Reason: {s['reason']}")
 
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)

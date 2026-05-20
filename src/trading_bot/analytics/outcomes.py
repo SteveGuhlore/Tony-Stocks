@@ -605,7 +605,101 @@ def build_tony_self_review(
         "what_failed": what_failed,
         "needs_more_data": needs_more_data,
         "tomorrow_watch": tomorrow_watch,
+        "rule_suggestions": generate_tony_rule_suggestions(data),
         "research_only": True,
+    }
+
+
+_MIN_TRIGGERED_FOR_SUGGESTION = 3
+
+
+def generate_tony_rule_suggestions(rows: pd.DataFrame) -> list[dict[str, Any]]:
+    """Propose plain-English research-only scoring/filter ideas from real-only rows.
+
+    Suggestions are never applied automatically. Each entry carries a confidence
+    level (low/medium/high) and status='needs_review'. Returns a no-data fallback
+    when triggered rows are below the minimum threshold.
+    """
+    if rows.empty:
+        return [_no_data_suggestion(0)]
+
+    data = rows.copy()
+    for column in ("setup_category", "outcome_label"):
+        if column not in data.columns:
+            data[column] = ""
+        data[column] = data[column].fillna("").astype(str)
+
+    total_triggered = int(_memory_triggered_mask(data).sum())
+    if total_triggered < _MIN_TRIGGERED_FOR_SUGGESTION:
+        return [_no_data_suggestion(total_triggered)]
+
+    suggestions: list[dict[str, Any]] = []
+    for setup_name, group in data.groupby("setup_category", dropna=False):
+        setup = str(setup_name or "Unspecified setup")
+        triggered = int(_memory_triggered_mask(group).sum())
+        if triggered < 2:
+            continue
+        target_hits = int(group["outcome_label"].isin(TARGET_OUTCOMES).sum())
+        stop_hits = int(group["outcome_label"].isin(STOP_OUTCOMES | FAILURE_OUTCOMES).sum())
+        target_rate = target_hits / triggered
+        stop_rate = stop_hits / triggered
+
+        if target_rate >= 0.67:
+            confidence = "high" if triggered >= 5 and target_rate >= 0.80 else "medium"
+            suggestions.append({
+                "suggestion": (
+                    f"Consider prioritizing {setup} in the next scan — "
+                    "it showed consistent follow-through today."
+                ),
+                "reason": (
+                    f"{target_hits} of {triggered} triggered row(s) hit target "
+                    f"({target_rate:.0%} rate)."
+                ),
+                "confidence": confidence,
+                "status": "needs_review",
+            })
+
+        if stop_rate >= 0.67:
+            confidence = "high" if triggered >= 5 and stop_rate >= 0.80 else "medium"
+            suggestions.append({
+                "suggestion": (
+                    f"Consider reducing watch frequency or raising the score threshold "
+                    f"for {setup}."
+                ),
+                "reason": (
+                    f"{stop_hits} of {triggered} triggered row(s) stopped out "
+                    f"({stop_rate:.0%} rate)."
+                ),
+                "confidence": confidence,
+                "status": "needs_review",
+            })
+
+    if not suggestions:
+        suggestions.append({
+            "suggestion": (
+                "No rule changes suggested yet — patterns are not consistent enough "
+                "to recommend adjustments."
+            ),
+            "reason": (
+                f"{total_triggered} triggered row(s) available; no setup reached "
+                "the threshold for a confident suggestion."
+            ),
+            "confidence": "low",
+            "status": "needs_review",
+        })
+
+    return suggestions
+
+
+def _no_data_suggestion(triggered_count: int) -> dict[str, Any]:
+    return {
+        "suggestion": "No rule changes suggested yet — not enough real-only data.",
+        "reason": (
+            f"{triggered_count} triggered row(s) available; "
+            f"at least {_MIN_TRIGGERED_FOR_SUGGESTION} are needed before suggestions are generated."
+        ),
+        "confidence": "low",
+        "status": "needs_review",
     }
 
 
@@ -617,6 +711,7 @@ def _empty_self_review() -> dict[str, Any]:
         "what_failed": ["No real-only rows were available today."],
         "needs_more_data": ["All setups need real data before patterns can emerge."],
         "tomorrow_watch": ["No specific items flagged — check tomorrow's scan results."],
+        "rule_suggestions": [_no_data_suggestion(0)],
         "research_only": True,
     }
 

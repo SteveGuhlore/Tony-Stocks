@@ -6,6 +6,7 @@ from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
     build_tony_self_review,
+    generate_tony_rule_suggestions,
     market_date_mask,
     new_york_market_date,
     score_bucket,
@@ -811,3 +812,77 @@ def test_eod_report_includes_self_review(tmp_path, monkeypatch, capsys):
     assert "Research only" in output
     assert dummy_tony_instance is not None
     assert "self_review" in dummy_tony_instance._last_kwargs.get("memory_summary", {})
+
+
+# ── V18: rule suggestions ──────────────────────────────────────────────────────
+
+def test_rule_suggestions_generated_when_data_supports_them(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    for _ in range(4):
+        create_snapshot(repo, stock("BO", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    for _ in range(3):
+        create_snapshot(repo, stock("PB", 82, "Pullback Watch"), "stop_hit", result_5d=-0.03, provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions = generate_tony_rule_suggestions(analytics.prepared())
+
+    statuses = {s["status"] for s in suggestions}
+    assert statuses == {"needs_review"}, "All suggestions must be needs_review — never auto-applied"
+    confidences = {s["confidence"] for s in suggestions}
+    assert confidences <= {"low", "medium", "high"}
+
+    texts = [s["suggestion"] for s in suggestions]
+    assert any("Breakout Watch" in t and "prioritiz" in t for t in texts), "Should suggest prioritizing Breakout Watch"
+    assert any("Pullback Watch" in t and ("threshold" in t or "frequency" in t) for t in texts), "Should flag Pullback Watch"
+
+
+def test_rule_suggestions_low_data_fallback(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    create_snapshot(repo, stock("SOLO", 80, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    suggestions = generate_tony_rule_suggestions(analytics.prepared())
+
+    assert len(suggestions) == 1
+    assert suggestions[0]["confidence"] == "low"
+    assert "not enough" in suggestions[0]["suggestion"].lower() or "no rule changes" in suggestions[0]["suggestion"].lower()
+    assert suggestions[0]["status"] == "needs_review"
+
+
+def test_rule_suggestions_empty_rows_fallback():
+    suggestions = generate_tony_rule_suggestions(pd.DataFrame())
+    assert len(suggestions) == 1
+    assert suggestions[0]["status"] == "needs_review"
+    assert suggestions[0]["confidence"] == "low"
+
+
+def test_rule_suggestions_not_applied_to_scoring(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    for _ in range(5):
+        create_snapshot(repo, stock("STOP", 75, "Pullback Watch"), "stop_hit", result_5d=-0.04, provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    prepared_before = analytics.prepared().copy()
+    suggestions = generate_tony_rule_suggestions(prepared_before)
+    prepared_after = analytics.prepared()
+
+    assert all(s["status"] == "needs_review" for s in suggestions)
+    assert len(prepared_before) == len(prepared_after), "Suggestions must not alter the dataset"
+    assert list(prepared_before["symbol"]) == list(prepared_after["symbol"])
+
+
+def test_self_review_includes_rule_suggestions(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    for _ in range(3):
+        create_snapshot(repo, stock("MC", 88, "Momentum Continuation"), "target_hit", provider="alpaca_iex")
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    prepared = analytics.prepared()
+    memory = analytics.daily_tony_memory_summary()
+    review = build_tony_self_review(prepared, memory)
+
+    assert "rule_suggestions" in review
+    assert isinstance(review["rule_suggestions"], list)
+    assert len(review["rule_suggestions"]) >= 1
+    assert all(s["status"] == "needs_review" for s in review["rule_suggestions"])
+    assert review["research_only"] is True
