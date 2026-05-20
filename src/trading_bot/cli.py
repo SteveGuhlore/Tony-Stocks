@@ -18,6 +18,7 @@ from trading_bot.analytics import (
     CURRENT_STRATEGY_VERSION,
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
+    build_replay_summary,
     build_strategy_version_report,
     build_tony_self_review,
     market_date_mask,
@@ -1371,6 +1372,22 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
             print(f"  {status}: {count}")
     print(f"Note: {strategy_report['note']}")
 
+    replay = build_replay_summary(prepared)
+    print("\nReplay summary (research-only, no behavior changes):")
+    print(f"  Strategy version: {replay['strategy_version']}")
+    print(f"  Total rows: {replay['total_rows']} | Triggered: {replay['total_triggered']} | Conclusive: {replay['total_conclusive']} | Pending future data: {replay['total_insufficient_future_data']}")
+    for entry in replay["setups"]:
+        rate_str = f"{entry['target_rate']:.0%}" if entry["target_rate"] is not None else "n/a"
+        stop_str = f"{entry['stop_rate']:.0%}" if entry["stop_rate"] is not None else "n/a"
+        print(
+            f"  {entry['setup']}: triggered={entry['triggered']} "
+            f"target={entry['target_hits']} stop={entry['stop_hits']} "
+            f"partial={entry['partial_moves']} pending={entry['insufficient_future_data']} "
+            f"target_rate={rate_str} stop_rate={stop_str}"
+        )
+    for note in replay["notes"]:
+        print(f"  Note: {note}")
+
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
     print("\nWarning counts:")
@@ -1431,6 +1448,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "tony_memory_summary": memory_summary,
         "tony_self_review": self_review,
         "strategy_version_report": strategy_report,
+        "replay_summary": replay,
     }
 
 

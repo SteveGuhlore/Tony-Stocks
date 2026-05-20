@@ -7,6 +7,7 @@ from trading_bot.analytics import (
     SUGGESTION_STATUSES,
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
+    build_replay_summary,
     build_strategy_version_report,
     build_tony_self_review,
     generate_tony_rule_suggestions,
@@ -1229,3 +1230,122 @@ def test_eod_report_includes_strategy_version_report(tmp_path, monkeypatch, caps
     assert result["strategy_version_report"]["current_version"] == "v1"
     assert "Strategy version: v1" in output
     assert "Pending suggestions:" in output
+
+
+# --- V20: Backtest replay foundation ---
+
+def test_build_replay_summary_empty_rows():
+    result = build_replay_summary(pd.DataFrame())
+    assert result["strategy_version"] == "v1"
+    assert result["total_rows"] == 0
+    assert result["total_triggered"] == 0
+    assert result["total_conclusive"] == 0
+    assert result["total_insufficient_future_data"] == 0
+    assert result["setups"] == []
+    assert any("No real-only rows" in n for n in result["notes"])
+
+
+def test_build_replay_summary_from_sample_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "replay.db")
+    create_snapshot(repo, stock("AAPL", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    create_snapshot(repo, stock("TSLA", 82, "Breakout Watch"), "stop_hit", provider="alpaca_iex")
+    create_snapshot(repo, stock("NVDA", 85, "Pullback Watch"), "target_hit", provider="alpaca_iex")
+    create_snapshot(repo, stock("AMZN", 78, "Breakout Watch"), "insufficient_future_data", provider="alpaca_iex")
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    analytics = OutcomeAnalytics(snapshots, real_only=True)
+    rows = analytics.prepared()
+
+    result = build_replay_summary(rows)
+
+    assert result["strategy_version"] == "v1"
+    assert result["total_rows"] == 4
+    assert result["total_insufficient_future_data"] == 1
+    assert result["total_conclusive"] >= 1
+
+    setup_names = [s["setup"] for s in result["setups"]]
+    assert "Breakout Watch" in setup_names
+    assert "Pullback Watch" in setup_names
+
+    bw = next(s for s in result["setups"] if s["setup"] == "Breakout Watch")
+    assert bw["target_hits"] >= 1
+    assert bw["stop_hits"] >= 1
+    assert bw["insufficient_future_data"] == 1
+    assert bw["target_rate"] is not None
+
+    pw = next(s for s in result["setups"] if s["setup"] == "Pullback Watch")
+    assert pw["target_hits"] == 1
+    assert pw["stop_hits"] == 0
+
+    assert any("insufficient_future_data" in n for n in result["notes"])
+
+
+def test_build_replay_summary_no_conclusive_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "replay_noconcl.db")
+    create_snapshot(repo, stock("X1", 80, "Breakout Watch"), "insufficient_future_data", provider="alpaca_iex")
+    create_snapshot(repo, stock("X2", 78, "Breakout Watch"), "insufficient_future_data", provider="alpaca_iex")
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    rows = OutcomeAnalytics(snapshots, real_only=True).prepared()
+
+    result = build_replay_summary(rows)
+    assert result["total_conclusive"] == 0
+    bw = next((s for s in result["setups"] if s["setup"] == "Breakout Watch"), None)
+    assert bw is not None
+    assert bw["target_rate"] is None
+    assert bw["stop_rate"] is None
+    assert any("No conclusive outcomes" in n for n in result["notes"])
+
+
+def test_build_replay_summary_real_only_excludes_demo(tmp_path):
+    repo = ScannerRepository(tmp_path / "replay_demo.db")
+    create_snapshot(repo, stock("REAL", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex", data_source="real_alpaca")
+    create_snapshot(repo, stock("DEMO", 85, "Breakout Watch"), "target_hit", provider="alpaca_iex", data_source="demo_generated")
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    rows = OutcomeAnalytics(snapshots, real_only=True).prepared()
+
+    result = build_replay_summary(rows)
+    assert result["total_rows"] == 1
+
+
+def test_build_replay_summary_strategy_version_attached(tmp_path):
+    repo = ScannerRepository(tmp_path / "replay_ver.db")
+    create_snapshot(repo, stock("VER", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True, limit=10000)
+    rows = OutcomeAnalytics(snapshots, real_only=True).prepared()
+
+    result = build_replay_summary(rows, strategy_version="v2")
+    assert result["strategy_version"] == "v2"
+    for entry in result["setups"]:
+        assert entry["strategy_version"] == "v2"
+
+
+def test_eod_report_includes_replay_summary(tmp_path, monkeypatch, capsys):
+    repo = ScannerRepository(tmp_path / "replay_eod.db")
+    snap = create_snapshot(repo, stock("RPL", 88, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            "UPDATE candidate_snapshots SET snapshot_time='2026-05-20T01:00:00+00:00' WHERE id=?",
+            (snap,),
+        )
+
+    monkeypatch.setattr(
+        cli, "load_scanner_settings",
+        lambda _: SimpleNamespace(
+            database_path=repo.database_path, provider="alpaca_iex",
+            tony_stocks=SimpleNamespace(), symbol_quarantine={},
+        ),
+    )
+    monkeypatch.setattr(cli, "TonyStocksService", _make_dummy_tony())
+    monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+
+    result = cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
+    output = capsys.readouterr().out
+
+    assert "replay_summary" in result
+    assert result["replay_summary"]["strategy_version"] == "v1"
+    assert "Replay summary" in output
+    assert "Strategy version: v1" in output
+    assert "research-only" in output

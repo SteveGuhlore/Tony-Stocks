@@ -6,6 +6,36 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V20 handoff - Backtest Replay Foundation
+
+### Current active task
+
+V20 is complete. `eod-report` now prints a research-only replay summary that groups real-only outcome rows by setup_category and reports triggered/target/stop/partial/insufficient counts with rates computed on conclusive rows only.
+
+### Changes
+
+- **`build_replay_summary(rows, strategy_version)`** — new standalone function in `outcomes.py`. Groups by `setup_category`, computes per-setup counts and rates (target_rate, stop_rate on conclusive rows only). Flags `insufficient_future_data` rows in notes without treating them as failures. Returns `strategy_version`, `total_rows`, `total_triggered`, `total_conclusive`, `total_insufficient_future_data`, `setups` list, `notes` list.
+- **`_empty_replay_summary(strategy_version)`** — zero-value fallback for empty input.
+- **`OutcomeAnalytics.replay_summary(strategy_version)`** — convenience method on the dataclass.
+- **`eod-report`** prints a "Replay summary" section and includes `replay_summary` in the return dict.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py` — `build_replay_summary`, `_empty_replay_summary`, `replay_summary()` method.
+- `src/trading_bot/analytics/__init__.py` — exported `build_replay_summary`.
+- `src/trading_bot/cli.py` — imported `build_replay_summary`; replay print section in `run_eod_report`; added `"replay_summary": replay` to return dict.
+- `tests/test_outcome_analytics.py` — imported `build_replay_summary`; 6 new V20 tests.
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **541 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion, no data deletion. Replay is strictly read-only and rates are never auto-applied.
+
+---
+
 ## V19 handoff - Strategy Versioning Foundation
 
 ### Current active task
