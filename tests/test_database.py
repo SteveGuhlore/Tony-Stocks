@@ -95,6 +95,24 @@ def test_candidate_snapshot_table_exists(tmp_path):
         "entry_trigger_timeframe",
         "entry_trigger_notes",
     }.issubset(columns)
+    assert {
+        "original_entry_price",
+        "original_target_price",
+        "original_stop_price",
+        "original_plan_captured_at",
+        "tracking_status",
+        "tracking_started_at",
+        "current_price",
+        "current_price_at",
+        "research_unrealized_pl_pct",
+        "current_target_price",
+        "current_stop_price",
+        "reassessment_note",
+        "last_reassessed_at",
+        "invalidation_reason",
+        "time_active_minutes",
+        "pick_phase",
+    }.issubset(columns)
 
 
 def test_tony_event_table_exists(tmp_path):

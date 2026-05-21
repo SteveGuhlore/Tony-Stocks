@@ -289,7 +289,12 @@ def initialize_database(database_path: str | Path) -> None:
         for statement in MIGRATIONS:
             column_name = statement.split(" ADD COLUMN ", 1)[1].split(" ", 1)[0]
             if column_name not in existing_columns:
-                conn.execute(statement)
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc).lower():
+                        raise
+                existing_columns.add(column_name)
         snapshot_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(candidate_snapshots)").fetchall()
@@ -297,7 +302,12 @@ def initialize_database(database_path: str | Path) -> None:
         for statement in CANDIDATE_SNAPSHOT_MIGRATIONS:
             column_name = statement.split(" ADD COLUMN ", 1)[1].split(" ", 1)[0]
             if column_name not in snapshot_columns:
-                conn.execute(statement)
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc).lower():
+                        raise
+                snapshot_columns.add(column_name)
         watch_run_columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(watch_runs)").fetchall()
@@ -305,4 +315,9 @@ def initialize_database(database_path: str | Path) -> None:
         for statement in WATCH_RUN_MIGRATIONS:
             column_name = statement.split(" ADD COLUMN ", 1)[1].split(" ", 1)[0]
             if column_name not in watch_run_columns:
-                conn.execute(statement)
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError as exc:
+                    if "duplicate column name" not in str(exc).lower():
+                        raise
+                watch_run_columns.add(column_name)

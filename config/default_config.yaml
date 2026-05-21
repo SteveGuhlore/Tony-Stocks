@@ -66,7 +66,7 @@ scheduled_watch:
   interval_minutes: 5
   run_snapshot_update_after_scan: true
   max_cycles:
-  market_hours_only: false
+  market_hours_only: true
   premarket_enabled: true
   afterhours_enabled: true
   start_time: "09:35"
@@ -97,6 +97,23 @@ market_data:
     fail_safe_to_demo: false
     stale_data_minutes: 20
     label_single_exchange_warning: true
+
+symbol_quarantine:
+  enabled: true
+  apply_during_real_data_only: true
+  # Non-destructive: symbols stay in universe YAML; excluded from real-data-only watch/scan.
+  symbols:
+    - symbol: HCP
+      reason: "Repeated Alpaca IEX no-bar / missing real data (legacy HashiCorp ticker on research list)"
+    - symbol: SAMSF
+      reason: "Repeated Alpaca IEX missing real data (OTC / limited IEX coverage)"
+    - symbol: SMAR
+      reason: "Repeated Alpaca IEX missing real data (acquired; delisted from active tape)"
+    - symbol: SQ
+      reason: "Repeated Alpaca IEX missing real data (symbol may not resolve on IEX feed)"
+  # Optional replacements are NOT auto-added to the universe file.
+  # Add replacements manually to universe YAML with full metadata if desired.
+  replacement_symbols: []
 
 intraday:
   enabled: true
@@ -160,6 +177,7 @@ tony_stocks:
     - watch_waiting_for_market_open
     - tony_learning_updated
     - entry_trigger_summary
+    - symbol_quarantine_applied
   high_score_threshold: 85
   include_seeded_demo_events: false
   max_events_per_cycle: 30
