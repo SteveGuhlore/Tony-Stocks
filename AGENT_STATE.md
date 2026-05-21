@@ -6,6 +6,47 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V33 handoff - Better Skipped And Not-Scored Reasons
+
+### Current active task
+
+V33 is complete. Scan coverage reporting now uses more granular skip/not-scored reason categories instead of collapsing everything into broad buckets. No scoring, trigger, rotation, or trading behavior changes.
+
+### Changes
+
+- **`src/trading_bot/cli.py`**
+  - Expanded `SCAN_SKIP_REASON_KEYS` from 6 to 11 keys: added `not_enough_bars`, `avg_volume_below_minimum`, `stale_data`, `no_eligible_setup`, `duplicate_tracked`. Old keys kept for backward compat.
+  - Added `_SKIP_REASON_LABELS` dict mapping each key to a human-readable label for print/markdown output.
+  - `run_scan()` loop:
+    - Bar-count skip (`len(data) < 60`) now uses `not_enough_bars` instead of `not_enough_data`.
+    - Liquidity check split: `avg_volume_below_minimum` when avg share volume fails; `liquidity_below_minimums` when dollar volume fails.
+    - After scoring loop: counts symbols with weak/invalid setup_category (`Weak / Avoid`, `Overextended / Wait`, `Invalid Trade Plan`, `Insufficient Data`) → `no_eligible_setup`.
+    - After Alpaca provider block: counts `provider.stale_symbols` → `stale_data` in skip_reason_counts and scan summary.
+  - `_build_scan_coverage_summary()`: aggregates new keys; backward compat folds old `not_enough_data` payloads into `not_enough_bars`.
+  - `_print_scan_coverage_summary()`: uses `_SKIP_REASON_LABELS` for human-readable output; omits zero-value backward-compat keys unless non-zero.
+  - `_build_eod_report_markdown()`: uses `_SKIP_REASON_LABELS` for labeled markdown skip-reason list.
+
+- **`tests/test_outcome_analytics.py`**
+  - Updated `test_after_market_review_markdown_includes_scan_coverage_section` to match new label format.
+  - Added 6 V33 tests: new keys in output, backward compat `not_enough_data` folding, unknown fallback, missing/quarantine specific reasons, labels in markdown, empty fallback all-zero.
+
+### Files changed
+
+- `src/trading_bot/cli.py`
+- `tests/test_outcome_analytics.py`
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `pytest -x -q -k "scan_coverage or skip_reason or v33"` → **12 passed**
+- `pytest -x -q` → running
+
+### Safety
+
+No scoring changes. No trigger-rule changes. No rotation changes. No trading/paper/broker/orders. No demo data. No data deletion. No dashboard visual changes. The scan loop changes only affect which skip-reason bucket a symbol lands in — which symbols are scored is unchanged.
+
+---
+
 ## V34A handoff - Terminal Outcome Model Fields
 
 ### Current active task

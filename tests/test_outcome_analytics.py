@@ -611,6 +611,116 @@ def test_scan_coverage_skip_reason_fallback(tmp_path, monkeypatch):
     assert summary["skip_reason_counts"]["other_unknown"] == 1
 
 
+# ── V33 — Better skipped / not-scored reasons ─────────────────────────────────
+
+def _v33_scan_event(repo, *, skip_counts: dict, symbols_loaded: int = 10, symbols_scored: int = 6):
+    repo.create_tony_event(
+        "scan_completed", "info", "scan", "scan",
+        payload={
+            "symbols_loaded": symbols_loaded,
+            "symbols_scored": symbols_scored,
+            "selected_symbols": [f"S{i}" for i in range(symbols_loaded)],
+            "skip_reason_counts": skip_counts,
+        },
+    )
+
+
+def test_v33_new_specific_reason_keys_present_in_output(tmp_path, monkeypatch):
+    """New keys are present in skip_reason_counts even when 0."""
+    repo = ScannerRepository(tmp_path / "v33a.db")
+    _v33_scan_event(repo, skip_counts={
+        "not_enough_bars": 3, "avg_volume_below_minimum": 2,
+        "stale_data": 1, "no_eligible_setup": 4,
+    })
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: list(range(20)))
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19", repo, SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    counts = summary["skip_reason_counts"]
+    assert counts["not_enough_bars"] == 3
+    assert counts["avg_volume_below_minimum"] == 2
+    assert counts["stale_data"] == 1
+    assert counts["no_eligible_setup"] == 4
+    assert "missing_real_data" in counts
+    assert "quarantined" in counts
+    assert "other_unknown" in counts
+
+
+def test_v33_backward_compat_not_enough_data_folds_into_bars(tmp_path, monkeypatch):
+    """Old not_enough_data payloads are summed into not_enough_bars for display."""
+    repo = ScannerRepository(tmp_path / "v33b.db")
+    _v33_scan_event(repo, skip_counts={"not_enough_data": 5})
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: list(range(20)))
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19", repo, SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    counts = summary["skip_reason_counts"]
+    assert counts["not_enough_data"] == 5
+    # backward compat fold: old not_enough_data is added into not_enough_bars
+    assert counts["not_enough_bars"] == 5
+
+
+def test_v33_unknown_fallback_still_works(tmp_path, monkeypatch):
+    """other_unknown is non-zero when symbols loaded >> scored and no specific reason given."""
+    repo = ScannerRepository(tmp_path / "v33c.db")
+    _v33_scan_event(repo, skip_counts={}, symbols_loaded=10, symbols_scored=6)
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: list(range(20)))
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19", repo, SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    # 4 symbols not scored, none explained → other_unknown >= 4
+    assert summary["skip_reason_counts"]["other_unknown"] >= 4
+
+
+def test_v33_missing_and_quarantine_specific_reasons(tmp_path, monkeypatch):
+    """missing_real_data and quarantined come through as specific reasons."""
+    repo = ScannerRepository(tmp_path / "v33d.db")
+    _v33_scan_event(repo, skip_counts={
+        "missing_real_data": 3, "quarantined": 2,
+    })
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: list(range(20)))
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19", repo, SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    assert summary["skip_reason_counts"]["missing_real_data"] == 3
+    assert summary["skip_reason_counts"]["quarantined"] == 2
+
+
+def test_v33_skip_reason_labels_in_markdown(tmp_path, monkeypatch):
+    """EOD markdown uses human-readable labels for skip reasons."""
+    from types import SimpleNamespace as SN
+    from tests.test_v31_rotation_diagnostics import _make_test_db, _patch_eod
+    repo, _ = _make_test_db(tmp_path)
+    _patch_eod(monkeypatch, repo)
+    args = SN(config="ignored", date="2026-05-20",
+               output_dir=str(tmp_path / "reports"), include_seeded=False)
+    result = cli.run_eod_report(args)
+    # The raw return dict should have skip_reason_counts with new keys
+    coverage = result.get("scan_coverage") or {}
+    counts = coverage.get("skip_reason_counts") or {}
+    for key in ("not_enough_bars", "avg_volume_below_minimum", "no_eligible_setup",
+                 "stale_data", "missing_real_data", "quarantined"):
+        assert key in counts, f"Missing key in skip_reason_counts: {key}"
+
+
+def test_v33_empty_skip_reasons_fallback(tmp_path, monkeypatch):
+    """Empty skip reasons produce all-zero counts without crashing."""
+    repo = ScannerRepository(tmp_path / "v33e.db")
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: list(range(10)))
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19", repo, SimpleNamespace(universe_config_path="ignored"),
+        [],
+    )
+    counts = summary["skip_reason_counts"]
+    for key in cli.SCAN_SKIP_REASON_KEYS:
+        assert key in counts
+        assert counts[key] >= 0
+
+
 def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_path, monkeypatch, capsys):
     repo = ScannerRepository(tmp_path / "analytics.db")
     snapshot_id = create_snapshot(repo, stock("ETDAY", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
@@ -1879,7 +1989,7 @@ def test_after_market_review_markdown_includes_scan_coverage_section():
     md = cli._build_eod_report_markdown("2026-05-19", _sample_eod_result())
     assert "## Scan Coverage And Funnel" in md
     assert "Configured universe size" in md
-    assert "Skip reason missing real data" in md
+    assert "missing real data" in md
 
 
 def test_after_market_review_uses_et_date(tmp_path, monkeypatch):

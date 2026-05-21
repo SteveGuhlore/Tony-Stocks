@@ -74,13 +74,33 @@ from trading_bot.utils.time_utils import utc_now_iso
 LOGGER = logging.getLogger(__name__)
 MARKET_TIMEZONE_LABEL = "America/New_York"
 SCAN_SKIP_REASON_KEYS = (
-    "liquidity_below_minimums",
-    "price_outside_bounds",
-    "not_enough_data",
-    "missing_real_data",
-    "quarantined",
-    "other_unknown",
+    "liquidity_below_minimums",      # dollar volume below threshold (or legacy combined liquidity)
+    "avg_volume_below_minimum",      # average share volume below configured minimum
+    "price_outside_bounds",          # latest close outside configured price range
+    "not_enough_bars",               # fewer than the required number of OHLCV bars
+    "not_enough_data",               # backward-compat: kept for old stored payloads
+    "stale_data",                    # data present but Alpaca flagged as stale
+    "missing_real_data",             # no real data returned by the provider
+    "quarantined",                   # symbol in configured quarantine list
+    "no_eligible_setup",             # scored but setup category is weak/invalid/no pattern
+    "duplicate_tracked",             # already tracked; skipped by snapshot dedupe
+    "other_unknown",                 # score errors or unclassified skips
 )
+
+# Human-readable labels for skip reasons (ordered for display).
+_SKIP_REASON_LABELS: dict[str, str] = {
+    "missing_real_data": "missing real data",
+    "quarantined": "quarantined",
+    "not_enough_bars": "not enough bars",
+    "not_enough_data": "not enough data (legacy)",
+    "stale_data": "stale data (scored with stale prices)",
+    "avg_volume_below_minimum": "average volume below minimum",
+    "liquidity_below_minimums": "dollar volume below minimum",
+    "price_outside_bounds": "price outside configured range",
+    "no_eligible_setup": "no eligible setup (weak/invalid pattern)",
+    "duplicate_tracked": "duplicate / currently tracked",
+    "other_unknown": "other / unknown",
+}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -331,8 +351,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             skipped_count += 1
             continue
         if len(data) < 60:
-            LOGGER.warning("Skipping %s: not enough data", symbol)
-            skip_reason_counts["not_enough_data"] += 1
+            LOGGER.warning("Skipping %s: not enough bars (%d)", symbol, len(data))
+            skip_reason_counts["not_enough_bars"] += 1
             skipped_count += 1
             continue
         latest_close = float(data["close"].iloc[-1])
@@ -343,8 +363,13 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             skip_reason_counts["price_outside_bounds"] += 1
             skipped_count += 1
             continue
-        if avg_volume_20 < settings.min_avg_volume or dollar_volume_20 < settings.min_dollar_volume:
-            LOGGER.info("Skipping %s: liquidity below configured minimums", symbol)
+        if avg_volume_20 < settings.min_avg_volume:
+            LOGGER.info("Skipping %s: average volume below minimum", symbol)
+            skip_reason_counts["avg_volume_below_minimum"] += 1
+            skipped_count += 1
+            continue
+        if dollar_volume_20 < settings.min_dollar_volume:
+            LOGGER.info("Skipping %s: dollar volume below minimum (liquidity)", symbol)
             skip_reason_counts["liquidity_below_minimums"] += 1
             skipped_count += 1
             continue
@@ -380,6 +405,18 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             skip_reason_counts["other_unknown"] += 1
 
     results.sort(key=lambda item: item.final_score, reverse=True)
+
+    _NO_ACTIONABLE_SETUP = frozenset({
+        "Weak / Avoid", "Overextended / Wait", "Invalid Trade Plan", "Insufficient Data",
+    })
+    no_eligible_setup_count = sum(
+        1 for r in results
+        if not str(r.setup_category or "").strip()
+        or str(r.setup_category or "").strip() in _NO_ACTIONABLE_SETUP
+    )
+    if no_eligible_setup_count:
+        skip_reason_counts["no_eligible_setup"] += no_eligible_setup_count
+
     scan_run_id = repo.create_scan_run(
         universe_count=len(symbols),
         provider=provider.name,
@@ -468,6 +505,11 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             waits_count = rl.total_waits if rl is not None else 0
             tony.record_rate_limit_warning(provider.name, cycle_stats["rate_limit_warnings"], waits_count)
         tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
+        stale_count = len(provider.stale_symbols)
+        if stale_count:
+            summary["skip_reason_counts"]["stale_data"] = stale_count
+            summary["stale_data_count"] = stale_count
+            summary["stale_data_symbols"] = sorted(str(s).upper() for s in provider.stale_symbols)
     else:
         summary["real_data_symbols"] = len(market_data)
     summary["skip_reason_counts"]["quarantined"] = len(quarantined_entries)
@@ -1584,8 +1626,14 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
                 f"discovery={rotation.get('latest_discovery_count', 'unknown')} "
                 f"bucket_ids_today={', '.join(str(item) for item in bucket_ids) if bucket_ids else 'unknown'}"
             )
-        for key, value in (coverage.get("skip_reason_counts") or {}).items():
-            lines.append(f"- Skip reason {key.replace('_', ' ')}: {value}")
+        skip_counts_md = coverage.get("skip_reason_counts") or {}
+        has_skip_data = any(int(v or 0) > 0 for v in skip_counts_md.values())
+        if has_skip_data or skip_counts_md:
+            lines.append("- **Skip / not-scored reasons:**")
+            for key, label in _SKIP_REASON_LABELS.items():
+                count = int(skip_counts_md.get(key, 0) or 0)
+                if count or key not in ("not_enough_data", "duplicate_tracked"):
+                    lines.append(f"  - {label}: {count}")
         for note in coverage.get("notes") or []:
             lines.append(f"- Note: {note}")
         diag = coverage.get("rotation_diagnostics") or {}
@@ -2985,6 +3033,8 @@ def _build_scan_coverage_summary(
             skip_payload_available = True
             for key in SCAN_SKIP_REASON_KEYS:
                 aggregated_skip_reasons[key] += int(skip_counts.get(key, 0) or 0)
+            # Backward compat: fold old not_enough_data counts into not_enough_bars
+            aggregated_skip_reasons["not_enough_bars"] += int(skip_counts.get("not_enough_data", 0) or 0)
 
     scan_runs = repo.list_scan_runs(limit=500)
     run_ids_today = [
@@ -3208,10 +3258,12 @@ def _print_scan_coverage_summary(coverage: dict[str, Any], header: str = "\nScan
         )
     else:
         print("Rotation bucket summary: unavailable")
-    print("Best available skip reasons:")
-    for key in SCAN_SKIP_REASON_KEYS:
-        label = key.replace("_", " ")
-        print(f"  {label}: {int((coverage.get('skip_reason_counts') or {}).get(key, 0) or 0)}")
+    skip_counts = coverage.get("skip_reason_counts") or {}
+    print("Skip / not-scored reasons (best available):")
+    for key, label in _SKIP_REASON_LABELS.items():
+        count = int(skip_counts.get(key, 0) or 0)
+        if count or key not in ("not_enough_data", "duplicate_tracked"):
+            print(f"  {label}: {count}")
     print("Notes:")
     for note in coverage.get("notes") or []:
         print(f"  - {note}")
