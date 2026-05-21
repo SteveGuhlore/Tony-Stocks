@@ -153,3 +153,83 @@ class TestHomePreviewCardHtml:
         mock_st.markdown.assert_called_once()
         _, kwargs = mock_st.markdown.call_args
         assert kwargs.get("unsafe_allow_html") is True
+
+
+class TestTraceResultsTable:
+    def _card(self, outcome: str = "target_hit", **kwargs: object) -> dict[str, str]:
+        base = {
+            "symbol": "OXY",
+            "setup_type": "Breakout Watch",
+            "status": "Target reached",
+            "entry_trigger": "$48.00",
+            "exit_price": "$52.00",
+            "exit_price_label": "Target Hit",
+            "target": "$52.00",
+            "stop": "$45.00",
+            "research_pl_pct": "+8.33%",
+            "risk_reward": "1.6x",
+            "trigger_date": "May 19, 10:30 AM",
+            "reason": "Tony saw strong volume.",
+            "outcome_label": outcome,
+        }
+        base.update(kwargs)
+        return base  # type: ignore[return-value]
+
+    def test_dark_css_present(self) -> None:
+        assert "#080d1c" in theme._TONY_APP_CSS
+        assert ".trace-results-table" in theme._TONY_APP_CSS
+        assert ".trace-page-header" in theme._TONY_APP_CSS
+
+    def test_results_table_html_balanced_and_non_empty(self) -> None:
+        html = theme.build_results_table_html([self._card()])
+        assert theme.html_has_balanced_divs(html)
+        assert "OXY" in html
+        assert "trace-results-table" in html
+        assert "trace-table-header" in html
+
+    def test_results_table_empty_state(self) -> None:
+        html = theme.build_results_table_html([])
+        assert theme.html_has_balanced_divs(html)
+        assert "trace-empty-state" in html
+        assert "trace-disclaimer" in html
+
+    def test_results_table_target_hit_pill_green(self) -> None:
+        html = theme.build_results_table_html([self._card("target_hit")])
+        assert "trace-pill-green" in html
+
+    def test_results_table_stop_hit_pill_red(self) -> None:
+        html = theme.build_results_table_html([self._card("stop_hit")])
+        assert "trace-pill-red" in html
+
+    def test_results_table_active_pill_blue(self) -> None:
+        html = theme.build_results_table_html([self._card("tracking")])
+        assert "trace-pill-blue" in html
+
+    def test_results_table_pl_positive_class(self) -> None:
+        html = theme.build_results_table_html([self._card()])
+        assert "trace-pl-positive" in html
+
+    def test_results_table_pl_negative_class(self) -> None:
+        html = theme.build_results_table_html([self._card("stop_hit", research_pl_pct="-5.00%")])
+        assert "trace-pl-negative" in html
+
+    def test_results_table_target_exit_gets_price_hit_class(self) -> None:
+        html = theme.build_results_table_html([self._card(exit_price_label="Target Hit")])
+        assert "trace-price-hit" in html
+
+    def test_results_table_stop_exit_gets_price_stop_class(self) -> None:
+        html = theme.build_results_table_html([self._card("stop_hit", exit_price_label="Stop Hit")])
+        assert "trace-price-stop" in html
+
+    def test_render_results_table_calls_markdown_unsafe(self) -> None:
+        mock_st = MagicMock()
+        with patch.object(theme, "st", mock_st):
+            theme.render_results_table([self._card()])
+        mock_st.markdown.assert_called_once()
+        _, kwargs = mock_st.markdown.call_args
+        assert kwargs.get("unsafe_allow_html") is True
+
+    def test_disclaimer_present_in_table(self) -> None:
+        html = theme.build_results_table_html([self._card()])
+        assert "trace-disclaimer" in html
+        assert "Research outcomes only" in html

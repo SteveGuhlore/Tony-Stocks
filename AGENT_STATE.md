@@ -6,6 +6,204 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V27A handoff - Restore V26D Ledger/Product Filters After V27 Visual Redesign
+
+### Current active task
+
+V27A is complete. V27 committed its helpers.py from the pre-V26A baseline, silently dropping all data integrity fixes. V27A re-applies all V26A-D fixes on top of V27 visual design without touching the render/theme layer.
+
+### Regression cause
+
+The V27 commit (`7a785fc`) was authored against the pre-V26A state of `helpers.py` and `app.py`. It added the unified Watchlist visual design but overwrote the V26A-D integrity fixes (DQ filters, stale lifecycle, Results ledger source, unreconciled diagnostic). The V26A-D changes had been in the working directory but were overwritten by the commit.
+
+### Changes
+
+**`helpers.py`**
+- `_BAD_DQ_VALUES` frozenset: `{"missing_real_data", "fallback_data", "intraday_fallback_demo", "demo_data"}` (re-added)
+- `_product_rows_only`: restored `used_demo_data`, `tony_data_quality_read`, `snapshot_provider` filters (HCP/SMAR/CYBR/SQ/TRUE fix)
+- `_closed_results_pool`: re-added — wider pool allowing `missing_real_data` for prior-active rows
+- `_is_stale_tracked_position`: re-added — detects PATH-style triggered+lost-real-data rows
+- `build_stale_tracking_rows`: re-added — one stale row per prior-active symbol
+- `WATCHLIST_LIFECYCLE_STATES`: re-added `stale_tracking_needs_review`
+- `_LIFECYCLE_SORT_PRIORITY`: re-added — `active=0, weakening=1, stale=2, waiting=3, watching=4`
+- `build_tony_watchlist_rows`: restored `quarantine_symbols` param, stale rows, lifecycle priority sort
+- `_is_valid_tony_pick_row`: restored tony_analysis_version guard for priority_label
+- `build_results_product_rows`: restored — active first, closed without pick_rows exclusion (PATH fix), only waiting_alert picks (no watching-only in Results)
+- `collect_health_issues`: restored `stale_symbols` and `missing_tracked_symbols` params
+- `find_unreconciled_tracked_symbols`: re-added — ledger gap diagnostic
+- `build_pick_card_model`: restored watching-only N/A target/stop, `needed_before_entry`, updated status label
+
+**`app.py`**
+- Imports: added `build_stale_tracking_rows`, `find_unreconciled_tracked_symbols`
+- `_dashboard_context`: re-added `stale_df`, `stale_symbols_list`, `missing_tracked`; passes both to `collect_health_issues`; returns in context dict
+- `render_tony_watchlist`: restored quarantine_symbols passthrough, "Stale / Needs review" filter, `stale_tracking_needs_review` lifecycle card handling
+- `render_results`: restored `research_snaps` for product cards (active positions no longer disappear on "Today" period filter)
+- `render_system_health`: re-added "Tracked position ledger gaps" section
+
+**`tests/test_v27a_regression.py`** (new file, 30 tests in 7 classes)
+- `TestV27ADataQualityFilters`: demo/missing/quarantine/bad-DQ/fallback-provider/used-demo hidden from Watchlist
+- `TestV27APathLifecycle`: stale detection, stale in Watchlist, not silently dropped, not in Results, derive_pick_phase stays tracking
+- `TestV27ALifecycleSortOrder`: active before stale, stale before watching
+- `TestV27AResultsLedger`: Results not empty with active positions, active phase, watching-only excluded, active symbols match Watchlist
+- `TestV27AUnreconciledDiagnostic`: gap detection, terminal outcome ignored, stale set accounted, no triggered rows
+- `TestV27AHealthIssues`: stale and missing_tracked warnings, silent when no gaps
+- `TestV27AWatchingOnlyCardModel`: N/A target/stop, needed_before_entry, waiting_for_trigger has real values
+
+### What happened to PATH
+
+PATH had `entry_triggered=1`, `tracking_status=missing_real_data`, `data_source=missing_real_data`. In V27 baseline, `_product_rows_only` excluded `data_source=missing_real_data` rows and there was no stale path — so PATH disappeared entirely. After V27A: `_closed_results_pool` allows these rows; `build_stale_tracking_rows` picks PATH up; `build_tony_watchlist_rows` includes it as `stale_tracking_needs_review`. If no stored row exists at all, `find_unreconciled_tracked_symbols` produces a Settings/System Health error.
+
+### Tests/checks run
+
+- `pytest tests/test_v27a_regression.py tests/test_dashboard_helpers.py tests/test_dashboard_theme.py -x -q` → **212 passed**
+- `pytest -x -q` → **662 passed**
+
+### Safety
+
+No scoring changes, no trigger-rule changes, no config changes, no broker/paper/live execution, no orders, no data deletion. All changes are dashboard filtering and diagnostic only.
+
+---
+
+## V26D handoff - Results Ledger Source + Unreconciled Symbol Diagnostics
+
+### Current active task
+
+V26D is complete. Results tab now uses the same tracked-position ledger as Watchlist. Missing tracked symbols (PATH-style) produce a health warning instead of disappearing silently. Ledger diagnostic wired into Settings/System Health.
+
+### Changes
+
+- **`find_unreconciled_tracked_symbols(snapshots, *, active_symbols, stale_symbols) -> list[str]`** — new public helper in `helpers.py`. Finds `entry_triggered=1` symbols not in active or stale sets and with no terminal outcome/tracking_status. Returns sorted list of gap symbols.
+- **`collect_health_issues`** — added `missing_tracked_symbols: list[str] | None = None` parameter; appends an `st.error`-level warning when any unreconciled symbols are found.
+- **`app.py: _dashboard_context`** — computes `missing_tracked` via `find_unreconciled_tracked_symbols(research_snaps, active_symbols=..., stale_symbols=...)` after building stale_df; appends missing_tracked warning to health_issues; returns `missing_tracked` in context dict.
+- **`app.py: render_results`** — now loads `research_snaps = _load_research_snapshots(repo)` separately from `prepared`; uses `research_snaps` for `build_active_tracking_product_rows` and `build_results_product_rows` (product cards); `prepared` used for period-filtered stats text only. Fixes Results showing 0 cards when active positions exist.
+- **`app.py: render_system_health`** — added "Tracked position ledger gaps" section: `st.warning` for stale symbols, `st.error` for missing_tracked symbols.
+
+### Tests changed/added
+
+- New `TestV26DResultsLedgerAndDiagnostics` class with 12 tests (appended to `test_dashboard_helpers.py`).
+- Import of `find_unreconciled_tracked_symbols` added to test file.
+
+### Files changed
+
+- `src/trading_bot/dashboard/helpers.py`
+- `src/trading_bot/dashboard/app.py`
+- `tests/test_dashboard_helpers.py`
+
+### Tests/checks run
+
+- `.venv/Scripts/python -m pytest tests/test_dashboard_helpers.py -x -q` → **205 passed**
+- `.venv/Scripts/python -m pytest -x -q` → **667 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config changes, no broker/paper/live execution changes, no orders, no data deletion. All changes are dashboard display/filtering and diagnostic only.
+
+---
+
+## V26C handoff - Position Ledger Integrity + Strict Product Filters
+
+### Current active task
+
+V26C is complete. Stale tracking lifecycle added, watching-only cards cleaned up, stale symbols wired into Settings/System Health.
+
+### Changes
+
+- **`WATCHLIST_LIFECYCLE_STATES`** — added `"stale_tracking_needs_review"`.
+- **`derive_pick_phase`** — reverted V26A change: `tracking_status=missing_real_data` stays `"tracking"` (not `"closed"`). Stale symbols now appear in Watchlist, not pushed to Results.
+- **`_is_stale_tracked_position`** — new private helper: True when `entry_triggered=1`, `tracking_status=missing_real_data`, and an original entry price exists.
+- **`build_stale_tracking_rows`** — new public function: uses `_closed_results_pool`; returns one row per prior-active symbol with `lifecycle_state=stale_tracking_needs_review`.
+- **`_LIFECYCLE_SORT_PRIORITY`** — updated: `stale_tracking_needs_review=2`, `waiting_for_trigger=3`, `watching=4`.
+- **`build_tony_watchlist_rows`** — now includes stale rows (at priority 2); stale symbols excluded from the pick frame.
+- **`build_pick_card_model`** — for watching-only rows (no `has_planned_entry`): `target="N/A"`, `stop="N/A"`, `risk_reward="N/A"`, `needed_before_entry="Tony has not created an actionable trigger yet."`.
+- **`collect_health_issues`** — added `stale_symbols: list[str] | None = None` parameter; appends a plain-English warning listing stale symbols when present.
+- **`app.py: _dashboard_context`** — builds `stale_df` and `stale_symbols_list` before `collect_health_issues`; passes `stale_symbols` to it; returns `stale_df` and `stale_symbols` in context dict.
+- **`app.py: render_tony_watchlist`** — added "Stale / Needs review" to lifecycle filter dropdown; handles `stale_tracking_needs_review` using `build_tracked_setup_card_model`.
+
+### Tests changed/added
+
+- 6 V26A/V26B tests updated to reflect V26C contract (PATH → Watchlist stale, not Results closed).
+- New `TestV26CPositionLedger` class with 16 tests.
+
+### Files changed
+
+- `src/trading_bot/dashboard/helpers.py`
+- `src/trading_bot/dashboard/app.py`
+- `tests/test_dashboard_helpers.py`
+
+### Tests/checks run
+
+- `.venv/Scripts/python -m pytest -x -q` → **656 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config changes, no broker/paper/live execution changes, no orders, no data deletion. All changes are display/lifecycle filtering only.
+
+---
+
+## V26B handoff - Watchlist Ordering + Results Product Cleanup
+
+### Current active task
+
+V26B is complete. Watchlist ordering, Results cleanup, PATH fix, and quarantine integration are all done.
+
+### Changes
+
+- **`_LIFECYCLE_SORT_PRIORITY`** — new module-level dict: `{active: 0, weakening: 1, waiting_for_trigger: 2, watching: 3}`.
+- **`build_tony_watchlist_rows`** — added `quarantine_symbols: set[str] | None = None` parameter; sorts by lifecycle priority first (active → weakening → waiting_for_trigger → watching), then by time descending; filters quarantined symbols from output.
+- **`_is_valid_tony_pick_row`** — when `tony_analysis_version` is present in the row, also requires a non-null `tony_priority_label`. Pre-Tony rows (no `tony_analysis_version`) pass through unchanged.
+- **`build_results_product_rows`** — restructured: builds closed without excluding pick_rows (fixes PATH being blocked by old pick row); only includes `waiting_alert` phase picks (with a real planned entry trigger) in Results — plain watching-only rows are excluded.
+- **`app.py: render_tony_watchlist`** — now passes `quarantine_symbols` from `_dashboard_context` into `build_tony_watchlist_rows`.
+
+### Files changed
+
+- `src/trading_bot/dashboard/helpers.py` — `_LIFECYCLE_SORT_PRIORITY`, `build_tony_watchlist_rows` (sort + quarantine), `_is_valid_tony_pick_row` (tony_analysis_version guard), `build_results_product_rows` (PATH fix + watching-only exclusion).
+- `src/trading_bot/dashboard/app.py` — quarantine_symbols passed to `build_tony_watchlist_rows`.
+- `tests/test_dashboard_helpers.py` — new `TestV26BWatchlistOrderingAndResultsCleanup` class with 14 tests.
+
+### Tests/checks run
+
+- `.venv/Scripts/python -m pytest -x -q` → **640 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config changes, no broker/paper/live execution changes, no orders, no data deletion. All changes are dashboard display/filtering only.
+
+---
+
+## V26A handoff - Watchlist Data Quality + Prior-Active Lifecycle + Watching-Only Label
+
+### Current active task
+
+V26A is complete. Three gaps from V26 are closed:
+1. HCP/SMAR/CYBR/SQ/TRUE-style symbols with demo, fallback, or bad-DQ data are now excluded from Tony Watchlist.
+2. PATH-style prior-active symbols (tracking_status=missing_real_data + entry_triggered=1) now appear in Results as closed rather than vanishing silently.
+3. Watching-only cards (no entry trigger) now read "Watching only — no actionable trigger yet" instead of "Watching only".
+
+### Changes
+
+- **`_BAD_DQ_VALUES`** — new module-level frozenset: `{"missing_real_data", "fallback_data", "intraday_fallback_demo", "demo_data"}`.
+- **`_product_rows_only`** — strengthened: also filters `used_demo_data=1`, bad `tony_data_quality_read`, and snapshot_provider containing "demo" or "fallback".
+- **`_closed_results_pool`** — new function: wider pool for closed results; allows prior-active rows (entry_triggered=1) even if missing_real_data, but always excludes demo_generated / legacy_unknown / used_demo_data.
+- **`derive_pick_phase`** — now returns `"closed"` when `tracking_status == "missing_real_data"` (in addition to the existing `"invalidated"` check), preventing data-lost active symbols from staying in tracking.
+- **`_is_valid_closed_result_row`** — now uses `_effective_tracking_target()` and `_effective_tracking_stop()` instead of `row.get("target")` / `row.get("stop")`, so prior-active rows with only `original_target_price` / `original_stop_price` are accepted as valid closed results.
+- **`build_closed_results_product_rows`** — now uses `_closed_results_pool` instead of `_product_rows_only` as its data pool.
+- **`build_pick_card_model`** — `status` for no-trigger rows changed from `"Watching only"` to `"Watching only — no actionable trigger yet"`.
+
+### Files changed
+
+- `src/trading_bot/dashboard/helpers.py` — all 7 changes above.
+- `tests/test_dashboard_helpers.py` — new `TestV26ADataQualityAndLifecycle` class with 16 tests.
+
+### Tests/checks run
+
+- `.venv/Scripts/python -m pytest -x -q` → **626 passed**
+
+### Safety
+
+No scoring changes, no trigger rule changes, no config changes, no broker/paper/live execution changes, no orders, no data deletion. All changes are dashboard display/lifecycle filtering only.
+
+---
+
 ## V26 handoff - Position Lifecycle + Unified Watchlist + Results Filters
 
 ### Current active task

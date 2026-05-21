@@ -13,10 +13,12 @@ from trading_bot.dashboard.helpers import (
     build_pick_card_model,
     build_result_card_model,
     build_results_product_rows,
+    build_stale_tracking_rows,
     build_tony_pick_product_rows,
     build_tony_watchlist_rows,
     build_top_watch_rows,
     build_tracked_setup_card_model,
+    find_unreconciled_tracked_symbols,
     calculate_risk_reward,
     calculate_research_pl_pct,
     collect_health_issues,
@@ -1253,7 +1255,7 @@ class TestProductSemanticsV158B:
         closed_card = build_result_card_model(closed_rows.iloc[0], now=datetime(2026, 5, 19, 20, 30, tzinfo=timezone.utc))
         assert closed_card["symbol"] == "OXY"
         assert closed_card["active_entry"] == "$48.20"
-        assert closed_card["price_label"] == "Closing price"
+        assert closed_card["price_label"] == "Target Hit"
         assert closed_card["risk_reward"] == "1.7x"
 
     def test_no_nan_or_unknown_strings_in_product_cards(self) -> None:
@@ -1537,3 +1539,115 @@ class TestV26LifecycleAndWatchlist:
         filtered = filter_results_product_rows(result_rows, "Insufficient data")
         if not filtered.empty:
             assert all(r == "Insufficient data" for r in filtered["results_filter"])
+
+
+# ── V27 tests: TRACE table, terminal exit prices, trigger_date ────────────────
+
+
+class TestV27TerminalExitPrices:
+    """V27 — closed positions must show target/stop as exit price, not live price."""
+
+    def _closed_row(self, outcome: str, **kwargs: object) -> dict:
+        base: dict = {
+            "symbol": "TEST",
+            "snapshot_time": "2026-05-20T20:00:00+00:00",
+            "entry_status": "triggered",
+            "entry_triggered": 1,
+            "planned_entry_price": 100.0,
+            "actual_entry_price": 100.0,
+            "original_entry_price": 100.0,
+            "tracking_started_at": "2026-05-20T14:30:00+00:00",
+            "current_price": 105.0,
+            "target": 115.0,
+            "stop": 92.0,
+            "outcome_label": outcome,
+            "tracking_status": outcome,
+            "setup_category": "Breakout Watch",
+        }
+        base.update(kwargs)
+        return base
+
+    def test_target_hit_uses_target_as_exit(self) -> None:
+        row = pd.Series(self._closed_row("target_hit"))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert card["price_label"] == "Target Hit"
+        assert card["exit_price_label"] == "Target Hit"
+        assert card["exit_price"] == "$115.00"
+
+    def test_stop_hit_uses_stop_as_exit(self) -> None:
+        row = pd.Series(self._closed_row("stop_hit"))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert card["price_label"] == "Stop Hit"
+        assert card["exit_price_label"] == "Stop Hit"
+        assert card["exit_price"] == "$92.00"
+
+    def test_target_hit_pl_computed_entry_to_target(self) -> None:
+        """P/L for target_hit should be (target - entry) / entry, not live price."""
+        row = pd.Series(self._closed_row("target_hit", current_price=108.0))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert card["research_pl_pct"] != "N/A"
+        pct_str = card["research_pl_pct"].replace("%", "").replace("+", "").strip()
+        pct = float(pct_str)
+        assert pct > 0
+
+    def test_stop_hit_pl_is_negative(self) -> None:
+        row = pd.Series(self._closed_row("stop_hit"))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert card["research_pl_pct"] != "N/A"
+        pct_str = card["research_pl_pct"].replace("%", "").replace("+", "").strip()
+        pct = float(pct_str)
+        assert pct < 0
+
+    def test_stored_result_eod_preferred_over_computed(self) -> None:
+        row = pd.Series(self._closed_row("target_hit", result_eod=0.25))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert "+25.00%" in card["research_pl_pct"]
+
+    def test_not_triggered_has_no_exit(self) -> None:
+        row = pd.Series(self._closed_row("entry_not_triggered", entry_triggered=0))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert card["exit_price"] == "N/A"
+        assert card["exit_price_label"] == "No Exit"
+
+    def test_trigger_date_present_on_closed_card(self) -> None:
+        row = pd.Series(self._closed_row("target_hit"))
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert "trigger_date" in card
+        assert card["trigger_date"] != ""
+
+    def test_waiting_pick_has_trigger_date_not_triggered(self) -> None:
+        row = pd.Series({
+            "symbol": "DKNG",
+            "snapshot_time": "2026-05-20T14:00:00+00:00",
+            "entry_status": "pending",
+            "entry_triggered": 0,
+            "planned_entry_price": 50.0,
+            "target": 58.0,
+            "stop": 46.0,
+            "outcome_label": "unreviewed",
+            "setup_category": "Breakout Watch",
+        })
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert card["trigger_date"] == "Not triggered"
+        assert card["exit_price"] == "N/A"
+
+    def test_active_tracking_has_exit_price_and_trigger_date(self) -> None:
+        row = pd.Series({
+            "symbol": "ARM",
+            "snapshot_time": "2026-05-20T18:00:00+00:00",
+            "entry_status": "triggered",
+            "entry_triggered": 1,
+            "planned_entry_price": 150.0,
+            "actual_entry_price": 150.0,
+            "original_entry_price": 150.0,
+            "tracking_started_at": "2026-05-20T14:30:00+00:00",
+            "current_price": 155.0,
+            "target": 165.0,
+            "stop": 143.0,
+            "outcome_label": "still_open",
+            "tracking_status": "active",
+        })
+        card = build_result_card_model(row, now=datetime(2026, 5, 20, 20, 30, tzinfo=timezone.utc))
+        assert "exit_price" in card
+        assert "trigger_date" in card
+        assert card["trigger_date"] != "Not triggered"

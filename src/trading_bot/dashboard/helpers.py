@@ -402,6 +402,8 @@ def collect_health_issues(
     demo_blocked: bool,
     rate_limit_count: int,
     all_fallback: bool,
+    stale_symbols: list[str] | None = None,
+    missing_tracked_symbols: list[str] | None = None,
 ) -> list[str]:
     """Return plain-English issues for 'Is anything broken?'"""
     issues: list[str] = []
@@ -417,7 +419,55 @@ def collect_health_issues(
         issues.append("All symbols were missing real data in the last scan.")
     if rate_limit_count > 0:
         issues.append(f"Rate-limit warnings recorded ({rate_limit_count}).")
+    if stale_symbols:
+        syms = summarize_symbol_list(stale_symbols)
+        issues.append(
+            f"{len(stale_symbols)} prior tracked position(s) need review — no closure record found: {syms}."
+        )
+    if missing_tracked_symbols:
+        syms = summarize_symbol_list(missing_tracked_symbols)
+        issues.append(
+            f"{len(missing_tracked_symbols)} tracked position(s) expected from prior active list "
+            f"but no stored tracked-position row was found: {syms}."
+        )
     return issues
+
+
+def find_unreconciled_tracked_symbols(
+    snapshots: pd.DataFrame,
+    *,
+    active_symbols: set[str],
+    stale_symbols: set[str],
+) -> list[str]:
+    """Return symbols that ever had entry_triggered=1 but have no active/stale record
+    and no terminal outcome — these are missing from the tracked-position ledger."""
+    if snapshots.empty or "symbol" not in snapshots.columns:
+        return []
+    if "entry_triggered" not in snapshots.columns:
+        return []
+    triggered_mask = snapshots["entry_triggered"].fillna(0).astype(int).eq(1)
+    triggered = snapshots[triggered_mask]
+    if triggered.empty:
+        return []
+    triggered_syms = set(triggered["symbol"].astype(str).str.upper())
+    already_shown = active_symbols | stale_symbols
+    candidates = triggered_syms - already_shown
+    if not candidates:
+        return []
+    _terminal = {
+        "target_hit", "stop_hit", "target_before_stop", "stop_before_target",
+        "failed_setup", "expired_no_trigger", "entry_not_triggered",
+    }
+    _terminal_statuses = {"target_hit", "stop_hit", "invalidated", "closed", "expired", "partial_move"}
+    result: list[str] = []
+    for sym in sorted(candidates):
+        sym_rows = triggered[triggered["symbol"].astype(str).str.upper().eq(sym)]
+        outcomes = sym_rows["outcome_label"].fillna("").astype(str).str.lower() if "outcome_label" in sym_rows.columns else pd.Series(dtype=str)
+        statuses = sym_rows["tracking_status"].fillna("").astype(str).str.lower() if "tracking_status" in sym_rows.columns else pd.Series(dtype=str)
+        if outcomes.isin(_terminal).any() or statuses.isin(_terminal_statuses).any():
+            continue
+        result.append(sym)
+    return result
 
 
 def human_review_items(
@@ -508,14 +558,24 @@ TERMINAL_OUTCOMES = {
 
 # V26: named lifecycle states for unified Watchlist
 WATCHLIST_LIFECYCLE_STATES = (
-    "watching",             # phase=pick, no planned entry trigger
-    "waiting_for_trigger",  # phase=waiting_alert, pending entry
-    "active",               # triggered and tracking (still_valid / needs_review)
-    "weakening",            # triggered and tracking, reassessment=weakening
-    "invalidated",          # tracking_status=invalidated → surfaces in Results
-    "closed",               # terminal outcome → surfaces in Results
-    "expired",              # entry expired / not triggered → surfaces in Results
+    "watching",                    # phase=pick, no planned entry trigger
+    "waiting_for_trigger",         # phase=waiting_alert, pending entry
+    "active",                      # triggered and tracking (still_valid / needs_review)
+    "weakening",                   # triggered and tracking, reassessment=weakening
+    "stale_tracking_needs_review", # triggered, lost real data, no closure record (V26C)
+    "invalidated",                 # tracking_status=invalidated → surfaces in Results
+    "closed",                      # terminal outcome → surfaces in Results
+    "expired",                     # entry expired / not triggered → surfaces in Results
 )
+
+# Lifecycle sort priority for Tony Watchlist: lower = shown first
+_LIFECYCLE_SORT_PRIORITY: dict[str, int] = {
+    "active": 0,
+    "weakening": 1,
+    "stale_tracking_needs_review": 2,
+    "waiting_for_trigger": 3,
+    "watching": 4,
+}
 
 _TRACKING_OUTCOMES = {
     "unreviewed",
@@ -641,6 +701,9 @@ def _product_sort_series(frame: pd.DataFrame, columns: tuple[str, ...]) -> pd.Se
     return result
 
 
+_BAD_DQ_VALUES = frozenset({"missing_real_data", "fallback_data", "intraday_fallback_demo", "demo_data"})
+
+
 def _product_rows_only(snapshots: pd.DataFrame) -> pd.DataFrame:
     """Hide demo, fallback, missing-real-data, and legacy rows from main product views."""
     if snapshots.empty:
@@ -651,6 +714,8 @@ def _product_rows_only(snapshots: pd.DataFrame) -> pd.DataFrame:
     product = filtered.copy()
     if "used_fallback_data" in product.columns:
         product = product[product["used_fallback_data"].fillna(0).astype(int).eq(0)]
+    if "used_demo_data" in product.columns:
+        product = product[product["used_demo_data"].fillna(0).astype(int).eq(0)]
     if "data_source" in product.columns:
         excluded = {"demo_generated", "missing_real_data", "legacy_unknown", "unknown_legacy"}
         product = product[~product["data_source"].fillna("").astype(str).str.lower().isin(excluded)]
@@ -659,9 +724,90 @@ def _product_rows_only(snapshots: pd.DataFrame) -> pd.DataFrame:
             product["missing_real_data_reason"].isna()
             | product["missing_real_data_reason"].astype(str).str.strip().eq("")
         ]
+    if "tony_data_quality_read" in product.columns:
+        product = product[
+            ~product["tony_data_quality_read"].fillna("").astype(str).str.lower().isin(_BAD_DQ_VALUES)
+        ]
+    if "snapshot_provider" in product.columns:
+        bad_provider = product["snapshot_provider"].fillna("").astype(str).str.lower()
+        product = product[~bad_provider.str.contains("demo|fallback", regex=True)]
     if "symbol" in product.columns:
         product = product[product["symbol"].fillna("").astype(str).str.strip().ne("")]
     return product.copy()
+
+
+def _closed_results_pool(snapshots: pd.DataFrame) -> pd.DataFrame:
+    """Wider pool for stale/closed detection — allows prior-active missing_real_data rows,
+    but always excludes pure demo/legacy rows."""
+    if snapshots.empty:
+        return snapshots.copy()
+    filtered = filter_research_snapshots(snapshots)
+    if filtered.empty:
+        return filtered
+    pool = filtered.copy()
+    if "data_source" in pool.columns:
+        excluded = {"demo_generated", "legacy_unknown", "unknown_legacy"}
+        pool = pool[~pool["data_source"].fillna("").astype(str).str.lower().isin(excluded)]
+    if "used_demo_data" in pool.columns:
+        pool = pool[pool["used_demo_data"].fillna(0).astype(int).eq(0)]
+    pure_demo_dq = frozenset({"demo_data", "intraday_fallback_demo"})
+    if "tony_data_quality_read" in pool.columns:
+        pool = pool[
+            ~pool["tony_data_quality_read"].fillna("").astype(str).str.lower().isin(pure_demo_dq)
+        ]
+    if "snapshot_provider" in pool.columns:
+        pool = pool[
+            ~pool["snapshot_provider"].fillna("").astype(str).str.lower().str.contains("demo_generated", regex=False)
+        ]
+    if "symbol" in pool.columns:
+        pool = pool[pool["symbol"].fillna("").astype(str).str.strip().ne("")]
+    return pool.copy()
+
+
+def _is_stale_tracked_position(row: dict[str, Any] | pd.Series) -> bool:
+    """True for a prior-active triggered position that lost real data with no closure record."""
+    if isinstance(row, pd.Series):
+        row = dict(row)
+    entry_triggered_raw = row.get("entry_triggered")
+    if is_missing_scalar(entry_triggered_raw) or int(entry_triggered_raw) != 1:
+        return False
+    tracking_status = str(row.get("tracking_status") or "").strip().lower()
+    if tracking_status != "missing_real_data":
+        return False
+    return not is_missing_scalar(
+        row.get("original_entry_price")
+        or row.get("actual_entry_price")
+        or row.get("entry_trigger_price")
+    )
+
+
+def build_stale_tracking_rows(snapshots: pd.DataFrame) -> pd.DataFrame:
+    """One stale-tracking row per prior-active symbol that lost real data coverage.
+
+    These symbols had entry_triggered=1 but update-snapshots could not fetch real bars.
+    They appear in Tony Watchlist as stale_tracking_needs_review — not silently dropped.
+    """
+    pool = _closed_results_pool(snapshots)
+    if pool.empty or "symbol" not in pool.columns:
+        return pd.DataFrame()
+    records: list[dict[str, Any]] = []
+    for symbol, group in pool.groupby(pool["symbol"].astype(str).str.upper(), sort=False):
+        if not symbol:
+            continue
+        candidates = group[group.apply(_is_stale_tracked_position, axis=1)].copy()
+        if candidates.empty:
+            continue
+        candidates["_sort_time"] = _product_sort_series(
+            candidates, ("tracking_started_at", "actual_entry_time", "snapshot_time")
+        )
+        candidates = candidates.sort_values("_sort_time", ascending=False, na_position="last")
+        record = dict(candidates.iloc[0].drop(labels=["_sort_time"], errors="ignore"))
+        record["symbol"] = symbol
+        record["lifecycle_state"] = "stale_tracking_needs_review"
+        records.append(record)
+    if not records:
+        return pd.DataFrame()
+    return pd.DataFrame(records)
 
 
 def _effective_tracking_target(row: dict[str, Any] | pd.Series) -> Any:
@@ -797,6 +943,11 @@ def _is_valid_tony_pick_row(row: dict[str, Any] | pd.Series) -> bool:
     if phase not in {"pick", "waiting_alert"}:
         return False
     if is_missing_scalar(row.get("target")) or is_missing_scalar(row.get("stop")):
+        return False
+    # When Tony analysis has run (tony_analysis_version set), require a valid priority label
+    if not is_missing_scalar(row.get("tony_analysis_version")) and is_missing_scalar(
+        row.get("tony_priority_label")
+    ):
         return False
     return True
 
@@ -1153,6 +1304,21 @@ def format_time_active(
         return "unknown"
 
 
+def _format_trigger_date(ts_str: Any) -> str:
+    """Short formatted trigger/entry date for Results table."""
+    if is_missing_scalar(ts_str):
+        return "—"
+    try:
+        ts = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        ts_et = ts.astimezone(_US_EASTERN)
+        return ts_et.strftime("%b %d, %I:%M %p").replace(" 0", " ")
+    except Exception:
+        text = str(ts_str).strip()
+        return text[:16] if text else "—"
+
+
 def _parse_json_list(raw: Any) -> list[str]:
     """Parse JSON/list/dict/scalar DB values into string items; never raises."""
     if is_missing_scalar(raw):
@@ -1427,7 +1593,7 @@ def build_pick_card_model(row: dict[str, Any] | pd.Series) -> dict[str, str]:
     )
     current_price_value = row.get("current_price") or row.get("intraday_close") or row.get("close")
     trigger_price = row.get("planned_entry_price")
-    status = "Waiting for trigger" if has_planned else "Watching only"
+    status = "Waiting for trigger" if has_planned else "Watching only — no actionable trigger yet"
     return {
         "symbol": str(row.get("symbol", "?")).upper(),
         "tony_rating": format_tony_rating(row.get("tony_priority_label")),
@@ -1452,8 +1618,9 @@ def build_pick_card_model(row: dict[str, Any] | pd.Series) -> dict[str, str]:
             current_price_value,
             missing=current_price_missing_text(),
         ),
-        "target": format_money_or_missing(row.get("target")),
-        "stop": format_money_or_missing(row.get("stop")),
+        "target": format_money_or_missing(row.get("target")) if has_planned else "N/A",
+        "stop": format_money_or_missing(row.get("stop")) if has_planned else "N/A",
+        "needed_before_entry": "" if has_planned else "Tony has not created an actionable trigger yet.",
         "distance_to_trigger": format_trigger_distance(current_price_value, trigger_price),
         "risk_reward": format_risk_reward_or_missing(
             calculate_risk_reward(trigger_price, row.get("target"), row.get("stop"))
@@ -1719,14 +1886,28 @@ def _result_bucket_for_row(row: dict[str, Any] | pd.Series) -> str:
 
 
 def build_results_product_rows(snapshots: pd.DataFrame) -> pd.DataFrame:
-    """Build one current clean product-state row per symbol for Results."""
+    """Build one current clean product-state row per symbol for Results.
+
+    Order: active tracking first, then closed, then waiting_alert picks only.
+    Watching-only (no planned entry trigger) picks are excluded from Results.
+    Stale tracking rows are excluded (they appear in Tony Watchlist instead).
+    """
     if snapshots.empty or "symbol" not in snapshots.columns:
         return pd.DataFrame()
-    picks = build_tony_pick_product_rows(snapshots)
     active = build_active_tracking_product_rows(snapshots)
-    closed = build_closed_results_product_rows(snapshots, active_rows=active, pick_rows=picks)
+    # Build closed without pick_rows exclusion — prevents PATH's old pick row blocking it
+    closed = build_closed_results_product_rows(snapshots, active_rows=active)
+    # Only waiting_alert picks (with a real planned entry trigger) belong in Results
+    all_picks = build_tony_pick_product_rows(snapshots)
+    waiting_picks = pd.DataFrame()
+    if not all_picks.empty:
+        mask = all_picks.apply(
+            lambda row: derive_pick_phase(row) == "waiting_alert" and has_valid_planned_entry(row),
+            axis=1,
+        )
+        waiting_picks = all_picks[mask].copy()
     frames: list[pd.DataFrame] = []
-    for phase_name, frame in (("waiting", picks), ("active", active), ("closed", closed)):
+    for phase_name, frame in (("active", active), ("closed", closed), ("waiting", waiting_picks)):
         if frame.empty:
             continue
         enriched = frame.copy()
@@ -1756,26 +1937,46 @@ def _watchlist_lifecycle_state(row: dict[str, Any] | pd.Series) -> str:
     return "active"
 
 
-def build_tony_watchlist_rows(snapshots: pd.DataFrame) -> pd.DataFrame:
+def build_tony_watchlist_rows(
+    snapshots: pd.DataFrame,
+    *,
+    quarantine_symbols: set[str] | None = None,
+) -> pd.DataFrame:
     """Unified Tony Watchlist: one card per symbol combining picks and active tracking.
 
     Active tracking rows take priority over pick rows for the same symbol.
+    Stale tracking rows (prior-active, lost real data) appear below active.
     Closed/invalidated/expired symbols are excluded — they appear in Results.
+    Quarantined symbols are filtered out entirely.
     """
+    quarantine: set[str] = {s.upper() for s in (quarantine_symbols or set())}
+
     active = build_active_tracking_product_rows(snapshots)
     picks = build_tony_pick_product_rows(snapshots)
+    stale = build_stale_tracking_rows(snapshots)
 
     active_symbols: set[str] = set()
+    stale_symbols: set[str] = set()
     frames: list[pd.DataFrame] = []
 
     if not active.empty:
         active_copy = active.copy()
-        active_symbols = set(active_copy["symbol"].astype(str).str.upper().tolist())
-        active_copy["lifecycle_state"] = active_copy.apply(_watchlist_lifecycle_state, axis=1)
-        frames.append(active_copy)
+        active_copy = active_copy[~active_copy["symbol"].astype(str).str.upper().isin(quarantine)]
+        if not active_copy.empty:
+            active_symbols = set(active_copy["symbol"].astype(str).str.upper().tolist())
+            active_copy["lifecycle_state"] = active_copy.apply(_watchlist_lifecycle_state, axis=1)
+            frames.append(active_copy)
+
+    if not stale.empty:
+        stale_copy = stale.copy()
+        stale_copy = stale_copy[~stale_copy["symbol"].astype(str).str.upper().isin(quarantine | active_symbols)]
+        if not stale_copy.empty:
+            stale_symbols = set(stale_copy["symbol"].astype(str).str.upper().tolist())
+            frames.append(stale_copy)
 
     if not picks.empty:
-        pick_filtered = picks[~picks["symbol"].astype(str).str.upper().isin(active_symbols)].copy()
+        excluded = quarantine | active_symbols | stale_symbols
+        pick_filtered = picks[~picks["symbol"].astype(str).str.upper().isin(excluded)].copy()
         if not pick_filtered.empty:
             pick_filtered["lifecycle_state"] = pick_filtered.apply(_watchlist_lifecycle_state, axis=1)
             frames.append(pick_filtered)
@@ -1784,12 +1985,19 @@ def build_tony_watchlist_rows(snapshots: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     combined = pd.concat(frames, ignore_index=True)
+    combined["_lifecycle_priority"] = combined["lifecycle_state"].map(
+        lambda s: _LIFECYCLE_SORT_PRIORITY.get(str(s), 99)
+    )
     combined["_sort_time"] = _product_sort_series(
         combined,
         ("tracking_started_at", "actual_entry_time", "snapshot_time"),
     )
-    combined = combined.sort_values(["_sort_time", "symbol"], ascending=[False, True], na_position="last")
-    return combined.drop(columns="_sort_time")
+    combined = combined.sort_values(
+        ["_lifecycle_priority", "_sort_time", "symbol"],
+        ascending=[True, False, True],
+        na_position="last",
+    )
+    return combined.drop(columns=["_lifecycle_priority", "_sort_time"])
 
 
 def filter_results_product_rows(rows: pd.DataFrame, filter_name: str) -> pd.DataFrame:
@@ -1958,22 +2166,29 @@ def build_result_card_model(
     entry_trigger = row.get("planned_entry_price")
     if phase == "tracking":
         active_card = build_tracked_setup_card_model(row, now=now)
+        trigger_time = (
+            row.get("tracking_started_at") or row.get("actual_entry_time") or row.get("entry_triggered_at")
+        )
         return {
             "symbol": active_card["symbol"],
             "setup_type": setup_type,
             "status": active_card["tony_status"],
             "price_label": active_card["price_label"],
             "price_value": active_card["price_value"],
+            "exit_price": active_card["price_value"],
+            "exit_price_label": active_card["price_label"],
             "entry_trigger": active_card["entry_trigger"],
             "active_entry": active_card["tracked_from_price"],
             "research_pl_pct": active_card["research_pl_pct"],
             "target": active_card["target"],
             "stop": active_card["stop"],
             "risk_reward": active_card["risk_reward"],
+            "trigger_date": _format_trigger_date(trigger_time),
             "reason": short_complete_sentence(why, default="Tony is tracking this setup."),
             "result_explanation": result_explanation(row),
             "results_filter": _result_bucket_for_row(row),
             "phase": phase,
+            "outcome_label": str(row.get("outcome_label") or "unreviewed"),
         }
     if phase in {"pick", "waiting_alert"}:
         pick_card = build_pick_card_model(row)
@@ -1983,18 +2198,39 @@ def build_result_card_model(
             "status": pick_card["status"],
             "price_label": pick_card["price_label"],
             "price_value": pick_card["current_price"],
+            "exit_price": "N/A",
+            "exit_price_label": "No Exit",
             "entry_trigger": pick_card["entry_trigger"],
             "active_entry": "N/A",
             "research_pl_pct": "N/A",
             "target": pick_card["target"],
             "stop": pick_card["stop"],
             "risk_reward": pick_card["risk_reward"],
+            "trigger_date": "Not triggered",
             "reason": short_complete_sentence(why, default="Tony is watching this setup."),
             "result_explanation": pick_card["trigger_explanation"],
             "results_filter": _result_bucket_for_row(row),
             "phase": phase,
+            "outcome_label": str(row.get("outcome_label") or "unreviewed"),
         }
+    # ── Closed phase ───────────────────────────────────────────────────────────
+    outcome = str(row.get("outcome_label") or "").strip().lower()
     active_entry = _effective_tracking_entry(row)
+    # For terminal outcomes use the final exit price, not live/current price.
+    # target_hit → exit at target; stop_hit → exit at stop; others → current price.
+    if outcome in ("target_hit", "target_before_stop"):
+        exit_price_raw = _effective_tracking_target(row)
+        exit_label = "Target Hit"
+    elif outcome in ("stop_hit", "stop_before_target", "failed_setup"):
+        exit_price_raw = _effective_tracking_stop(row)
+        exit_label = "Stop Hit"
+    elif outcome in ("entry_not_triggered", "expired_no_trigger"):
+        exit_price_raw = None
+        exit_label = "No Exit"
+    else:
+        exit_price_raw = price_value
+        exit_label = current_price_label(now=now)
+    # P/L: prefer stored result_eod; fall back to entry → exit (not entry → live).
     stored_result = row.get("result_eod")
     research_pl_pct = None
     if not is_missing_scalar(stored_result):
@@ -2002,15 +2238,20 @@ def build_result_card_model(
             research_pl_pct = float(stored_result) * 100.0
         except (TypeError, ValueError):
             research_pl_pct = None
-    if research_pl_pct is None and not is_missing_scalar(active_entry):
-        research_pl_pct = calculate_research_pl_pct(active_entry, price_value)
+    if research_pl_pct is None and not is_missing_scalar(active_entry) and not is_missing_scalar(exit_price_raw):
+        research_pl_pct = calculate_research_pl_pct(active_entry, exit_price_raw)
     rr_entry = active_entry if not is_missing_scalar(active_entry) else entry_trigger
+    trigger_time = (
+        row.get("tracking_started_at") or row.get("actual_entry_time") or row.get("entry_triggered_at")
+    )
     return {
         "symbol": str(row.get("symbol", "?")).upper(),
         "setup_type": setup_type,
         "status": format_outcome_plain(row.get("outcome_label")),
-        "price_label": current_price_label(now=now),
-        "price_value": format_money_or_missing(price_value, missing=current_price_missing_text(now=now)),
+        "price_label": exit_label,
+        "price_value": format_money_or_missing(exit_price_raw, missing=current_price_missing_text(now=now)),
+        "exit_price": format_money_or_missing(exit_price_raw, missing="N/A"),
+        "exit_price_label": exit_label,
         "entry_trigger": format_money_or_missing(entry_trigger, missing="N/A"),
         "active_entry": format_money_or_missing(active_entry, missing="N/A"),
         "research_pl_pct": format_percent_or_missing(research_pl_pct, missing="N/A"),
@@ -2019,10 +2260,12 @@ def build_result_card_model(
         "risk_reward": format_risk_reward_or_missing(
             calculate_risk_reward(rr_entry, row.get("target"), row.get("stop"))
         ),
+        "trigger_date": _format_trigger_date(trigger_time),
         "reason": short_complete_sentence(why, default="Tony reviewed this setup."),
         "result_explanation": result_explanation(row),
         "results_filter": _result_bucket_for_row(row),
         "phase": phase,
+        "outcome_label": outcome,
     }
 
 

@@ -11,110 +11,157 @@ from trading_bot.dashboard.helpers import format_percent_or_missing, is_missing_
 
 _TONY_APP_CSS = """
 <style>
+/* ── Base: dark navy research terminal ─────────────────────────── */
 [data-testid="stAppViewContainer"] {
-  background: linear-gradient(165deg, #eef2ff 0%, #f8fafc 35%, #f1f5f9 100%);
+  background: #080d1c;
+}
+[data-testid="stAppViewContainer"] > .main > .block-container {
+  background: transparent;
+}
+[data-testid="stSidebar"] {
+  background: #040810;
+  border-right: 1px solid rgba(255,255,255,0.07);
 }
 .block-container {
   padding-top: 1.5rem;
-  max-width: 1200px;
+  max-width: 1280px;
 }
+/* ── Sidebar brand ─────────────────────────────────────────────── */
+.trace-brand {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #e2e8f0;
+  letter-spacing: -0.01em;
+  padding: 0.5rem 0 0.1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.trace-brand-icon {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.trace-brand-sub {
+  font-size: 0.68rem;
+  color: #334155;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  padding-bottom: 0.4rem;
+}
+/* ── Hero ──────────────────────────────────────────────────────── */
 .tony-hero {
-  border-radius: 22px;
-  padding: 1.6rem 1.8rem;
+  border-radius: 18px;
+  padding: 1.5rem 1.75rem;
   margin-bottom: 1.25rem;
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 48%, #2563eb 100%);
-  color: #ffffff;
-  box-shadow: 0 12px 32px rgba(79, 70, 229, 0.28);
+  background: linear-gradient(135deg, #1e3a5f 0%, #1a2a5e 55%, #15194a 100%);
+  color: #e2e8f0;
+  border: 1px solid rgba(99,102,241,0.25);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 .tony-hero-title {
-  font-size: 1.85rem;
+  font-size: 1.6rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 0.4rem 0;
+  margin: 0 0 0.3rem 0;
+  color: #f1f5f9;
 }
 .tony-hero-sub {
-  font-size: 1.05rem;
-  opacity: 0.95;
+  font-size: 0.98rem;
+  opacity: 0.85;
   margin: 0;
+  color: #cbd5e1;
 }
 .tony-hero-badge {
   display: inline-block;
-  margin-top: 0.85rem;
-  padding: 0.35rem 0.85rem;
+  margin-top: 0.75rem;
+  padding: 0.26rem 0.72rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  font-size: 0.82rem;
+  background: rgba(99,102,241,0.22);
+  border: 1px solid rgba(99,102,241,0.38);
+  font-size: 0.76rem;
   font-weight: 600;
+  color: #a5b4fc;
 }
+/* ── Section header ────────────────────────────────────────────── */
 .tony-section {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #0f172a;
-  margin: 1.25rem 0 0.65rem 0;
+  color: #e2e8f0;
+  margin: 1.25rem 0 0.6rem 0;
+  letter-spacing: -0.01em;
 }
+/* ── Stat grid ─────────────────────────────────────────────────── */
 .tony-stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.65rem;
   margin: 0.75rem 0 1rem 0;
 }
 .tony-stat-tile {
-  border-radius: 16px;
+  border-radius: 14px;
   padding: 0.85rem 1rem;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.07);
 }
 .tony-stat-tile-purple {
-  background: linear-gradient(145deg, #ede9fe 0%, #ffffff 100%);
-  border-color: #c4b5fd;
+  background: linear-gradient(145deg, #1e1b4b 0%, #111827 100%);
+  border-color: rgba(99,102,241,0.35);
 }
 .tony-stat-tile-blue {
-  background: linear-gradient(145deg, #dbeafe 0%, #ffffff 100%);
-  border-color: #93c5fd;
+  background: linear-gradient(145deg, #0c1d3b 0%, #111827 100%);
+  border-color: rgba(59,130,246,0.35);
 }
 .tony-stat-tile-green {
-  background: linear-gradient(145deg, #dcfce7 0%, #ffffff 100%);
-  border-color: #86efac;
+  background: linear-gradient(145deg, #052e16 0%, #111827 100%);
+  border-color: rgba(34,197,94,0.35);
 }
 .tony-stat-tile-amber {
-  background: linear-gradient(145deg, #fef3c7 0%, #ffffff 100%);
-  border-color: #fcd34d;
+  background: linear-gradient(145deg, #1c1003 0%, #111827 100%);
+  border-color: rgba(245,158,11,0.35);
 }
 .tony-stat-label {
-  font-size: 0.72rem;
+  font-size: 0.67rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
+  letter-spacing: 0.06em;
+  color: #475569;
 }
 .tony-stat-value {
   font-size: 1.35rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #f1f5f9;
   margin-top: 0.2rem;
   line-height: 1.2;
 }
 .tony-stat-hint {
-  font-size: 0.78rem;
-  color: #64748b;
-  margin-top: 0.25rem;
+  font-size: 0.71rem;
+  color: #334155;
+  margin-top: 0.2rem;
 }
+/* ── Cards ─────────────────────────────────────────────────────── */
 .tony-card {
-  border-radius: 20px;
-  padding: 1.25rem 1.45rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 0.9rem;
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
 }
 .tony-card-preview {
-  padding: 1rem 1.15rem;
+  padding: 0.95rem 1.1rem;
 }
 .tony-preview-why {
-  font-size: 0.92rem;
-  margin: 0.45rem 0 0.55rem 0;
-  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  margin: 0.4rem 0 0.5rem 0;
+  padding: 0.5rem 0.65rem;
 }
 .tony-preview-pl {
   font-size: 1.05rem;
@@ -123,7 +170,7 @@ _TONY_APP_CSS = """
   white-space: nowrap;
 }
 .tony-card-track {
-  border-left: 4px solid #6366f1;
+  border-left: 3px solid #3b82f6;
 }
 .tony-card-header {
   display: flex;
@@ -134,113 +181,205 @@ _TONY_APP_CSS = """
   margin-bottom: 0.5rem;
 }
 .tony-card-symbol {
-  font-size: 2rem;
+  font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #0f172a;
+  color: #f1f5f9;
   line-height: 1.1;
 }
 .tony-card-symbol-sm {
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #f1f5f9;
 }
 .tony-pl-hero {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   text-align: right;
 }
-.tony-pl-positive { color: #15803d; }
-.tony-pl-negative { color: #b91c1c; }
-.tony-pl-neutral { color: #475569; }
+.tony-pl-positive { color: #22c55e; }
+.tony-pl-negative { color: #ef4444; }
+.tony-pl-neutral  { color: #94a3b8; }
 .tony-card-why {
-  color: #334155;
-  font-size: 1rem;
+  color: #94a3b8;
+  font-size: 0.95rem;
   line-height: 1.5;
-  margin: 0.65rem 0 0.85rem 0;
-  padding: 0.75rem 0.9rem;
-  background: #f8fafc;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  margin: 0.6rem 0 0.8rem 0;
+  padding: 0.7rem 0.85rem;
+  background: #0d1526;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 .tony-pill-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0.5rem 0 0.65rem 0;
+  gap: 0.35rem;
+  margin: 0.45rem 0 0.6rem 0;
 }
 .tony-metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.65rem;
-  margin: 0.65rem 0 0.75rem 0;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.55rem;
+  margin: 0.6rem 0 0.7rem 0;
 }
 .tony-metric {
-  background: #ffffff;
-  border-radius: 14px;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid #e2e8f0;
+  background: #0d1526;
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 .tony-metric-highlight {
-  background: linear-gradient(145deg, #eef2ff 0%, #ffffff 100%);
-  border-color: #c7d2fe;
+  background: linear-gradient(145deg, #0c1d3b 0%, #0d1526 100%);
+  border-color: rgba(59,130,246,0.2);
 }
 .tony-metric-label {
-  font-size: 0.7rem;
-  color: #64748b;
+  font-size: 0.65rem;
+  color: #475569;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   font-weight: 600;
 }
 .tony-metric-value {
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #0f172a;
-  margin-top: 0.2rem;
+  color: #e2e8f0;
+  margin-top: 0.15rem;
 }
+/* ── Pills ──────────────────────────────────────────────────────── */
 .tony-pill {
   display: inline-block;
-  padding: 0.28rem 0.7rem;
+  padding: 0.24rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.73rem;
   font-weight: 600;
 }
-.tony-pill-positive { background: #dcfce7; color: #166534; }
-.tony-pill-negative { background: #fee2e2; color: #991b1b; }
-.tony-pill-warning { background: #fef3c7; color: #92400e; }
-.tony-pill-risk { background: #ffedd5; color: #9a3412; }
-.tony-pill-info { background: #dbeafe; color: #1e40af; }
-.tony-pill-purple { background: #ede9fe; color: #5b21b6; }
-.tony-pill-neutral { background: #e2e8f0; color: #334155; }
+.tony-pill-positive { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.tony-pill-negative { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+.tony-pill-warning  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.tony-pill-risk     { background: rgba(249,115,22,0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.25); }
+.tony-pill-info     { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+.tony-pill-purple   { background: rgba(99,102,241,0.15); color: #a78bfa; border: 1px solid rgba(99,102,241,0.25); }
+.tony-pill-neutral  { background: rgba(100,116,139,0.12);color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
+/* ── Footnotes / disclaimers ───────────────────────────────────── */
 .tony-footnote {
-  font-size: 0.82rem;
-  color: #64748b;
+  font-size: 0.78rem;
+  color: #475569;
   margin-top: 0.4rem;
   line-height: 1.4;
 }
 .tony-disclaimer {
-  border-radius: 14px;
-  padding: 0.85rem 1rem;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
-  font-size: 0.88rem;
-  margin: 0.75rem 0;
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  color: #fbbf24;
+  font-size: 0.83rem;
+  margin: 0.65rem 0;
 }
 .tony-results-banner {
-  border-radius: 14px;
-  padding: 0.9rem 1.1rem;
-  background: linear-gradient(135deg, #fef3c7 0%, #fff7ed 100%);
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  color: #fbbf24;
   font-weight: 600;
-  margin-bottom: 1rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.87rem;
 }
 .tony-briefing-line {
-  font-size: 1.02rem;
-  color: #334155;
-  margin: 0.35rem 0 0.85rem 0;
+  font-size: 0.97rem;
+  color: #64748b;
+  margin: 0.35rem 0 0.8rem 0;
   line-height: 1.45;
+}
+/* ── TRACE Results page header ─────────────────────────────────── */
+.trace-page-header { margin-bottom: 1rem; }
+.trace-page-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin: 0 0 0.2rem 0;
+  letter-spacing: -0.02em;
+}
+.trace-page-sub { font-size: 0.87rem; color: #475569; margin: 0; }
+/* ── TRACE Results table ───────────────────────────────────────── */
+.trace-results-table {
+  background: #111827;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.07);
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+.trace-table-header {
+  display: grid;
+  grid-template-columns: 1.6fr 1.2fr 1.1fr 0.85fr 0.85fr 0.85fr 0.85fr 0.75fr 0.6fr 1.1fr 1.5fr;
+  padding: 0.6rem 1.1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.025);
+}
+.trace-th {
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #334155;
+}
+.trace-table-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1.2fr 1.1fr 0.85fr 0.85fr 0.85fr 0.85fr 0.75fr 0.6fr 1.1fr 1.5fr;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  align-items: center;
+}
+.trace-table-row:last-child { border-bottom: none; }
+.trace-symbol {
+  font-size: 1.0rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+.trace-company {
+  font-size: 0.7rem;
+  color: #334155;
+  margin-top: 0.08rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.trace-setup-type { font-size: 0.79rem; color: #475569; }
+.trace-status-pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.trace-pill-blue   { background: rgba(59,130,246,0.14);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+.trace-pill-green  { background: rgba(34,197,94,0.14);   color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.trace-pill-red    { background: rgba(239,68,68,0.14);   color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+.trace-pill-amber  { background: rgba(245,158,11,0.14);  color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.trace-pill-gray   { background: rgba(100,116,139,0.11); color: #94a3b8; border: 1px solid rgba(100,116,139,0.18); }
+.trace-cell        { font-size: 0.81rem; color: #94a3b8; }
+.trace-price-hit   { font-size: 0.81rem; color: #4ade80; font-weight: 600; }
+.trace-price-stop  { font-size: 0.81rem; color: #f87171; font-weight: 600; }
+.trace-pl-positive { color: #4ade80; font-weight: 700; font-size: 0.83rem; }
+.trace-pl-negative { color: #f87171; font-weight: 700; font-size: 0.83rem; }
+.trace-pl-neutral  { color: #64748b; font-size: 0.83rem; }
+.trace-notes-cell  {
+  font-size: 0.75rem; color: #334155;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trace-empty-state {
+  text-align: center; padding: 2.5rem;
+  color: #334155; font-size: 0.88rem;
+}
+.trace-disclaimer {
+  font-size: 0.71rem; color: #1e293b;
+  text-align: right; padding: 0.55rem 1.1rem;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  font-style: italic;
 }
 </style>
 """
@@ -569,3 +708,89 @@ def render_results_performance(summary: dict[str, Any], *, avg_pl: str, period: 
         briefing_line(f"Strongest setup type (early): {best}")
     if weak:
         briefing_line(f"Weakest setup type (early): {weak}")
+
+
+# ── TRACE Results table ─────────────────────────────────────────────────────
+
+
+def _trace_status_pill_html(outcome_label: str, status_text: str) -> str:
+    """Return a colored pill span for the TRACE results table status column."""
+    ol = (outcome_label or "").lower().strip()
+    if ol in ("target_hit", "target_before_stop"):
+        tone = "green"
+    elif ol in ("stop_hit", "stop_before_target", "failed_setup"):
+        tone = "red"
+    elif ol in ("tracking", "still_active"):
+        tone = "blue"
+    elif ol in ("entry_not_triggered", "expired_no_trigger", "unreviewed"):
+        tone = "gray"
+    else:
+        tone = "amber"
+    return f'<span class="trace-status-pill trace-pill-{tone}">{_esc(status_text)}</span>'
+
+
+def build_results_table_html(cards: list[dict[str, str]]) -> str:
+    """Build the full TRACE-style results HTML table from a list of result card models."""
+    headers = [
+        "Ticker", "Setup Type", "Status",
+        "Entry", "Exit / Current", "Target", "Stop",
+        "Research P/L", "R/R", "Date", "Notes",
+    ]
+    header_row = "".join(f'<div class="trace-th">{h}</div>' for h in headers)
+
+    if not cards:
+        return (
+            '<div class="trace-results-table">'
+            f'<div class="trace-table-header">{header_row}</div>'
+            '<div class="trace-empty-state">No results match the current filter.</div>'
+            '<div class="trace-disclaimer">Research outcomes only. No edge proven. Not investment advice.</div>'
+            "</div>"
+        )
+
+    rows_html = ""
+    for card in cards:
+        outcome = card.get("outcome_label", "")
+        status_text = card.get("status", "—")
+        pl_raw = card.get("research_pl_pct", "N/A")
+        pl_class = "trace-pl-neutral"
+        if isinstance(pl_raw, str) and pl_raw.startswith("+"):
+            pl_class = "trace-pl-positive"
+        elif isinstance(pl_raw, str) and pl_raw.startswith("-"):
+            pl_class = "trace-pl-negative"
+
+        exit_label = card.get("exit_price_label", card.get("price_label", "Exit"))
+        exit_value = card.get("exit_price", card.get("price_value", "—"))
+        exit_class = ""
+        if "target" in exit_label.lower():
+            exit_class = " trace-price-hit"
+        elif "stop" in exit_label.lower():
+            exit_class = " trace-price-stop"
+
+        rows_html += (
+            '<div class="trace-table-row">'
+            f'<div class="trace-cell"><span class="trace-symbol">{_esc(card.get("symbol", "?"))}</span></div>'
+            f'<div class="trace-cell trace-setup-type">{_esc(card.get("setup_type", "—"))}</div>'
+            f'<div class="trace-cell">{_trace_status_pill_html(outcome, status_text)}</div>'
+            f'<div class="trace-cell">{_esc(card.get("entry_trigger", "N/A"))}</div>'
+            f'<div class="trace-cell{exit_class}">{_esc(exit_value)}</div>'
+            f'<div class="trace-cell">{_esc(card.get("target", "—"))}</div>'
+            f'<div class="trace-cell">{_esc(card.get("stop", "—"))}</div>'
+            f'<div class="trace-cell {pl_class}">{_esc(pl_raw)}</div>'
+            f'<div class="trace-cell">{_esc(card.get("risk_reward", "—"))}</div>'
+            f'<div class="trace-cell">{_esc(card.get("trigger_date", "—"))}</div>'
+            f'<div class="trace-cell trace-notes-cell">{_esc(card.get("reason", "—"))}</div>'
+            "</div>"
+        )
+
+    return (
+        '<div class="trace-results-table">'
+        f'<div class="trace-table-header">{header_row}</div>'
+        f"{rows_html}"
+        '<div class="trace-disclaimer">Research outcomes only. No edge proven. Not investment advice.</div>'
+        "</div>"
+    )
+
+
+def render_results_table(cards: list[dict[str, str]]) -> None:
+    """Render the TRACE-style results table via st.markdown."""
+    render_html(build_results_table_html(cards))

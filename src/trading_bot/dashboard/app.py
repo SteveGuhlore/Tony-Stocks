@@ -21,11 +21,13 @@ from trading_bot.dashboard.helpers import (
     build_pick_card_model,
     build_result_card_model,
     build_results_product_rows,
+    build_stale_tracking_rows,
     build_tony_pick_product_rows,
     build_tony_watchlist_rows,
     build_top_watch_rows,
     build_tracked_setup_card_model,
     collect_health_issues,
+    find_unreconciled_tracked_symbols,
     count_hypothesis_by_priority,
     count_interesting_and_risky_stocks,
     eod_outcome_summary_today,
@@ -64,10 +66,12 @@ from trading_bot.dashboard.theme import (
     briefing_line,
     inject_tony_theme,
     render_hero,
+    render_html,
     render_pick_preview_card,
     render_pick_signal_card,
     render_result_card,
     render_results_performance,
+    render_results_table,
     render_stat_grid,
     render_tracking_position_card,
     render_tracking_preview_card,
@@ -1276,6 +1280,27 @@ def _dashboard_context(repo: ScannerRepository, results: pd.DataFrame) -> dict:
     rate_limit_count = int(filter_events_by_type(events, "rate_limit_warning").shape[0])
     all_fallback = bool(latest_event_of_type(events, "all_symbol_fallback"))
 
+    research_snaps = _load_research_snapshots(repo)
+    phases = split_snapshots_by_phase(research_snaps)
+    picks_df = build_tony_pick_product_rows(research_snaps)
+    tracking_df = build_active_tracking_product_rows(research_snaps)
+    stale_df = build_stale_tracking_rows(research_snaps)
+    stale_symbols_list = (
+        list(stale_df["symbol"].astype(str).str.upper()) if not stale_df.empty else []
+    )
+
+    active_symbols_set = (
+        set(tracking_df["symbol"].astype(str).str.upper()) if not tracking_df.empty else set()
+    )
+    stale_symbols_set = (
+        set(stale_df["symbol"].astype(str).str.upper()) if not stale_df.empty else set()
+    )
+    missing_tracked = find_unreconciled_tracked_symbols(
+        research_snaps,
+        active_symbols=active_symbols_set,
+        stale_symbols=stale_symbols_set,
+    )
+
     health_issues = collect_health_issues(
         watch_status=wsr_label,
         real_data_only=real_only,
@@ -1283,12 +1308,10 @@ def _dashboard_context(repo: ScannerRepository, results: pd.DataFrame) -> dict:
         demo_blocked=demo_blocked,
         rate_limit_count=rate_limit_count,
         all_fallback=all_fallback,
+        stale_symbols=stale_symbols_list or None,
+        missing_tracked_symbols=missing_tracked or None,
     )
 
-    research_snaps = _load_research_snapshots(repo)
-    phases = split_snapshots_by_phase(research_snaps)
-    picks_df = build_tony_pick_product_rows(research_snaps)
-    tracking_df = build_active_tracking_product_rows(research_snaps)
     pending_symbol_count = 0
     if not picks_df.empty:
         pending_symbol_count = int(
@@ -1345,6 +1368,9 @@ def _dashboard_context(repo: ScannerRepository, results: pd.DataFrame) -> dict:
         "research_snaps": research_snaps,
         "picks_df": picks_df,
         "tracking_df": tracking_df,
+        "stale_df": stale_df,
+        "stale_symbols": stale_symbols_list,
+        "missing_tracked": missing_tracked,
         "phases": phases,
         "pl_summary": pl_summary,
         "api_requests": api_requests,
@@ -1424,7 +1450,8 @@ def render_tony_watchlist(repo: ScannerRepository, results: pd.DataFrame) -> Non
     )
     st.caption(risk_reward_definition_text())
 
-    watchlist = build_tony_watchlist_rows(ctx["research_snaps"])
+    quarantine_set = set(ctx.get("quarantined_symbols") or [])
+    watchlist = build_tony_watchlist_rows(ctx["research_snaps"], quarantine_symbols=quarantine_set)
 
     if watchlist.empty:
         st.info("Tony Watchlist is empty. Run a scan and watch cycle to populate.")
@@ -1433,7 +1460,7 @@ def render_tony_watchlist(repo: ScannerRepository, results: pd.DataFrame) -> Non
     filter_cols = st.columns(2)
     lifecycle_filter = filter_cols[0].selectbox(
         "Show",
-        ["All", "Watching", "Waiting for trigger", "Active", "Weakening"],
+        ["All", "Active", "Stale / Needs review", "Waiting for trigger", "Watching", "Weakening"],
         key="watchlist_lifecycle_filter",
     )
     sort_choice = filter_cols[1].selectbox(
@@ -1447,6 +1474,7 @@ def render_tony_watchlist(repo: ScannerRepository, results: pd.DataFrame) -> Non
             "Waiting for trigger": "waiting_for_trigger",
             "Active": "active",
             "Weakening": "weakening",
+            "Stale / Needs review": "stale_tracking_needs_review",
         }
         state = state_map.get(lifecycle_filter)
         if state and "lifecycle_state" in rows_to_show.columns:
@@ -1461,7 +1489,7 @@ def render_tony_watchlist(repo: ScannerRepository, results: pd.DataFrame) -> Non
 
     for _, row in rows_to_show.iterrows():
         lifecycle = str(row.get("lifecycle_state") or "watching")
-        if lifecycle in ("active", "weakening"):
+        if lifecycle in ("active", "weakening", "stale_tracking_needs_review"):
             render_tracking_position_card(build_tracked_setup_card_model(row))
         else:
             render_pick_signal_card(build_pick_card_model(row))
@@ -1536,15 +1564,23 @@ def _results_prepared_for_period(repo: ScannerRepository, period: str) -> pd.Dat
 
 
 def render_results(repo: ScannerRepository) -> None:
-    """Results — plain-English research performance."""
+    """Results — TRACE-style research performance table."""
     inject_tony_theme()
-    section_header("Results")
-    st.caption("What happened after Tony noticed each setup.")
+    render_html(
+        '<div class="trace-page-header">'
+        '<div class="trace-page-title">Results</div>'
+        '<div class="trace-page-sub">What happened after Tony noticed each setup.</div>'
+        "</div>"
+    )
 
     period = st.radio("Period", ["Today", "This week", "All time"], horizontal=True, key="results_period")
+    # prepared = period-filtered real-only analytics — used for stats/P&L summary only
     prepared = _results_prepared_for_period(repo, period)
-    active_tracking_rows = build_active_tracking_product_rows(prepared)
-    result_rows = build_results_product_rows(prepared)
+    # research_snaps = same full ledger as Watchlist — used for product cards
+    # Active positions triggered before today must not disappear from Results
+    research_snaps = _load_research_snapshots(repo)
+    active_tracking_rows = build_active_tracking_product_rows(research_snaps)
+    result_rows = build_results_product_rows(research_snaps)
     summary = summarize_results_plain_english(
         prepared,
         period_label=period,
@@ -1557,11 +1593,8 @@ def render_results(repo: ScannerRepository) -> None:
 
     filter_name = st.radio("Result filter", RESULTS_FILTERS, horizontal=True, key="results_filter")
     filtered_rows = filter_results_product_rows(result_rows, filter_name)
-    if filtered_rows.empty:
-        st.info("No result cards match this filter yet.")
-        return
-    for _, row in filtered_rows.iterrows():
-        render_result_card(build_result_card_model(row))
+    cards = [build_result_card_model(row) for _, row in filtered_rows.iterrows()]
+    render_results_table(cards)
 
 
 def render_system_health(repo: ScannerRepository, results: pd.DataFrame) -> None:
@@ -1622,6 +1655,23 @@ def render_system_health(repo: ScannerRepository, results: pd.DataFrame) -> None
     rec[2].metric("Incomplete hidden", reconciliation["incomplete_rows_hidden_from_product_views"])
     rec[3].metric("History hidden", reconciliation["history_rows_hidden_from_product_views"])
     st.caption("Dashboard dedupe and hiding change visibility only. Raw candidate snapshot history remains in `data/trading_bot.db` and legacy developer views.")
+
+    stale = ctx.get("stale_symbols") or []
+    missing_tracked = ctx.get("missing_tracked") or []
+    if stale or missing_tracked:
+        st.markdown("#### Tracked position ledger gaps")
+        if stale:
+            st.warning(
+                f"**Stale tracking — no closure record:** {summarize_symbol_list(stale)}. "
+                "These positions were active but real data is no longer available. "
+                "Shown in Tony Watchlist as 'Stale / Needs review'."
+            )
+        if missing_tracked:
+            st.error(
+                f"**Missing tracked-position row:** {summarize_symbol_list(missing_tracked)}. "
+                "These symbols were expected from prior active tracking but no stored row was found. "
+                "Raw history in `data/trading_bot.db` may still contain trigger records."
+            )
 
     with st.expander("Legacy developer views (tables, charts, raw events)", expanded=False):
         st.caption("Developer/debug only. Not part of the main Tony product flow.")
@@ -1818,20 +1868,27 @@ def main() -> None:
     repo = repository()
     results = latest_results(repo)
     inject_tony_theme()
-    st.title("Tony Stocks")
-    tabs = st.tabs([
-        "Home",
-        "Tony Watchlist",
-        "Results",
-        "Settings / System Health",
-    ])
-    with tabs[0]:
+    with st.sidebar:
+        render_html(
+            '<div class="trace-brand">'
+            '<span class="trace-brand-icon">T</span>'
+            "Tony Stocks"
+            "</div>"
+            '<div class="trace-brand-sub">Research terminal</div>'
+        )
+        st.divider()
+        page = st.radio(
+            "Navigate",
+            ["Home", "Tony Watchlist", "Results", "Settings / System Health"],
+            label_visibility="collapsed",
+        )
+    if page == "Home":
         render_home(repo, results)
-    with tabs[1]:
+    elif page == "Tony Watchlist":
         render_tony_watchlist(repo, results)
-    with tabs[2]:
+    elif page == "Results":
         render_results(repo)
-    with tabs[3]:
+    else:
         render_system_health(repo, results)
 
 
