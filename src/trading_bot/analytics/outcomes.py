@@ -242,6 +242,28 @@ class OutcomeAnalytics:
         """Build a research-only signal scorecard from filtered rows."""
         return build_signal_scorecard(self.prepared())
 
+    def terminal_outcome_summary(self) -> dict[str, Any]:
+        """Summarize terminal exit prices and final research P/L for closed positions."""
+        return build_terminal_outcome_summary(self.prepared())
+
+    def rotation_diagnostics(
+        self,
+        scan_results_today: pd.DataFrame,
+        *,
+        configured_universe_size: int | None = None,
+        active_symbols: set[str] | None = None,
+        core_symbols: set[str] | None = None,
+        rotation_bucket_summary: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build discovery rotation diagnostics from today's scan results."""
+        return build_rotation_diagnostics(
+            scan_results_today,
+            configured_universe_size=configured_universe_size,
+            active_symbols=active_symbols,
+            core_symbols=core_symbols,
+            rotation_bucket_summary=rotation_bucket_summary,
+        )
+
     def tony_self_review(
         self,
         memory_summary: dict[str, Any],
@@ -464,6 +486,72 @@ def build_signal_scorecard(rows: pd.DataFrame) -> dict[str, Any]:
             }
         )
     return {"note": note, "signals": signals}
+
+
+def build_terminal_outcome_summary(rows: pd.DataFrame) -> dict[str, Any]:
+    """Summarize terminal exit prices and final research P/L for closed positions.
+
+    Research only. Does not change scoring, trigger rules, or trading behavior.
+    Active positions and insufficient_future_data rows are excluded.
+    Stop/target exit prices come from tracked stop/target levels, not actual fills.
+    """
+    from trading_bot.snapshots.active_tracking import compute_terminal_outcome_fields  # noqa: PLC0415
+
+    note = (
+        "Terminal P/L is research-only and uses stored tracking stop/target levels, "
+        "not actual filled prices. It does not represent trading performance."
+    )
+
+    if rows.empty:
+        return {
+            "note": note,
+            "terminal_count": 0,
+            "stop_hit": {},
+            "target_hit": {},
+            "other_closed": {},
+            "inferred_exit_price_count": 0,
+        }
+
+    terminal_rows: list[dict[str, Any]] = []
+    for _, row in rows.iterrows():
+        fields = compute_terminal_outcome_fields(row.to_dict())
+        if fields["is_terminal_outcome"]:
+            terminal_rows.append(fields)
+
+    if not terminal_rows:
+        return {
+            "note": note,
+            "terminal_count": 0,
+            "stop_hit": {},
+            "target_hit": {},
+            "other_closed": {},
+            "inferred_exit_price_count": 0,
+        }
+
+    def _group_stats(group: list[dict[str, Any]]) -> dict[str, Any]:
+        pls = [r["terminal_research_pl_pct"] for r in group if r["terminal_research_pl_pct"] is not None]
+        return {
+            "count": len(group),
+            "avg_pl_pct": round(sum(pls) / len(pls), 4) if pls else None,
+            "positive_count": sum(1 for p in pls if p > 0),
+            "negative_count": sum(1 for p in pls if p < 0),
+            "no_exit_price_count": sum(1 for r in group if r["terminal_exit_price"] is None),
+        }
+
+    stop_group = [r for r in terminal_rows if r["terminal_exit_reason"] == "stop_hit"]
+    target_group = [r for r in terminal_rows if r["terminal_exit_reason"] == "target_hit"]
+    other_group = [r for r in terminal_rows if r["terminal_exit_reason"] not in ("stop_hit", "target_hit")]
+
+    return {
+        "note": note,
+        "terminal_count": len(terminal_rows),
+        "stop_hit": _group_stats(stop_group) if stop_group else {},
+        "target_hit": _group_stats(target_group) if target_group else {},
+        "other_closed": _group_stats(other_group) if other_group else {},
+        "inferred_exit_price_count": sum(
+            1 for r in terminal_rows if r.get("terminal_exit_price_note")
+        ),
+    }
 
 
 def _memory_triggered_mask(data: pd.DataFrame) -> pd.Series:
@@ -704,6 +792,109 @@ def _memory_data_quality_notes(
         if missing_rows > 0:
             notes.append(f"{missing_rows} fallback or missing real-data row(s) were excluded.")
     return notes
+
+
+def build_rotation_diagnostics(
+    scan_results_today: pd.DataFrame,
+    *,
+    configured_universe_size: int | None = None,
+    active_symbols: set[str] | None = None,
+    core_symbols: set[str] | None = None,
+    rotation_bucket_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Measure whether Tony is rotating through the expanded universe or repeating symbols.
+
+    This is a diagnostic only. It does not change rotation behavior, scoring, or triggers.
+    Active/core/open-snapshot symbols are expected to repeat; discovery symbols should rotate.
+    """
+    note = (
+        "Active tracked, core, and open-snapshot symbols are expected to appear in multiple cycles. "
+        "Discovery symbols should rotate across cycles. "
+        "This diagnostic is for tuning only — it does not change rotation behavior."
+    )
+
+    if scan_results_today.empty or "symbol" not in scan_results_today.columns:
+        return {
+            "note": note,
+            "unique_symbols_scanned": 0,
+            "total_scan_appearances": 0,
+            "repeat_scan_count": 0,
+            "top_repeated_symbols": [],
+            "active_core_repeats": [],
+            "estimated_fresh_discovery": None,
+            "percent_universe_touched": None,
+            "rotation_bucket_summary": rotation_bucket_summary or {},
+            "symbols_never_scanned_today": None,
+        }
+
+    _active = {s.upper() for s in (active_symbols or set())}
+    _core = {s.upper() for s in (core_symbols or set())}
+    _expected_repeat = _active | _core
+
+    symbols_col = scan_results_today["symbol"].fillna("").astype(str).str.upper()
+    universe_role_col = (
+        scan_results_today["universe_role"].fillna("").astype(str).str.lower()
+        if "universe_role" in scan_results_today.columns
+        else pd.Series("", index=scan_results_today.index)
+    )
+
+    from collections import Counter as _Counter
+    symbol_counts: _Counter[str] = _Counter(symbols_col.tolist())
+    unique_symbols = set(symbol_counts.keys()) - {""}
+    total_appearances = sum(symbol_counts.values())
+    symbols_with_repeats = {sym: cnt for sym, cnt in symbol_counts.items() if cnt > 1 and sym}
+    repeat_count = len(symbols_with_repeats)
+
+    top_repeated: list[dict[str, Any]] = []
+    for sym, cnt in sorted(symbols_with_repeats.items(), key=lambda x: (-x[1], x[0]))[:10]:
+        role = ""
+        role_mask = symbols_col.eq(sym)
+        if role_mask.any():
+            roles = universe_role_col[role_mask]
+            role = str(roles.mode().iloc[0]) if not roles.empty else ""
+        label = "expected (active/core)" if sym in _expected_repeat else ("discovery" if "discovery" in role else "")
+        top_repeated.append({
+            "symbol": sym,
+            "scan_count": cnt,
+            "universe_role": role,
+            "repeat_label": label,
+        })
+
+    active_core_repeats: list[dict[str, Any]] = [
+        r for r in top_repeated if r["symbol"] in _expected_repeat
+    ]
+
+    discovery_count_from_rotation = (
+        int(rotation_bucket_summary.get("latest_discovery_count") or 0)
+        if rotation_bucket_summary
+        else None
+    )
+    discovery_syms = {
+        sym for sym in unique_symbols
+        if "discovery" in str(
+            universe_role_col[symbols_col.eq(sym)].mode().iloc[0]
+            if symbols_col.eq(sym).any() else ""
+        ).lower()
+    }
+    fresh_discovery = len({sym for sym in discovery_syms if symbol_counts.get(sym, 0) == 1})
+    estimated_fresh_discovery: int | None = fresh_discovery if discovery_syms else discovery_count_from_rotation
+
+    percent_universe: float | None = None
+    if configured_universe_size and configured_universe_size > 0 and unique_symbols:
+        percent_universe = round(len(unique_symbols) / configured_universe_size * 100, 1)
+
+    return {
+        "note": note,
+        "unique_symbols_scanned": len(unique_symbols),
+        "total_scan_appearances": total_appearances,
+        "repeat_scan_count": repeat_count,
+        "top_repeated_symbols": top_repeated,
+        "active_core_repeats": active_core_repeats,
+        "estimated_fresh_discovery": estimated_fresh_discovery,
+        "percent_universe_touched": percent_universe,
+        "rotation_bucket_summary": rotation_bucket_summary or {},
+        "symbols_never_scanned_today": None,
+    }
 
 
 def build_tony_self_review(

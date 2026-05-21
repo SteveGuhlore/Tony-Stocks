@@ -20,8 +20,10 @@ from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
     build_replay_summary,
+    build_rotation_diagnostics,
     build_signal_scorecard,
     build_strategy_version_report,
+    build_terminal_outcome_summary,
     build_tony_self_review,
     market_date_mask,
     new_york_market_date,
@@ -1313,6 +1315,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         exclusions=exclusions,
     )
     signal_scorecard = build_signal_scorecard(prepared)
+    terminal_outcomes = build_terminal_outcome_summary(prepared)
     scan_coverage = _build_scan_coverage_summary(report_date, repo, settings, today_events)
 
     latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
@@ -1527,6 +1530,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "strategy_version_report": strategy_report,
         "replay_summary": replay,
         "signal_scorecard": signal_scorecard,
+        "terminal_outcome_summary": terminal_outcomes,
         "scan_coverage": scan_coverage,
     }
 
@@ -1584,6 +1588,28 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
             lines.append(f"- Skip reason {key.replace('_', ' ')}: {value}")
         for note in coverage.get("notes") or []:
             lines.append(f"- Note: {note}")
+        diag = coverage.get("rotation_diagnostics") or {}
+        if diag:
+            lines.append("")
+            lines.append("### Discovery Rotation Diagnostics")
+            lines.append(f"- Note: {diag.get('note', '')}")
+            lines.append(f"- Unique symbols scanned today: {diag.get('unique_symbols_scanned', 'unavailable')}")
+            lines.append(f"- Total scan appearances: {diag.get('total_scan_appearances', 'unavailable')}")
+            lines.append(f"- Symbols with repeat scans: {diag.get('repeat_scan_count', 'unavailable')}")
+            pct_u = diag.get("percent_universe_touched")
+            lines.append(f"- Percent of configured universe touched: {f'{pct_u:.1f}%' if pct_u is not None else 'unavailable'}")
+            fresh = diag.get("estimated_fresh_discovery")
+            lines.append(f"- Estimated fresh discovery symbols: {fresh if fresh is not None else 'unavailable'}")
+            top = diag.get("top_repeated_symbols") or []
+            if top:
+                lines.append("- Top repeated symbols:")
+                for item in top:
+                    label = f" [{item['repeat_label']}]" if item.get("repeat_label") else ""
+                    role = f" ({item['universe_role']})" if item.get("universe_role") else ""
+                    lines.append(f"  - {item['symbol']}: {item['scan_count']} scans{role}{label}")
+            ac = diag.get("active_core_repeats") or []
+            if ac:
+                lines.append(f"- Active/core expected repeats: {', '.join(r['symbol'] for r in ac)}")
         lines.append("")
 
     # Reconciliation
@@ -3047,6 +3073,12 @@ def _build_scan_coverage_summary(
         "A larger universe needs a screener funnel before scanning thousands of stocks end to end.",
     ]
 
+    rotation_diagnostics = build_rotation_diagnostics(
+        scan_results_today,
+        configured_universe_size=configured_universe_size,
+        rotation_bucket_summary=rotation_bucket_summary,
+    )
+
     return {
         "configured_universe_size": configured_universe_size,
         "symbols_selected_loaded": selected_loaded,
@@ -3065,6 +3097,7 @@ def _build_scan_coverage_summary(
         "batch_requests": batch_requests,
         "rotation_bucket_summary": rotation_bucket_summary,
         "skip_reason_counts": skip_reason_counts,
+        "rotation_diagnostics": rotation_diagnostics,
         "notes": notes,
     }
 
@@ -3182,6 +3215,38 @@ def _print_scan_coverage_summary(coverage: dict[str, Any], header: str = "\nScan
     print("Notes:")
     for note in coverage.get("notes") or []:
         print(f"  - {note}")
+    diag = coverage.get("rotation_diagnostics") or {}
+    if diag:
+        _print_rotation_diagnostics(diag)
+
+
+def _print_rotation_diagnostics(diag: dict[str, Any], header: str = "\nDiscovery rotation diagnostics:") -> None:
+    print(header)
+    note = str(diag.get("note") or "").strip()
+    if note:
+        print(f"  Note: {note}")
+    unique = diag.get("unique_symbols_scanned")
+    total = diag.get("total_scan_appearances")
+    repeats = diag.get("repeat_scan_count")
+    pct = diag.get("percent_universe_touched")
+    fresh = diag.get("estimated_fresh_discovery")
+    print(f"  Unique symbols scanned today: {unique if unique is not None else 'unavailable'}")
+    print(f"  Total scan appearances: {total if total is not None else 'unavailable'}")
+    print(f"  Symbols with repeat scans: {repeats if repeats is not None else 'unavailable'}")
+    print(f"  Estimated fresh discovery symbols: {fresh if fresh is not None else 'unavailable'}")
+    print(f"  Percent of configured universe touched: {f'{pct:.1f}%' if pct is not None else 'unavailable'}")
+    top = diag.get("top_repeated_symbols") or []
+    if top:
+        print("  Top repeated symbols (by scan count):")
+        for item in top:
+            label = f" [{item['repeat_label']}]" if item.get("repeat_label") else ""
+            role = f" ({item['universe_role']})" if item.get("universe_role") else ""
+            print(f"    {item['symbol']}: {item['scan_count']} scans{role}{label}")
+    ac = diag.get("active_core_repeats") or []
+    if ac:
+        print(f"  Active/core expected repeats: {', '.join(r['symbol'] for r in ac)}")
+    else:
+        print("  Active/core expected repeats: none identified")
 
 
 def _print_signal_scorecard(scorecard: dict[str, Any], header: str = "\nSignal scorecard:") -> None:

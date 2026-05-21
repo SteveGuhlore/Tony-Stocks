@@ -6,6 +6,118 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V34A handoff - Terminal Outcome Model Fields
+
+### Current active task
+
+V34A is complete. Backend/model helpers for terminal exit price and final research P/L are added without changing dashboard layout or visuals.
+
+### Changes
+
+- **`src/trading_bot/snapshots/active_tracking.py`**
+  - Added `compute_terminal_outcome_fields(snapshot: dict) -> dict` — pure helper that computes terminal outcome fields from any snapshot dict.
+  - Returns: `is_terminal_outcome`, `terminal_exit_price`, `terminal_exit_reason`, `terminal_research_pl_pct`, `terminal_exit_price_note`.
+  - `stop_hit` (tracking_status or outcome_label): exit price from `current_stop_price` → `original_stop_price` → `stop`.
+  - `target_hit` (tracking_status or outcome_label): exit price from `current_target_price` → `original_target_price` → `target`.
+  - Other closed states: exit price from `current_price` → `intraday_close` → `close` with inferred note.
+  - Active positions and `insufficient_future_data` → `is_terminal_outcome=False`.
+  - P/L = `(exit_price - original_entry_price) / original_entry_price * 100` (None when exit price unavailable).
+
+- **`src/trading_bot/snapshots/__init__.py`**
+  - Exported `compute_terminal_outcome_fields`.
+
+- **`src/trading_bot/analytics/outcomes.py`**
+  - Added `build_terminal_outcome_summary(rows: pd.DataFrame) -> dict` — aggregates per-row terminal fields into a summary with stop_hit, target_hit, other_closed groups, avg P/L, positive/negative counts, inferred_exit_price_count.
+  - Added `OutcomeAnalytics.terminal_outcome_summary()` delegation method.
+
+- **`src/trading_bot/analytics/__init__.py`**
+  - Exported `build_terminal_outcome_summary`.
+
+- **`src/trading_bot/cli.py`**
+  - Imported `build_terminal_outcome_summary`.
+  - `run_eod_report()`: calls `build_terminal_outcome_summary(prepared)` and includes `terminal_outcome_summary` in return dict.
+
+- **`tests/test_v15_8_active_tracking.py`**
+  - Added `TestTerminalOutcomeFields` class with 12 tests: stop_hit exit price, stop P/L, target_hit exit price, target P/L, active not terminal, insufficient_future_data not terminal, other closed inferred price, missing exit price note, stop_before_target, target_before_stop, current > original stop preference, current > original target preference, no broker/order fields.
+
+- **`tests/test_outcome_analytics.py`**
+  - Imported `build_terminal_outcome_summary` and `pytest`.
+  - Added 7 V34A tests: empty df, stop P/L, target P/L, active excluded, insufficient excluded, inferred exit counted, EOD return dict includes key.
+
+### Files changed
+
+- `src/trading_bot/snapshots/active_tracking.py`
+- `src/trading_bot/snapshots/__init__.py`
+- `src/trading_bot/analytics/outcomes.py`
+- `src/trading_bot/analytics/__init__.py`
+- `src/trading_bot/cli.py`
+- `tests/test_v15_8_active_tracking.py`
+- `tests/test_outcome_analytics.py`
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `pytest tests/test_v15_8_active_tracking.py tests/test_outcome_analytics.py -x -q` → **147 passed**
+- `pytest -x -q` → running
+
+### Safety
+
+No dashboard visual changes (app.py and theme.py untouched). No scoring changes. No trigger-rule changes. No trading/paper/broker/orders. No demo data. No data deletion. No position-ledger filtering changes. Terminal P/L is research-only and uses stored stop/target levels, not actual filled prices.
+
+---
+
+## V31 handoff - Discovery Rotation Diagnostics
+
+### Current active task
+
+V31 is complete. `eod-report` and after-market review now include a research-only discovery rotation diagnostics section that measures whether Tony is rotating through the expanded universe or repeatedly scanning the same symbols.
+
+### Changes
+
+- **`src/trading_bot/analytics/outcomes.py`**
+  - Added `build_rotation_diagnostics(scan_results_today, *, configured_universe_size, active_symbols, core_symbols, rotation_bucket_summary)` standalone function.
+  - Returns: `note`, `unique_symbols_scanned`, `total_scan_appearances`, `repeat_scan_count`, `top_repeated_symbols` (symbol/scan_count/universe_role/repeat_label), `active_core_repeats`, `estimated_fresh_discovery`, `percent_universe_touched`, `rotation_bucket_summary`, `symbols_never_scanned_today`.
+  - Active/core symbols labeled "expected (active/core)" in `repeat_label`; discovery repeats are not.
+  - Added `OutcomeAnalytics.rotation_diagnostics()` delegation method.
+
+- **`src/trading_bot/analytics/__init__.py`**
+  - Added `build_rotation_diagnostics` to imports and `__all__`.
+
+- **`src/trading_bot/cli.py`**
+  - Added `build_rotation_diagnostics` to analytics import.
+  - In `_build_scan_coverage_summary()`: calls `build_rotation_diagnostics()` and includes `rotation_diagnostics` in the returned dict.
+  - Added `_print_rotation_diagnostics(diag)` helper.
+  - In `_print_scan_coverage_summary()`: calls `_print_rotation_diagnostics()`.
+  - In `_build_eod_report_markdown()`: added "### Discovery Rotation Diagnostics" subsection.
+
+- **`tests/test_v31_rotation_diagnostics.py`** (new file, 17 tests)
+  - 14 pure unit tests: empty df, no symbol column, unique count, repeat count, no repeats, fallback, no universe_role, active labeled expected, core labeled expected, discovery not expected, active_core_repeats empty, percent universe, percent none, note always present.
+  - 3 integration tests using `_make_test_db` + `_patch_eod` helpers.
+
+### Files changed
+
+- `src/trading_bot/analytics/outcomes.py`
+- `src/trading_bot/analytics/__init__.py`
+- `src/trading_bot/cli.py`
+- `tests/test_v31_rotation_diagnostics.py` (new)
+- `tests/test_outcome_analytics.py` (import added)
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `pytest tests/test_v31_rotation_diagnostics.py -x -q` → **17 passed**
+- `pytest -x -q` → **691 passed**
+
+### Safety
+
+No scoring changes, no trigger-rule changes, no rotation-behavior changes, no broker/paper/live execution, no orders, no demo-data inclusion in active analytics, no dashboard visual changes, no data deletion. This is additive reporting only.
+
+### Next recommended step
+
+Collect real market days with the rotation diagnostics in EOD output to calibrate repeat thresholds before acting on them.
+
+---
+
 ## V30 handoff - Safe Universe Expansion To 300-500 Symbols
 
 ### Current active task

@@ -19,6 +19,7 @@ from trading_bot.snapshots.active_tracking import (
     build_active_tracking_refresh_updates,
     build_original_plan_freeze_updates,
     compute_research_unrealized_pl_pct,
+    compute_terminal_outcome_fields,
     compute_time_active_minutes,
     derive_reassessment_state,
     map_tracking_status_from_outcome,
@@ -322,3 +323,126 @@ class TestNoBrokerBehavior:
         updates = build_original_plan_freeze_updates(_triggered_snapshot())
         forbidden = {"order", "broker", "paper_trade", "live_trade", "shares"}
         assert not forbidden.intersection(updates.keys())
+
+
+# ── V34A — Terminal outcome model fields ──────────────────────────────────────
+
+class TestTerminalOutcomeFields:
+    def _stop_hit_snap(self, **overrides) -> dict:
+        base = {
+            "tracking_status": TRACKING_STATUS_STOP_HIT,
+            "outcome_label": "stop_hit",
+            "original_entry_price": 100.0,
+            "original_stop_price": 95.0,
+            "current_stop_price": 95.0,
+        }
+        base.update(overrides)
+        return base
+
+    def _target_hit_snap(self, **overrides) -> dict:
+        base = {
+            "tracking_status": TRACKING_STATUS_TARGET_HIT,
+            "outcome_label": "target_hit",
+            "original_entry_price": 100.0,
+            "original_target_price": 110.0,
+            "current_target_price": 110.0,
+        }
+        base.update(overrides)
+        return base
+
+    def test_stop_hit_uses_stop_price(self) -> None:
+        fields = compute_terminal_outcome_fields(self._stop_hit_snap())
+        assert fields["is_terminal_outcome"] is True
+        assert fields["terminal_exit_price"] == 95.0
+        assert fields["terminal_exit_reason"] == "stop_hit"
+
+    def test_stop_hit_pl_from_entry(self) -> None:
+        fields = compute_terminal_outcome_fields(self._stop_hit_snap())
+        assert fields["terminal_research_pl_pct"] == pytest.approx(-5.0)
+
+    def test_target_hit_uses_target_price(self) -> None:
+        fields = compute_terminal_outcome_fields(self._target_hit_snap())
+        assert fields["is_terminal_outcome"] is True
+        assert fields["terminal_exit_price"] == 110.0
+        assert fields["terminal_exit_reason"] == "target_hit"
+
+    def test_target_hit_pl_from_entry(self) -> None:
+        fields = compute_terminal_outcome_fields(self._target_hit_snap())
+        assert fields["terminal_research_pl_pct"] == pytest.approx(10.0)
+
+    def test_active_position_not_terminal(self) -> None:
+        snap = {"tracking_status": TRACKING_STATUS_ACTIVE, "original_entry_price": 100.0}
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["is_terminal_outcome"] is False
+        assert fields["terminal_exit_price"] is None
+        assert fields["terminal_research_pl_pct"] is None
+
+    def test_insufficient_future_data_not_terminal(self) -> None:
+        snap = {
+            "tracking_status": "closed",
+            "outcome_label": "insufficient_future_data",
+            "original_entry_price": 100.0,
+        }
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["is_terminal_outcome"] is False
+
+    def test_other_closed_falls_back_to_current_price(self) -> None:
+        snap = {
+            "tracking_status": "closed",
+            "outcome_label": "closed_manually",
+            "original_entry_price": 100.0,
+            "current_price": 105.0,
+        }
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["is_terminal_outcome"] is True
+        assert fields["terminal_exit_price"] == 105.0
+        assert fields["terminal_exit_price_note"] is not None
+        assert "inferred" in fields["terminal_exit_price_note"].lower()
+
+    def test_missing_exit_price_sets_note(self) -> None:
+        snap = {
+            "tracking_status": "expired",
+            "outcome_label": "expired_no_trigger",
+            "original_entry_price": 100.0,
+        }
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["is_terminal_outcome"] is True
+        assert fields["terminal_exit_price"] is None
+        assert fields["terminal_research_pl_pct"] is None
+
+    def test_stop_before_target_outcome_uses_stop(self) -> None:
+        snap = {
+            "tracking_status": TRACKING_STATUS_STOP_HIT,
+            "outcome_label": "stop_before_target",
+            "original_entry_price": 100.0,
+            "original_stop_price": 94.0,
+        }
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["terminal_exit_reason"] == "stop_hit"
+        assert fields["terminal_exit_price"] == 94.0
+
+    def test_target_before_stop_outcome_uses_target(self) -> None:
+        snap = {
+            "tracking_status": TRACKING_STATUS_TARGET_HIT,
+            "outcome_label": "target_before_stop",
+            "original_entry_price": 100.0,
+            "original_target_price": 112.0,
+        }
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["terminal_exit_reason"] == "target_hit"
+        assert fields["terminal_exit_price"] == 112.0
+
+    def test_stop_hit_prefers_current_over_original_stop(self) -> None:
+        snap = self._stop_hit_snap(current_stop_price=96.5, original_stop_price=95.0)
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["terminal_exit_price"] == 96.5
+
+    def test_target_hit_prefers_current_over_original_target(self) -> None:
+        snap = self._target_hit_snap(current_target_price=111.0, original_target_price=110.0)
+        fields = compute_terminal_outcome_fields(snap)
+        assert fields["terminal_exit_price"] == 111.0
+
+    def test_no_order_or_broker_fields_in_output(self) -> None:
+        fields = compute_terminal_outcome_fields(self._stop_hit_snap())
+        forbidden = {"order", "broker", "paper_trade", "live_trade", "shares"}
+        assert not forbidden.intersection(fields.keys())

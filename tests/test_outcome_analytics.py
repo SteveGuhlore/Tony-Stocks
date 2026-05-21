@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 from types import SimpleNamespace
 
 import trading_bot.cli as cli
@@ -9,8 +10,10 @@ from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
     build_replay_summary,
+    build_rotation_diagnostics,
     build_signal_scorecard,
     build_strategy_version_report,
+    build_terminal_outcome_summary,
     build_tony_self_review,
     generate_tony_rule_suggestions,
     market_date_mask,
@@ -2844,3 +2847,103 @@ def test_proposal_replay_markdown_contains_key_sections(tmp_path, monkeypatch):
     assert "Approved does not mean applied" in md
     assert "Research only" in md
     assert "Not applied" in md
+
+
+# ── V34A — Terminal outcome summary ──────────────────────────────────────────
+
+def _terminal_rows(*specs) -> pd.DataFrame:
+    """Build a minimal prepared DataFrame for terminal outcome testing."""
+    cols = {
+        "tracking_status": [],
+        "outcome_label": [],
+        "original_entry_price": [],
+        "original_stop_price": [],
+        "current_stop_price": [],
+        "original_target_price": [],
+        "current_target_price": [],
+        "current_price": [],
+        "entry_triggered": [],
+        "entry_status": [],
+        "actual_entry_price": [],
+    }
+    for spec in specs:
+        for key in cols:
+            cols[key].append(spec.get(key, None))
+    return pd.DataFrame(cols)
+
+
+def test_terminal_outcome_summary_empty_df():
+    result = build_terminal_outcome_summary(pd.DataFrame())
+    assert result["terminal_count"] == 0
+    assert result["stop_hit"] == {}
+    assert result["target_hit"] == {}
+    assert result["note"]
+
+
+def test_terminal_outcome_summary_stop_hit_pl():
+    df = _terminal_rows(
+        {"tracking_status": "stop_hit", "outcome_label": "stop_hit",
+         "original_entry_price": 100.0, "current_stop_price": 95.0},
+    )
+    result = build_terminal_outcome_summary(df)
+    assert result["terminal_count"] == 1
+    stop = result["stop_hit"]
+    assert stop["count"] == 1
+    assert stop["avg_pl_pct"] == pytest.approx(-5.0)
+    assert stop["negative_count"] == 1
+
+
+def test_terminal_outcome_summary_target_hit_pl():
+    df = _terminal_rows(
+        {"tracking_status": "target_hit", "outcome_label": "target_hit",
+         "original_entry_price": 100.0, "current_target_price": 110.0},
+    )
+    result = build_terminal_outcome_summary(df)
+    assert result["terminal_count"] == 1
+    target = result["target_hit"]
+    assert target["count"] == 1
+    assert target["avg_pl_pct"] == pytest.approx(10.0)
+    assert target["positive_count"] == 1
+
+
+def test_terminal_outcome_summary_active_excluded():
+    df = _terminal_rows(
+        {"tracking_status": "active", "outcome_label": "still_open",
+         "original_entry_price": 100.0},
+    )
+    result = build_terminal_outcome_summary(df)
+    assert result["terminal_count"] == 0
+
+
+def test_terminal_outcome_summary_insufficient_excluded():
+    df = _terminal_rows(
+        {"tracking_status": "closed", "outcome_label": "insufficient_future_data",
+         "original_entry_price": 100.0},
+    )
+    result = build_terminal_outcome_summary(df)
+    assert result["terminal_count"] == 0
+
+
+def test_terminal_outcome_summary_inferred_exit_counted():
+    df = _terminal_rows(
+        {"tracking_status": "closed", "outcome_label": "closed_manually",
+         "original_entry_price": 100.0, "current_price": 103.0},
+    )
+    result = build_terminal_outcome_summary(df)
+    assert result["terminal_count"] == 1
+    assert result["inferred_exit_price_count"] == 1
+
+
+def test_terminal_outcome_summary_eod_includes_key(tmp_path, monkeypatch):
+    """run_eod_report return dict includes terminal_outcome_summary."""
+    from tests.test_v31_rotation_diagnostics import _make_test_db, _patch_eod
+    from types import SimpleNamespace
+
+    repo, _ = _make_test_db(tmp_path)
+    _patch_eod(monkeypatch, repo)
+    args = SimpleNamespace(config="ignored", date="2026-05-20",
+                           output_dir=str(tmp_path / "reports"), include_seeded=False)
+    result = cli.run_eod_report(args)
+    summary = result.get("terminal_outcome_summary") or {}
+    assert "terminal_count" in summary
+    assert "note" in summary

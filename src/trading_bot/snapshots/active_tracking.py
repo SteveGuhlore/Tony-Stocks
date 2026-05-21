@@ -422,6 +422,84 @@ def build_active_tracking_refresh_updates(
     return updates
 
 
+def compute_terminal_outcome_fields(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Compute terminal exit price and final research P/L for closed/terminal positions.
+
+    Active positions and insufficient_future_data rows return is_terminal_outcome=False.
+    For stop_hit and target_hit the exit price comes from the tracked stop/target level.
+    For other closed states the exit price falls back to current_price with a note.
+    """
+    tracking_status = str(snapshot.get("tracking_status") or "").strip().lower()
+    outcome_label = str(snapshot.get("outcome_label") or "").strip().lower()
+
+    _ACTIVE_STATUSES = {TRACKING_STATUS_ACTIVE, ""}
+    _INSUFFICIENT = {"insufficient_future_data"}
+
+    if tracking_status in _ACTIVE_STATUSES or outcome_label in _INSUFFICIENT:
+        return {
+            "is_terminal_outcome": False,
+            "terminal_exit_price": None,
+            "terminal_exit_reason": None,
+            "terminal_research_pl_pct": None,
+            "terminal_exit_price_note": None,
+        }
+
+    is_stop = tracking_status == TRACKING_STATUS_STOP_HIT or outcome_label in {
+        OUTCOME_STOP_HIT,
+        OUTCOME_STOP_BEFORE_TARGET,
+        OUTCOME_FAILED_SETUP,
+    }
+    is_target = tracking_status == TRACKING_STATUS_TARGET_HIT or outcome_label in {
+        OUTCOME_TARGET_HIT,
+        OUTCOME_TARGET_BEFORE_STOP,
+    }
+
+    exit_price: float | None = None
+    exit_reason: str | None = None
+    inferred_note: str | None = None
+
+    if is_stop:
+        exit_price = _to_float(
+            snapshot.get("current_stop_price")
+            or snapshot.get("original_stop_price")
+            or snapshot.get("stop")
+        )
+        exit_reason = "stop_hit"
+    elif is_target:
+        exit_price = _to_float(
+            snapshot.get("current_target_price")
+            or snapshot.get("original_target_price")
+            or snapshot.get("target")
+        )
+        exit_reason = "target_hit"
+    else:
+        exit_price = _to_float(
+            snapshot.get("current_price")
+            or snapshot.get("intraday_close")
+            or snapshot.get("close")
+        )
+        exit_reason = tracking_status or outcome_label or "closed"
+        if exit_price is not None:
+            inferred_note = "Final exit price is inferred from available closing price data."
+        else:
+            inferred_note = "No exit price available; final P/L cannot be computed."
+
+    entry_price = _to_float(
+        snapshot.get("original_entry_price") or snapshot.get("actual_entry_price")
+    )
+    pl_pct: float | None = None
+    if exit_price is not None and entry_price is not None and entry_price > 0:
+        pl_pct = round((exit_price - entry_price) / entry_price * 100.0, 4)
+
+    return {
+        "is_terminal_outcome": True,
+        "terminal_exit_price": exit_price,
+        "terminal_exit_reason": exit_reason,
+        "terminal_research_pl_pct": pl_pct,
+        "terminal_exit_price_note": inferred_note,
+    }
+
+
 def summarize_tracked_setup_refresh(rows: list[dict[str, Any]]) -> dict[str, int]:
     """Aggregate refresh stats for Tony tracked_setup_updated event."""
     summary = {
