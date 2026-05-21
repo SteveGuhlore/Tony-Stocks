@@ -440,6 +440,174 @@ def test_signal_scorecard_insufficient_future_data_is_pending_not_failure(tmp_pa
     assert vwap_rows["above_vwap"]["conclusive_rows"] == 0
 
 
+def test_scan_coverage_summary_counts(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    run_id = repo.create_scan_run(10, "alpaca_iex", {})
+    repo.save_scan_results(run_id, [stock("A"), stock("B"), stock("C")])
+    with connect(repo.database_path) as conn:
+        conn.execute("UPDATE scan_runs SET created_at = '2026-05-19T18:00:00+00:00' WHERE id = ?", (run_id,))
+    repo.create_tony_event(
+        "scan_completed",
+        "info",
+        "scan",
+        "scan",
+        payload={
+            "scan_run_id": run_id,
+            "symbols_loaded": 10,
+            "selected_symbols": [f"S{i}" for i in range(10)],
+            "real_data_symbols": 8,
+            "symbols_scored": 3,
+            "scored_symbols": ["A", "B", "C"],
+            "symbols_skipped": 5,
+            "missing_real_data_count": 2,
+            "missing_real_data_symbols": ["MISS1", "MISS2"],
+            "quarantined_count": 1,
+            "quarantined_symbols": ["HCP"],
+            "api_requests_used": 4,
+            "batch_requests_used": 1,
+            "skip_reason_counts": {
+                "liquidity_below_minimums": 2,
+                "price_outside_bounds": 1,
+                "not_enough_data": 2,
+                "missing_real_data": 2,
+                "quarantined": 1,
+                "other_unknown": 0,
+            },
+        },
+    )
+    repo.create_tony_event(
+        "universe_rotation_summary",
+        "info",
+        "rotation",
+        "rotation",
+        payload={
+            "bucket_id": 4,
+            "core_count": 3,
+            "open_snapshot_count": 1,
+            "previous_candidate_count": 2,
+            "discovery_count": 4,
+            "total": 10,
+        },
+    )
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: [f"U{i}" for i in range(20)])
+
+    today_events = repo.list_tony_events(limit=20).to_dict("records")
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19",
+        repo,
+        SimpleNamespace(universe_config_path="ignored"),
+        today_events,
+    )
+
+    assert summary["configured_universe_size"] == 20
+    assert summary["symbols_selected_loaded"] == 10
+    assert summary["real_data_symbols"] == 8
+    assert summary["symbols_scored"] == 3
+    assert summary["unique_symbols_scanned_today"] == 10
+    assert summary["unique_symbols_scored_today"] == 3
+    assert summary["percent_universe_covered_today"] == 50.0
+    assert summary["api_requests"] == 4
+    assert summary["batch_requests"] == 1
+    assert summary["rotation_bucket_summary"]["latest_bucket_id"] == 4
+
+
+def test_scan_coverage_not_scored_count(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    repo.create_tony_event(
+        "scan_completed",
+        "info",
+        "scan",
+        "scan",
+        payload={"symbols_loaded": 9, "symbols_scored": 4, "selected_symbols": [f"S{i}" for i in range(9)]},
+    )
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: [f"U{i}" for i in range(12)])
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19",
+        repo,
+        SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    assert summary["not_scored_count"] == 5
+
+
+def test_scan_coverage_missing_and_quarantine_counts(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    repo.create_tony_event(
+        "scan_completed",
+        "info",
+        "scan",
+        "scan",
+        payload={
+            "symbols_loaded": 8,
+            "symbols_scored": 3,
+            "selected_symbols": [f"S{i}" for i in range(8)],
+            "missing_real_data_count": 2,
+            "missing_real_data_symbols": ["MISS1", "MISS2"],
+            "quarantined_count": 2,
+            "quarantined_symbols": ["HCP", "SQ"],
+        },
+    )
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: [f"U{i}" for i in range(20)])
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19",
+        repo,
+        SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    assert summary["missing_real_data_count"] == 2
+    assert summary["quarantined_count"] == 2
+    assert summary["quarantined_symbols"] == ["HCP", "SQ"]
+
+
+def test_scan_coverage_percent_fallback_when_universe_size_unavailable(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    repo.create_tony_event(
+        "scan_completed",
+        "info",
+        "scan",
+        "scan",
+        payload={"symbols_loaded": 8, "symbols_scored": 3},
+    )
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19",
+        repo,
+        SimpleNamespace(),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    assert summary["configured_universe_size"] is None
+    assert summary["percent_universe_covered_today"] is None
+
+
+def test_scan_coverage_skip_reason_fallback(tmp_path, monkeypatch):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    repo.create_tony_event(
+        "scan_completed",
+        "info",
+        "scan",
+        "scan",
+        payload={
+            "symbols_loaded": 10,
+            "symbols_scored": 6,
+            "selected_symbols": [f"S{i}" for i in range(10)],
+            "missing_real_data_count": 2,
+            "quarantined_count": 1,
+        },
+    )
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: [f"U{i}" for i in range(25)])
+    summary = cli._build_scan_coverage_summary(
+        "2026-05-19",
+        repo,
+        SimpleNamespace(universe_config_path="ignored"),
+        repo.list_tony_events(limit=10).to_dict("records"),
+    )
+    assert summary["skip_reason_counts"]["liquidity_below_minimums"] == 0
+    assert summary["skip_reason_counts"]["price_outside_bounds"] == 0
+    assert summary["skip_reason_counts"]["not_enough_data"] == 0
+    assert summary["skip_reason_counts"]["missing_real_data"] == 2
+    assert summary["skip_reason_counts"]["quarantined"] == 1
+    assert summary["skip_reason_counts"]["other_unknown"] == 1
+
+
 def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_path, monkeypatch, capsys):
     repo = ScannerRepository(tmp_path / "analytics.db")
     snapshot_id = create_snapshot(repo, stock("ETDAY", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
@@ -486,10 +654,12 @@ def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_
             provider="alpaca_iex",
             tony_stocks=SimpleNamespace(),
             symbol_quarantine={},
+            universe_config_path="ignored",
         ),
     )
     monkeypatch.setattr(cli, "TonyStocksService", DummyTony)
     monkeypatch.setattr(cli, "new_york_market_date", lambda now=None: "2026-05-19")
+    monkeypatch.setattr(cli, "load_universe", lambda path, manual_symbols=None: [f"U{i}" for i in range(20)])
 
     result = cli.run_eod_report(SimpleNamespace(config="ignored", date=None))
     output = capsys.readouterr().out
@@ -499,7 +669,9 @@ def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_
     assert result["real_only_snapshots_reviewed"] == 1
     assert "signal_scorecard" in result
     assert result["signal_scorecard"]["signals"]
+    assert "scan_coverage" in result
     assert "Report date: 2026-05-19 America/New_York" in output
+    assert "Scan coverage and funnel:" in output
     assert "Signal Scorecard:" in output
 
 
@@ -1613,6 +1785,45 @@ def _sample_eod_result(report_date="2026-05-19"):
             "suggestions": [],
             "note": "Research-only.",
         },
+        "scan_coverage": {
+            "configured_universe_size": 171,
+            "symbols_selected_loaded": 100,
+            "real_data_symbols": 97,
+            "symbols_scored": 80,
+            "not_scored_count": 20,
+            "symbols_skipped": 17,
+            "missing_real_data_count": 3,
+            "missing_real_data_symbols": ["HCP", "SMAR", "SQ"],
+            "quarantined_count": 2,
+            "quarantined_symbols": ["HCP", "SQ"],
+            "unique_symbols_scanned_today": 120,
+            "unique_symbols_scored_today": 96,
+            "percent_universe_covered_today": 70.18,
+            "api_requests": 200,
+            "batch_requests": 4,
+            "rotation_bucket_summary": {
+                "bucket_ids_today": [2, 3],
+                "latest_bucket_id": 3,
+                "latest_total": 100,
+                "latest_core_count": 20,
+                "latest_open_snapshot_count": 5,
+                "latest_previous_candidate_count": 10,
+                "latest_discovery_count": 65,
+            },
+            "skip_reason_counts": {
+                "liquidity_below_minimums": 5,
+                "price_outside_bounds": 4,
+                "not_enough_data": 5,
+                "missing_real_data": 3,
+                "quarantined": 2,
+                "other_unknown": 1,
+            },
+            "notes": [
+                "Active/core/prior/open-snapshot symbols may repeat across cycles, so daily unique coverage will be lower than raw cycle totals.",
+                "The discovery bucket should rotate across cycles; this report only measures coverage and does not change rotation behavior.",
+                "A larger universe needs a screener funnel before scanning thousands of stocks end to end.",
+            ],
+        },
         "replay_summary": {
             "strategy_version": "v1",
             "total_rows": 3,
@@ -1659,6 +1870,13 @@ def test_after_market_review_creates_report_files(tmp_path, monkeypatch, capsys)
     assert (report_dir / "approval_package.md").exists()
     assert (report_dir / "strategy_proposal.json").exists()
     assert (report_dir / "strategy_proposal.md").exists()
+
+
+def test_after_market_review_markdown_includes_scan_coverage_section():
+    md = cli._build_eod_report_markdown("2026-05-19", _sample_eod_result())
+    assert "## Scan Coverage And Funnel" in md
+    assert "Configured universe size" in md
+    assert "Skip reason missing real data" in md
 
 
 def test_after_market_review_uses_et_date(tmp_path, monkeypatch):

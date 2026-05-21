@@ -94,6 +94,15 @@ class ScannerRepository:
             row = conn.execute("SELECT * FROM scan_runs ORDER BY id DESC LIMIT 1").fetchone()
             return dict(row) if row else None
 
+    def list_scan_runs(self, limit: int = 200) -> list[dict[str, Any]]:
+        """Return recent scan runs ordered newest-first."""
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM scan_runs ORDER BY id DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def latest_scan_results(self) -> pd.DataFrame:
         run = self.latest_scan_run()
         if not run:
@@ -102,6 +111,26 @@ class ScannerRepository:
             rows = conn.execute(
                 "SELECT * FROM scan_results WHERE scan_run_id = ? ORDER BY final_score DESC",
                 (run["id"],),
+            ).fetchall()
+        return pd.DataFrame([dict(row) for row in rows])
+
+    def list_scan_results_for_run_ids(self, scan_run_ids: list[int], limit: int = 10000) -> pd.DataFrame:
+        """Return scan results for the provided scan run ids."""
+        ids = [int(run_id) for run_id in scan_run_ids if run_id is not None]
+        if not ids:
+            return pd.DataFrame()
+        placeholders = ", ".join("?" for _ in ids)
+        params: list[Any] = [*ids, limit]
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT *
+                FROM scan_results
+                WHERE scan_run_id IN ({placeholders})
+                ORDER BY created_at DESC, final_score DESC
+                LIMIT ?
+                """,
+                params,
             ).fetchall()
         return pd.DataFrame([dict(row) for row in rows])
 

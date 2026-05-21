@@ -6,6 +6,43 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V29 handoff - Scan Coverage And Scoring Funnel Report
+
+### Current active task
+
+V29 is complete. `eod-report` and after-market review output now include a research-only scan coverage and scoring funnel section built from stored scan run data and Tony event payloads.
+
+### Changes
+
+- **`src/trading_bot/cli.py`**
+  - `run_scan()` now records additive reporting metadata in the existing scan summary payload only: selected symbol list, scored symbol list, real-data symbol count, and best-available skip-reason counts.
+  - Added scan-coverage helpers that aggregate latest-run funnel counts plus same-day unique coverage, batch/API usage, rotation bucket summary, and best-available skip reasons from stored scan/watch data.
+  - `run_eod_report()` now prints a `Scan coverage and funnel:` section and returns `scan_coverage` in the result payload.
+  - After-market markdown output now includes a `Scan Coverage And Funnel` section when coverage data is present.
+
+- **`src/trading_bot/storage/repositories.py`**
+  - Added recent scan-run listing and scan-results-by-run-id helpers so EOD reporting can aggregate today’s scan coverage without changing scan logic.
+
+- **`tests/test_outcome_analytics.py`**
+  - Added V29 coverage for coverage summary counts, not-scored count, missing/quarantine counts, percent-coverage fallback, skip-reason fallback, and markdown/EOD output presence.
+
+### Files changed
+
+- `src/trading_bot/cli.py`
+- `src/trading_bot/storage/repositories.py`
+- `tests/test_outcome_analytics.py`
+- `AGENT_STATE.md`
+
+### Safety
+
+No scoring changes, no trigger-rule changes, no rotation-behavior changes, no broker/paper/live execution changes, no orders, no demo-data inclusion in active analytics, no dashboard visual changes, and no data deletion. This is additive reporting only.
+
+### Next recommended step
+
+Collect a few real market days with the new additive scan summary payloads so the coverage funnel and skip-reason counts can be reviewed on live data before considering any rotation or universe changes.
+
+---
+
 ## V28 handoff - Tony Signal Scorecard
 
 ### Current active task

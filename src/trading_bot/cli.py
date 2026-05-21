@@ -71,6 +71,14 @@ from trading_bot.utils.time_utils import utc_now_iso
 
 LOGGER = logging.getLogger(__name__)
 MARKET_TIMEZONE_LABEL = "America/New_York"
+SCAN_SKIP_REASON_KEYS = (
+    "liquidity_below_minimums",
+    "price_outside_bounds",
+    "not_enough_data",
+    "missing_real_data",
+    "quarantined",
+    "other_unknown",
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -305,24 +313,37 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     spy_data = None
     skipped_count = 0
     missing_real_data_symbols: set[str] = set()
+    skip_reason_counts: Counter[str] = Counter()
+    score_error_count = 0
 
     for symbol in symbols:
         data = ohlcv_by_symbol.get(symbol)
-        if data is None or data.empty or len(data) < 60:
-            LOGGER.warning("Skipping %s: not enough data", symbol)
-            skipped_count += 1
+        if data is None or data.empty:
             if real_only and "alpaca_iex" in provider.name:
+                LOGGER.warning("Skipping %s: missing real data", symbol)
+                skip_reason_counts["missing_real_data"] += 1
                 missing_real_data_symbols.add(symbol.upper())
+            else:
+                LOGGER.warning("Skipping %s: not enough data", symbol)
+                skip_reason_counts["not_enough_data"] += 1
+            skipped_count += 1
+            continue
+        if len(data) < 60:
+            LOGGER.warning("Skipping %s: not enough data", symbol)
+            skip_reason_counts["not_enough_data"] += 1
+            skipped_count += 1
             continue
         latest_close = float(data["close"].iloc[-1])
         avg_volume_20 = float(data["volume"].tail(20).mean())
         dollar_volume_20 = float((data["close"].tail(20) * data["volume"].tail(20)).mean())
         if not (settings.min_price <= latest_close <= settings.max_price):
             LOGGER.info("Skipping %s: latest close outside configured price bounds", symbol)
+            skip_reason_counts["price_outside_bounds"] += 1
             skipped_count += 1
             continue
         if avg_volume_20 < settings.min_avg_volume or dollar_volume_20 < settings.min_dollar_volume:
             LOGGER.info("Skipping %s: liquidity below configured minimums", symbol)
+            skip_reason_counts["liquidity_below_minimums"] += 1
             skipped_count += 1
             continue
         market_data[symbol] = data
@@ -353,6 +374,8 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             )
         except Exception as exc:
             LOGGER.warning("Could not score %s: %s", symbol, exc)
+            score_error_count += 1
+            skip_reason_counts["other_unknown"] += 1
 
     results.sort(key=lambda item: item.final_score, reverse=True)
     scan_run_id = repo.create_scan_run(
@@ -374,8 +397,15 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         "warnings_count": sum(len(result.warnings) for result in results),
         "high_priority_symbols": high_priority_symbols,
         "real_data_only": real_only,
+        "selected_symbols": sorted(str(symbol).upper() for symbol in symbols),
+        "scored_symbols": sorted(result.symbol for result in results),
         "quarantined_symbols": [entry.symbol for entry in quarantined_entries],
         "quarantined_count": len(quarantined_entries),
+        "skip_reason_counts": {
+            key: int(skip_reason_counts.get(key, 0))
+            for key in SCAN_SKIP_REASON_KEYS
+        },
+        "score_error_count": int(score_error_count),
     }
     if quarantined_entries:
         tony.record_symbol_quarantine_applied(quarantined_entries, real_data_only=real_only)
@@ -388,6 +418,10 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         fallback_count = len(provider.fallback_symbols)
         missing_count = len(missing_real_data_symbols)
         real_data_count = max(0, len(market_data) - fallback_count)
+        summary["skip_reason_counts"]["missing_real_data"] = max(
+            int(summary["skip_reason_counts"].get("missing_real_data", 0)),
+            missing_count,
+        )
         summary.update({
             "api_requests_used": cycle_stats.get("api_requests_used", 0),
             "batch_requests_used": cycle_stats.get("batch_requests_used", 0),
@@ -396,6 +430,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             "fallback_count": fallback_count,
             "missing_real_data_count": missing_count,
             "missing_real_data_symbols": sorted(missing_real_data_symbols),
+            "real_data_symbols": max(0, len(symbols) - missing_count),
         })
         if real_only and missing_count:
             tony.record_data_provider_fallback(sorted(missing_real_data_symbols), provider.name)
@@ -431,6 +466,9 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             waits_count = rl.total_waits if rl is not None else 0
             tony.record_rate_limit_warning(provider.name, cycle_stats["rate_limit_warnings"], waits_count)
         tony.record_stale_data_warning(provider.stale_symbols, provider.name, stale_minutes)
+    else:
+        summary["real_data_symbols"] = len(market_data)
+    summary["skip_reason_counts"]["quarantined"] = len(quarantined_entries)
 
     # ── Tony analyst reads — run BEFORE snapshot creation so reads attach to new snapshots ──
     # No LLMs, no paper trades, no orders. Tony is analyzing, not trading.
@@ -493,7 +531,6 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         )
 
         # Data quality summary event (once per scan)
-        from collections import Counter
         dq_counts: Counter[str] = Counter(a.data_quality_read for a in analyses)
         dq_summary = dict(dq_counts)
         if intraday_summary:
@@ -1276,6 +1313,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         exclusions=exclusions,
     )
     signal_scorecard = build_signal_scorecard(prepared)
+    scan_coverage = _build_scan_coverage_summary(report_date, repo, settings, today_events)
 
     latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
     cycles_completed = cycles_on_date
@@ -1330,6 +1368,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Demo rows excluded: {exclusions['demo_rows_excluded']}")
     print(f"Legacy unknown rows excluded: {exclusions['legacy_unknown_rows_excluded']}")
     print(f"Fallback/missing rows excluded: {exclusions['missing_real_data_rows_excluded']}")
+    _print_scan_coverage_summary(scan_coverage)
     print("\nEOD reconciliation (raw history vs product views):")
     print("  Raw rows = full stored history; product rows = deduped, current-state-only view.")
     print(f"Raw snapshot rows kept in history: {reconciliation['raw_snapshot_rows']}")
@@ -1488,6 +1527,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "strategy_version_report": strategy_report,
         "replay_summary": replay,
         "signal_scorecard": signal_scorecard,
+        "scan_coverage": scan_coverage,
     }
 
 
@@ -1509,6 +1549,42 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
     lines.append(f"- Demo rows excluded: {eod.get('demo_rows_excluded', 0)}")
     lines.append(f"- Legacy rows excluded: {eod.get('legacy_unknown_rows_excluded', 0)}")
     lines.append("")
+
+    coverage = eod.get("scan_coverage") or {}
+    if coverage:
+        lines.append("## Scan Coverage And Funnel")
+        lines.append(f"- Configured universe size: {coverage.get('configured_universe_size', 'unknown') if coverage.get('configured_universe_size') is not None else 'unknown'}")
+        lines.append(f"- Symbols selected/loaded: {coverage.get('symbols_selected_loaded', 'unknown') if coverage.get('symbols_selected_loaded') is not None else 'unknown'}")
+        lines.append(f"- Real-data symbols: {coverage.get('real_data_symbols', 'unknown') if coverage.get('real_data_symbols') is not None else 'unknown'}")
+        lines.append(f"- Scored symbols: {coverage.get('symbols_scored', 'unknown') if coverage.get('symbols_scored') is not None else 'unknown'}")
+        lines.append(f"- Not scored: {coverage.get('not_scored_count', 'unknown') if coverage.get('not_scored_count') is not None else 'unknown'}")
+        lines.append(f"- Skipped symbols: {coverage.get('symbols_skipped', 'unknown') if coverage.get('symbols_skipped') is not None else 'unknown'}")
+        lines.append(f"- Missing real-data symbols: {coverage.get('missing_real_data_count', 0)}")
+        lines.append(f"- Quarantined symbols: {coverage.get('quarantined_count', 0)}")
+        lines.append(f"- Unique symbols scanned today: {coverage.get('unique_symbols_scanned_today', 'unknown') if coverage.get('unique_symbols_scanned_today') is not None else 'unknown'}")
+        lines.append(f"- Unique symbols scored today: {coverage.get('unique_symbols_scored_today', 'unknown') if coverage.get('unique_symbols_scored_today') is not None else 'unknown'}")
+        pct = coverage.get("percent_universe_covered_today")
+        lines.append(f"- Percent of universe covered today: {f'{pct:.2f}%' if pct is not None else 'unavailable'}")
+        lines.append(f"- API requests: {coverage.get('api_requests', 'unknown') if coverage.get('api_requests') is not None else 'unknown'}")
+        lines.append(f"- Batch requests: {coverage.get('batch_requests', 'unknown') if coverage.get('batch_requests') is not None else 'unknown'}")
+        rotation = coverage.get("rotation_bucket_summary") or {}
+        if rotation:
+            bucket_ids = rotation.get("bucket_ids_today") or []
+            lines.append(
+                "- Rotation bucket summary: "
+                f"latest_bucket={rotation.get('latest_bucket_id', 'unknown')} "
+                f"total={rotation.get('latest_total', 'unknown')} "
+                f"core={rotation.get('latest_core_count', 'unknown')} "
+                f"open={rotation.get('latest_open_snapshot_count', 'unknown')} "
+                f"prior={rotation.get('latest_previous_candidate_count', 'unknown')} "
+                f"discovery={rotation.get('latest_discovery_count', 'unknown')} "
+                f"bucket_ids_today={', '.join(str(item) for item in bucket_ids) if bucket_ids else 'unknown'}"
+            )
+        for key, value in (coverage.get("skip_reason_counts") or {}).items():
+            lines.append(f"- Skip reason {key.replace('_', ' ')}: {value}")
+        for note in coverage.get("notes") or []:
+            lines.append(f"- Note: {note}")
+        lines.append("")
 
     # Reconciliation
     rec = eod.get("reconciliation") or {}
@@ -2742,6 +2818,10 @@ def latest_event_of_type_records(events: list[dict[str, Any]], event_type: str) 
     return None
 
 
+def all_event_records_of_type(events: list[dict[str, Any]], event_type: str) -> list[dict[str, Any]]:
+    return [row for row in events if row.get("event_type") == event_type]
+
+
 def _payload(row: dict[str, Any] | None) -> dict[str, Any]:
     if not row:
         return {}
@@ -2818,6 +2898,196 @@ def _format_count_dict(counts: dict[str, Any], limit: int = 8) -> str:
     return ", ".join(parts)
 
 
+def _build_scan_coverage_summary(
+    report_date: str,
+    repo: ScannerRepository,
+    settings: Any,
+    today_events: list[dict[str, Any]],
+) -> dict[str, Any]:
+    configured_universe_size = _configured_universe_size(settings)
+    scan_completed_events = all_event_records_of_type(today_events, "scan_completed")
+    scan_payloads = []
+    for row in scan_completed_events:
+        payload = _payload(row)
+        if payload:
+            scan_payloads.append(payload)
+    latest_scan = scan_payloads[0] if scan_payloads else {}
+
+    selected_loaded = _int_or_none(latest_scan.get("symbols_loaded"))
+    scored_symbols = _int_or_none(latest_scan.get("symbols_scored"))
+    skipped_symbols = _int_or_none(latest_scan.get("symbols_skipped"))
+    missing_real_data_count = _int_or_none(latest_scan.get("missing_real_data_count"))
+    if missing_real_data_count is None:
+        missing_real_data_count = len(latest_scan.get("missing_real_data_symbols") or [])
+    quarantined_symbols = [str(symbol).upper() for symbol in (latest_scan.get("quarantined_symbols") or []) if str(symbol).strip()]
+    quarantined_count = _int_or_none(latest_scan.get("quarantined_count"))
+    if quarantined_count is None:
+        quarantined_count = len(quarantined_symbols)
+    real_data_symbols = _int_or_none(latest_scan.get("real_data_symbols"))
+    if real_data_symbols is None and selected_loaded is not None:
+        real_data_symbols = max(0, selected_loaded - int(missing_real_data_count or 0))
+    not_scored_count = None
+    if selected_loaded is not None and scored_symbols is not None:
+        not_scored_count = max(0, selected_loaded - scored_symbols)
+
+    selected_symbol_set: set[str] = set()
+    selected_symbols_available = False
+    scored_symbol_set: set[str] = set()
+    scored_symbols_available = False
+    aggregated_skip_reasons: Counter[str] = Counter()
+    skip_payload_available = False
+    total_not_scored_across_runs = 0
+
+    for payload in scan_payloads:
+        loaded = _int_or_none(payload.get("symbols_loaded"))
+        scored = _int_or_none(payload.get("symbols_scored"))
+        if loaded is not None and scored is not None:
+            total_not_scored_across_runs += max(0, loaded - scored)
+
+        selected_symbols = [str(symbol).upper() for symbol in (payload.get("selected_symbols") or []) if str(symbol).strip()]
+        if selected_symbols:
+            selected_symbols_available = True
+            selected_symbol_set.update(selected_symbols)
+
+        scored_list = [str(symbol).upper() for symbol in (payload.get("scored_symbols") or []) if str(symbol).strip()]
+        if scored_list:
+            scored_symbols_available = True
+            scored_symbol_set.update(scored_list)
+
+        skip_counts = payload.get("skip_reason_counts") or {}
+        if isinstance(skip_counts, dict) and skip_counts:
+            skip_payload_available = True
+            for key in SCAN_SKIP_REASON_KEYS:
+                aggregated_skip_reasons[key] += int(skip_counts.get(key, 0) or 0)
+
+    scan_runs = repo.list_scan_runs(limit=500)
+    run_ids_today = [
+        int(run["id"])
+        for run in scan_runs
+        if run.get("created_at")
+        and bool(market_date_mask(pd.Series([run["created_at"]]), report_date).iloc[0])
+    ]
+    scan_results_today = repo.list_scan_results_for_run_ids(run_ids_today)
+    if not scored_symbols_available and not scan_results_today.empty and "symbol" in scan_results_today.columns:
+        scored_symbol_set.update(
+            str(symbol).upper()
+            for symbol in scan_results_today["symbol"].dropna().tolist()
+            if str(symbol).strip()
+        )
+        scored_symbols_available = bool(scored_symbol_set)
+
+    unique_symbols_scanned_today = len(selected_symbol_set) if selected_symbols_available else None
+    unique_symbols_scored_today = len(scored_symbol_set) if scored_symbols_available else None
+    percent_universe_covered_today = None
+    if configured_universe_size and unique_symbols_scanned_today is not None:
+        percent_universe_covered_today = round((unique_symbols_scanned_today / configured_universe_size) * 100, 2)
+
+    batch_payload = _payload(latest_event_of_type_records(today_events, "batch_fetch_summary"))
+    api_requests = _int_or_none(latest_scan.get("api_requests_used"))
+    if api_requests is None:
+        api_requests = _int_or_none(batch_payload.get("api_requests"))
+    batch_requests = _int_or_none(latest_scan.get("batch_requests_used"))
+    if batch_requests is None:
+        batch_requests = _int_or_none(batch_payload.get("batch_requests"))
+
+    rotation_events = all_event_records_of_type(today_events, "universe_rotation_summary")
+    rotation_payloads = []
+    for row in rotation_events:
+        payload = _payload(row)
+        if payload:
+            rotation_payloads.append(payload)
+    latest_rotation = rotation_payloads[0] if rotation_payloads else {}
+    rotation_bucket_summary = None
+    if latest_rotation:
+        bucket_ids = sorted(
+            {
+                int(payload.get("bucket_id"))
+                for payload in rotation_payloads
+                if payload.get("bucket_id") not in (None, "")
+            }
+        )
+        rotation_bucket_summary = {
+            "bucket_ids_today": bucket_ids,
+            "latest_bucket_id": _int_or_none(latest_rotation.get("bucket_id")),
+            "latest_total": _int_or_none(latest_rotation.get("total")),
+            "latest_core_count": _int_or_none(latest_rotation.get("core_count")),
+            "latest_open_snapshot_count": _int_or_none(latest_rotation.get("open_snapshot_count")),
+            "latest_previous_candidate_count": _int_or_none(latest_rotation.get("previous_candidate_count")),
+            "latest_discovery_count": _int_or_none(latest_rotation.get("discovery_count")),
+        }
+
+    if not skip_payload_available:
+        aggregated_skip_reasons["missing_real_data"] = int(missing_real_data_count or 0)
+        aggregated_skip_reasons["quarantined"] = int(quarantined_count or 0)
+    aggregated_skip_reasons["missing_real_data"] = max(
+        int(aggregated_skip_reasons.get("missing_real_data", 0)),
+        int(missing_real_data_count or 0),
+    )
+    aggregated_skip_reasons["quarantined"] = max(
+        int(aggregated_skip_reasons.get("quarantined", 0)),
+        int(quarantined_count or 0),
+    )
+    known_skip_total = sum(
+        int(aggregated_skip_reasons.get(key, 0))
+        for key in SCAN_SKIP_REASON_KEYS
+        if key != "other_unknown"
+    )
+    aggregated_skip_reasons["other_unknown"] = max(
+        int(aggregated_skip_reasons.get("other_unknown", 0)),
+        max(0, total_not_scored_across_runs - known_skip_total),
+    )
+    skip_reason_counts = {
+        key: int(aggregated_skip_reasons.get(key, 0))
+        for key in SCAN_SKIP_REASON_KEYS
+    }
+
+    notes = [
+        "Active/core/prior/open-snapshot symbols may repeat across cycles, so daily unique coverage will be lower than raw cycle totals.",
+        "The discovery bucket should rotate across cycles; this report only measures coverage and does not change rotation behavior.",
+        "A larger universe needs a screener funnel before scanning thousands of stocks end to end.",
+    ]
+
+    return {
+        "configured_universe_size": configured_universe_size,
+        "symbols_selected_loaded": selected_loaded,
+        "real_data_symbols": real_data_symbols,
+        "symbols_scored": scored_symbols,
+        "not_scored_count": not_scored_count,
+        "symbols_skipped": skipped_symbols,
+        "missing_real_data_count": int(missing_real_data_count or 0),
+        "missing_real_data_symbols": [str(symbol).upper() for symbol in (latest_scan.get("missing_real_data_symbols") or []) if str(symbol).strip()],
+        "quarantined_count": int(quarantined_count or 0),
+        "quarantined_symbols": quarantined_symbols,
+        "unique_symbols_scanned_today": unique_symbols_scanned_today,
+        "unique_symbols_scored_today": unique_symbols_scored_today,
+        "percent_universe_covered_today": percent_universe_covered_today,
+        "api_requests": api_requests,
+        "batch_requests": batch_requests,
+        "rotation_bucket_summary": rotation_bucket_summary,
+        "skip_reason_counts": skip_reason_counts,
+        "notes": notes,
+    }
+
+
+def _configured_universe_size(settings: Any) -> int | None:
+    config_path = getattr(settings, "universe_config_path", None)
+    if not config_path:
+        return None
+    try:
+        return len(load_universe(config_path))
+    except Exception:
+        return None
+
+
+def _int_or_none(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _warning_counts(prepared: pd.DataFrame) -> pd.DataFrame:
     if prepared.empty or "warnings_json" not in prepared.columns:
         return pd.DataFrame(columns=["warning_type", "count"])
@@ -2856,6 +3126,62 @@ def _best_target_hit_group(table: pd.DataFrame | None) -> str:
     if float(row.get("target_hit_rate", 0) or 0) <= 0:
         return "none"
     return str(row.iloc[0])
+
+
+def _print_scan_coverage_summary(coverage: dict[str, Any], header: str = "\nScan coverage and funnel:") -> None:
+    print(header)
+    print(f"Configured universe size: {coverage.get('configured_universe_size', 'unknown') if coverage.get('configured_universe_size') is not None else 'unknown'}")
+    print(f"Symbols selected/loaded: {coverage.get('symbols_selected_loaded', 'unknown') if coverage.get('symbols_selected_loaded') is not None else 'unknown'}")
+    print(f"Real-data symbols: {coverage.get('real_data_symbols', 'unknown') if coverage.get('real_data_symbols') is not None else 'unknown'}")
+    print(f"Scored symbols: {coverage.get('symbols_scored', 'unknown') if coverage.get('symbols_scored') is not None else 'unknown'}")
+    print(f"Not scored: {coverage.get('not_scored_count', 'unknown') if coverage.get('not_scored_count') is not None else 'unknown'}")
+    print(f"Skipped symbols: {coverage.get('symbols_skipped', 'unknown') if coverage.get('symbols_skipped') is not None else 'unknown'}")
+    print(
+        f"Missing real-data symbols: {coverage.get('missing_real_data_count', 0)}"
+        + (
+            f" ({', '.join(coverage.get('missing_real_data_symbols') or [])})"
+            if coverage.get("missing_real_data_symbols")
+            else ""
+        )
+    )
+    print(
+        f"Quarantined symbols: {coverage.get('quarantined_count', 0)}"
+        + (
+            f" ({', '.join(coverage.get('quarantined_symbols') or [])})"
+            if coverage.get("quarantined_symbols")
+            else ""
+        )
+    )
+    unique_scanned_today = coverage.get("unique_symbols_scanned_today")
+    unique_scored_today = coverage.get("unique_symbols_scored_today")
+    print(f"Unique symbols scanned today: {unique_scanned_today if unique_scanned_today is not None else 'unknown'}")
+    print(f"Unique symbols scored today: {unique_scored_today if unique_scored_today is not None else 'unknown'}")
+    pct = coverage.get("percent_universe_covered_today")
+    print(f"Percent of universe covered today: {f'{pct:.2f}%' if pct is not None else 'unavailable'}")
+    print(f"API requests: {coverage.get('api_requests', 'unknown') if coverage.get('api_requests') is not None else 'unknown'}")
+    print(f"Batch requests: {coverage.get('batch_requests', 'unknown') if coverage.get('batch_requests') is not None else 'unknown'}")
+    rotation = coverage.get("rotation_bucket_summary") or {}
+    if rotation:
+        bucket_ids = rotation.get("bucket_ids_today") or []
+        print(
+            "Rotation bucket summary: "
+            f"latest_bucket={rotation.get('latest_bucket_id', 'unknown')} "
+            f"total={rotation.get('latest_total', 'unknown')} "
+            f"core={rotation.get('latest_core_count', 'unknown')} "
+            f"open={rotation.get('latest_open_snapshot_count', 'unknown')} "
+            f"prior={rotation.get('latest_previous_candidate_count', 'unknown')} "
+            f"discovery={rotation.get('latest_discovery_count', 'unknown')} "
+            f"bucket_ids_today={', '.join(str(item) for item in bucket_ids) if bucket_ids else 'unknown'}"
+        )
+    else:
+        print("Rotation bucket summary: unavailable")
+    print("Best available skip reasons:")
+    for key in SCAN_SKIP_REASON_KEYS:
+        label = key.replace("_", " ")
+        print(f"  {label}: {int((coverage.get('skip_reason_counts') or {}).get(key, 0) or 0)}")
+    print("Notes:")
+    for note in coverage.get("notes") or []:
+        print(f"  - {note}")
 
 
 def _print_signal_scorecard(scorecard: dict[str, Any], header: str = "\nSignal scorecard:") -> None:
