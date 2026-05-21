@@ -1,7 +1,6 @@
 from pathlib import Path
 
-import pytest
-
+from trading_bot.data.symbol_quarantine import apply_symbol_quarantine
 from trading_bot.data.universe import (
     load_symbols_from_csv,
     load_universe,
@@ -9,9 +8,12 @@ from trading_bot.data.universe import (
     load_universe_tags,
     normalize_symbol,
 )
+from trading_bot.data.universe_rotation import WatchUniverseRotator
+from trading_bot.settings import load_scanner_settings
 
 # Path to the real production universe config
 _REAL_CONFIG = Path(__file__).parent.parent / "config" / "universe_swing_research_config.yaml"
+_DEFAULT_CONFIG = Path(__file__).parent.parent / "config" / "default_config.yaml"
 
 VALID_ROLES = {"benchmark", "reference", "primary_candidate", "speculative_candidate", "excluded_by_default"}
 
@@ -89,12 +91,10 @@ def test_load_symbols_from_csv(tmp_path: Path):
     assert load_symbols_from_csv(csv) == ["SPY", "QQQ"]
 
 
-# ── V9.5 Production Universe Tests ───────────────────────────────────────────
-
 class TestProductionUniverseSize:
-    def test_loads_at_least_150_symbols(self):
+    def test_loads_at_least_300_symbols(self):
         syms = load_universe(_REAL_CONFIG)
-        assert len(syms) >= 150, f"Expected ≥150 symbols, got {len(syms)}"
+        assert len(syms) >= 300, f"Expected at least 300 symbols, got {len(syms)}"
 
     def test_no_duplicates(self):
         syms = load_universe(_REAL_CONFIG)
@@ -121,33 +121,31 @@ class TestProductionUniverseBenchmarks:
     def test_at_least_three_benchmarks(self):
         meta = load_universe_metadata(_REAL_CONFIG)
         benchmarks = [s for s, m in meta.items() if m.universe_role == "benchmark"]
-        assert len(benchmarks) >= 3, f"Expected ≥3 benchmarks, got {len(benchmarks)}"
+        assert len(benchmarks) >= 3, f"Expected at least 3 benchmarks, got {len(benchmarks)}"
 
 
 class TestProductionUniverseRoles:
     def test_all_roles_are_valid(self):
         meta = load_universe_metadata(_REAL_CONFIG)
         for sym, m in meta.items():
-            assert m.universe_role in VALID_ROLES, (
-                f"{sym} has invalid role {m.universe_role!r}"
-            )
+            assert m.universe_role in VALID_ROLES, f"{sym} has invalid role {m.universe_role!r}"
 
     def test_has_primary_candidates(self):
         meta = load_universe_metadata(_REAL_CONFIG)
         primaries = [s for s, m in meta.items() if m.universe_role == "primary_candidate"]
-        assert len(primaries) >= 50, f"Expected ≥50 primary_candidates, got {len(primaries)}"
+        assert len(primaries) >= 50, f"Expected at least 50 primary_candidates, got {len(primaries)}"
 
     def test_has_speculative_candidates(self):
         meta = load_universe_metadata(_REAL_CONFIG)
         speculatives = [s for s, m in meta.items() if m.universe_role == "speculative_candidate"]
-        assert len(speculatives) >= 10, f"Expected ≥10 speculative_candidates, got {len(speculatives)}"
+        assert len(speculatives) >= 10, f"Expected at least 10 speculative_candidates, got {len(speculatives)}"
 
 
 class TestProductionUniverseTags:
     def test_watchlist_core_symbols_present(self):
         tags = load_universe_tags(_REAL_CONFIG)
         core = [s for s, t in tags.items() if "watchlist_core" in t]
-        assert len(core) >= 3, f"Expected ≥3 watchlist_core symbols, got {len(core)}"
+        assert len(core) >= 3, f"Expected at least 3 watchlist_core symbols, got {len(core)}"
 
     def test_spy_qqq_iwm_are_watchlist_core(self):
         tags = load_universe_tags(_REAL_CONFIG)
@@ -158,28 +156,49 @@ class TestProductionUniverseTags:
     def test_discovery_pool_exists(self):
         tags = load_universe_tags(_REAL_CONFIG)
         discovery = [s for s, t in tags.items() if "discovery" in t]
-        assert len(discovery) >= 20, f"Expected ≥20 discovery-tagged symbols, got {len(discovery)}"
+        assert len(discovery) >= 20, f"Expected at least 20 discovery-tagged symbols, got {len(discovery)}"
 
     def test_no_symbol_in_both_watchlist_core_and_excluded(self):
         meta = load_universe_metadata(_REAL_CONFIG)
         tags = load_universe_tags(_REAL_CONFIG)
         for sym, m in meta.items():
-            if m.universe_role == "excluded_by_default":
-                if sym in tags:
-                    assert "watchlist_core" not in tags[sym], (
-                        f"{sym} is excluded_by_default but has watchlist_core tag"
-                    )
+            if m.universe_role == "excluded_by_default" and sym in tags:
+                assert "watchlist_core" not in tags[sym], (
+                    f"{sym} is excluded_by_default but has watchlist_core tag"
+                )
 
 
 class TestProductionUniverseRotationBudget:
     def test_watchlist_core_fits_within_default_core_max(self):
-        """Core symbols should not exceed the default core_max_symbols config (50)."""
         tags = load_universe_tags(_REAL_CONFIG)
         core = [s for s, t in tags.items() if "watchlist_core" in t]
         assert len(core) <= 50, f"watchlist_core count {len(core)} exceeds core_max_symbols=50"
 
     def test_total_non_excluded_fits_within_max_universe_size(self):
-        """Non-excluded symbols must fit in max_universe_size=200."""
         meta = load_universe_metadata(_REAL_CONFIG)
         active = [s for s, m in meta.items() if m.universe_role != "excluded_by_default"]
-        assert len(active) <= 200, f"Active symbol count {len(active)} exceeds max_universe_size=200"
+        assert len(active) <= 350, f"Active symbol count {len(active)} exceeds max_universe_size=350"
+
+    def test_default_config_quarantine_still_excludes_known_symbols_from_real_flow(self):
+        settings = load_scanner_settings(_DEFAULT_CONFIG)
+        symbols = load_universe(settings.universe_config_path)
+        kept, excluded = apply_symbol_quarantine(symbols, settings, True)
+        excluded_symbols = {entry.symbol for entry in excluded}
+        assert {"HCP", "SAMSF", "SMAR", "SQ"}.issubset(excluded_symbols)
+        assert {"HCP", "SAMSF", "SMAR", "SQ"}.isdisjoint(set(kept))
+
+    def test_rotation_still_caps_cycle_and_preserves_priority_sets(self):
+        settings = load_scanner_settings(_DEFAULT_CONFIG)
+        universe = load_universe(settings.universe_config_path)
+        kept, _ = apply_symbol_quarantine(universe, settings, True)
+        rotation_cfg = settings.watch_universe_rotation or {}
+        rotator = WatchUniverseRotator(kept, rotation_cfg)
+        rotator.update_previous_candidates(["ANET", "LLY", "ETN"])
+
+        result = rotator.get_cycle_symbols(open_snapshot_symbols=["PLTR", "CRWD"])
+
+        assert result.total == len(result.symbols)
+        assert result.total <= int(rotation_cfg.get("max_symbols_per_cycle", 175))
+        assert result.symbols[:3] == ["SPY", "QQQ", "IWM"]
+        assert {"PLTR", "CRWD", "ANET", "LLY", "ETN"}.issubset(set(result.symbols))
+        assert len(result.symbols) == len(set(result.symbols))

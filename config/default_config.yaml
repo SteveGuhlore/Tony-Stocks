@@ -10,7 +10,7 @@ cache_dir: data/cache
 log_dir: logs
 lookback_days: 120
 timeframe: daily
-max_symbols: 100
+max_symbols: 175
 min_price: 5
 max_price: 500
 min_avg_volume: 300000
@@ -20,6 +20,9 @@ score_threshold_high_quality: 80
 live_trading_enabled: false
 scoring_config_path: config/scoring_config.yaml
 universe_config_path: config/universe_swing_research_config.yaml
+# Staged liquid-universe expansion. This is intentionally capped below a
+# full-market screener; discovery rotation should cover the broader list over
+# multiple cycles before we consider scanning thousands of symbols directly.
 
 candidate_snapshots:
   enabled: true

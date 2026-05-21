@@ -1070,6 +1070,1080 @@ symbols:
     universe_role: speculative_candidate
     demo_profile: low_volume_chop
 
+  # —— Stage 1 Liquid Expansion Batch ——————————————————————————————————————————————
+  # This is a staged expansion toward broader scan coverage before a true
+  # market-wide screener funnel exists. The intent is to expand liquid common
+  # stocks and major ETFs safely, not to jump to thousands of symbols yet.
+  # Discovery rotation should continue doing the heavy lifting across this list.
+  - symbol: XLK
+    name: Technology Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: market
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLF
+    name: Financial Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: financials
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLV
+    name: Health Care Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: healthcare
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLI
+    name: Industrial Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: industrial
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLE
+    name: Energy Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: energy
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLY
+    name: Consumer Discretionary Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: consumer
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLP
+    name: Consumer Staples Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: consumer
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLB
+    name: Materials Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: materials
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLU
+    name: Utilities Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: utilities
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLC
+    name: Communication Services Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: communication
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XLRE
+    name: Real Estate Select Sector SPDR ETF
+    tags: [etf, sector, discovery]
+    sector: real_estate
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: SMH
+    name: VanEck Semiconductor ETF
+    tags: [etf, semiconductor, discovery]
+    sector: technology
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: SOXX
+    name: iShares Semiconductor ETF
+    tags: [etf, semiconductor, discovery]
+    sector: technology
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: IGV
+    name: iShares Expanded Tech-Software Sector ETF
+    tags: [etf, software, discovery]
+    sector: technology
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: XBI
+    name: SPDR S&P Biotech ETF
+    tags: [etf, biotech, discovery]
+    sector: healthcare
+    universe_role: reference
+    demo_profile: high_volatility_whipsaw
+  - symbol: IBB
+    name: iShares Biotechnology ETF
+    tags: [etf, biotech, discovery]
+    sector: healthcare
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: MDY
+    name: SPDR S&P MidCap 400 ETF
+    tags: [etf, mid_cap, discovery]
+    sector: market
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: RSP
+    name: Invesco S&P 500 Equal Weight ETF
+    tags: [etf, benchmark, discovery]
+    sector: market
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: VTI
+    name: Vanguard Total Stock Market ETF
+    tags: [etf, benchmark, discovery]
+    sector: market
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: IYR
+    name: iShares U.S. Real Estate ETF
+    tags: [etf, real_estate, discovery]
+    sector: real_estate
+    universe_role: reference
+    demo_profile: benchmark_index
+  - symbol: ADI
+    name: Analog Devices
+    tags: [large_cap, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: AMAT
+    name: Applied Materials
+    tags: [large_cap, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: ANET
+    name: Arista Networks
+    tags: [large_cap, networking, ai_related, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: APH
+    name: Amphenol
+    tags: [large_cap, hardware, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: CDNS
+    name: Cadence Design Systems
+    tags: [large_cap, software, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: KLAC
+    name: KLA Corporation
+    tags: [large_cap, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: LRCX
+    name: Lam Research
+    tags: [large_cap, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: MRVL
+    name: Marvell Technology
+    tags: [large_cap, semiconductor, ai_related, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: SNPS
+    name: Synopsys
+    tags: [large_cap, software, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: TXN
+    name: Texas Instruments
+    tags: [large_cap, semiconductor, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: IBM
+    name: IBM
+    tags: [mega_cap, software, ai_related, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: CSCO
+    name: Cisco Systems
+    tags: [mega_cap, networking, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: ACN
+    name: Accenture
+    tags: [large_cap, software, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: MSI
+    name: Motorola Solutions
+    tags: [large_cap, communications, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: ADBE
+    name: Adobe
+    tags: [large_cap, software, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: INTU
+    name: Intuit
+    tags: [large_cap, software, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: ORCL
+    name: Oracle
+    tags: [mega_cap, software, cloud, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: ADP
+    name: ADP
+    tags: [large_cap, software, financials, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: PAYX
+    name: Paychex
+    tags: [large_cap, software, financials, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: DASH
+    name: DoorDash
+    tags: [large_cap, consumer, growth, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: RBLX
+    name: Roblox
+    tags: [mid_cap, software, consumer, high_beta, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: EA
+    name: Electronic Arts
+    tags: [large_cap, software, consumer, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: TTWO
+    name: Take-Two Interactive
+    tags: [large_cap, software, consumer, discovery]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: BAC
+    name: Bank of America
+    tags: [mega_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: WFC
+    name: Wells Fargo
+    tags: [mega_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: C
+    name: Citigroup
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: SCHW
+    name: Charles Schwab
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: COF
+    name: Capital One Financial
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: BX
+    name: Blackstone
+    tags: [large_cap, financials, alternative_assets, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: BLK
+    name: BlackRock
+    tags: [mega_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: PGR
+    name: Progressive
+    tags: [large_cap, financials, insurance, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: CB
+    name: Chubb
+    tags: [large_cap, financials, insurance, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: CME
+    name: CME Group
+    tags: [large_cap, financials, exchange, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: ICE
+    name: Intercontinental Exchange
+    tags: [large_cap, financials, exchange, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: MSCI
+    name: MSCI
+    tags: [large_cap, financials, index, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: AXP
+    name: American Express
+    tags: [mega_cap, financials, payments, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: USB
+    name: U.S. Bancorp
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: BK
+    name: Bank of New York Mellon
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: PNC
+    name: PNC Financial Services
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: TFC
+    name: Truist Financial
+    tags: [large_cap, financials, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: MCO
+    name: Moody's
+    tags: [large_cap, financials, ratings, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: KKR
+    name: KKR
+    tags: [large_cap, financials, alternative_assets, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: APO
+    name: Apollo Global Management
+    tags: [large_cap, financials, alternative_assets, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: AFL
+    name: Aflac
+    tags: [large_cap, financials, insurance, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: RJF
+    name: Raymond James Financial
+    tags: [large_cap, financials, brokerage, discovery]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: LLY
+    name: Eli Lilly
+    tags: [mega_cap, healthcare, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: ABBV
+    name: AbbVie
+    tags: [mega_cap, healthcare, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: ABT
+    name: Abbott Laboratories
+    tags: [mega_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: AMGN
+    name: Amgen
+    tags: [large_cap, biotech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: BMY
+    name: Bristol Myers Squibb
+    tags: [large_cap, healthcare, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: DHR
+    name: Danaher
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: GILD
+    name: Gilead Sciences
+    tags: [large_cap, biotech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: JNJ
+    name: Johnson & Johnson
+    tags: [mega_cap, healthcare, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: MDT
+    name: Medtronic
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: SYK
+    name: Stryker
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: TMO
+    name: Thermo Fisher Scientific
+    tags: [large_cap, healthcare, life_science, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: BSX
+    name: Boston Scientific
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: CI
+    name: Cigna
+    tags: [large_cap, healthcare, insurance, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: CVS
+    name: CVS Health
+    tags: [large_cap, healthcare, consumer, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: HUM
+    name: Humana
+    tags: [large_cap, healthcare, insurance, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: ZBH
+    name: Zimmer Biomet
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: BDX
+    name: Becton Dickinson
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: EW
+    name: Edwards Lifesciences
+    tags: [large_cap, healthcare, med_tech, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: MCK
+    name: McKesson
+    tags: [large_cap, healthcare, distribution, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: CAH
+    name: Cardinal Health
+    tags: [large_cap, healthcare, distribution, discovery]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: DE
+    name: Deere
+    tags: [large_cap, industrial, cyclical, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: ETN
+    name: Eaton
+    tags: [large_cap, industrial, electrical, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: PH
+    name: Parker-Hannifin
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: HON
+    name: Honeywell
+    tags: [mega_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: TT
+    name: Trane Technologies
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: UNP
+    name: Union Pacific
+    tags: [large_cap, industrial, transport, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: UPS
+    name: UPS
+    tags: [large_cap, industrial, transport, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: FDX
+    name: FedEx
+    tags: [large_cap, industrial, transport, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: NSC
+    name: Norfolk Southern
+    tags: [large_cap, industrial, transport, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: CSX
+    name: CSX
+    tags: [large_cap, industrial, transport, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: WM
+    name: Waste Management
+    tags: [large_cap, industrial, defensive, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: CMI
+    name: Cummins
+    tags: [large_cap, industrial, cyclical, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: EMR
+    name: Emerson Electric
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: ITW
+    name: Illinois Tool Works
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: JCI
+    name: Johnson Controls
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: FAST
+    name: Fastenal
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: IR
+    name: Ingersoll Rand
+    tags: [large_cap, industrial, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: ROK
+    name: Rockwell Automation
+    tags: [large_cap, industrial, software, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: URI
+    name: United Rentals
+    tags: [large_cap, industrial, cyclical, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: PCAR
+    name: Paccar
+    tags: [large_cap, industrial, transport, discovery]
+    sector: industrial
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: CVX
+    name: Chevron
+    tags: [mega_cap, energy, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: COP
+    name: ConocoPhillips
+    tags: [large_cap, energy, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: EOG
+    name: EOG Resources
+    tags: [large_cap, energy, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: SLB
+    name: Schlumberger
+    tags: [large_cap, energy, services, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: HAL
+    name: Halliburton
+    tags: [large_cap, energy, services, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: BKR
+    name: Baker Hughes
+    tags: [large_cap, energy, services, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: KMI
+    name: Kinder Morgan
+    tags: [large_cap, energy, midstream, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: MPC
+    name: Marathon Petroleum
+    tags: [large_cap, energy, refining, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: PSX
+    name: Phillips 66
+    tags: [large_cap, energy, refining, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: VLO
+    name: Valero Energy
+    tags: [large_cap, energy, refining, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: OKE
+    name: ONEOK
+    tags: [large_cap, energy, midstream, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: WMB
+    name: Williams Companies
+    tags: [large_cap, energy, midstream, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: TRGP
+    name: Targa Resources
+    tags: [large_cap, energy, midstream, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: EQT
+    name: EQT
+    tags: [large_cap, energy, natural_gas, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: LNG
+    name: Cheniere Energy
+    tags: [large_cap, energy, natural_gas, discovery]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: NUE
+    name: Nucor
+    tags: [large_cap, materials, cyclical, discovery]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: STLD
+    name: Steel Dynamics
+    tags: [large_cap, materials, cyclical, discovery]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: MOS
+    name: Mosaic
+    tags: [large_cap, materials, cyclical, discovery]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: CF
+    name: CF Industries
+    tags: [large_cap, materials, cyclical, discovery]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: ALB
+    name: Albemarle
+    tags: [large_cap, materials, ev, discovery]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: WMT
+    name: Walmart
+    tags: [mega_cap, consumer, defensive, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: TGT
+    name: Target
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: LOW
+    name: Lowe's
+    tags: [large_cap, consumer, housing, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: TJX
+    name: TJX Companies
+    tags: [large_cap, consumer, defensive, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: CMG
+    name: Chipotle Mexican Grill
+    tags: [large_cap, consumer, growth, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: SBUX
+    name: Starbucks
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: MCD
+    name: McDonald's
+    tags: [mega_cap, consumer, defensive, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: YUM
+    name: Yum! Brands
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: NKE
+    name: Nike
+    tags: [mega_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: LULU
+    name: Lululemon
+    tags: [large_cap, consumer, growth, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: ORLY
+    name: O'Reilly Automotive
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: AZO
+    name: AutoZone
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: BKNG
+    name: Booking Holdings
+    tags: [large_cap, consumer, travel, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: MAR
+    name: Marriott International
+    tags: [large_cap, consumer, travel, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: HLT
+    name: Hilton Worldwide
+    tags: [large_cap, consumer, travel, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: clean_breakout
+  - symbol: RCL
+    name: Royal Caribbean
+    tags: [large_cap, consumer, travel, high_beta, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: CCL
+    name: Carnival
+    tags: [large_cap, consumer, travel, high_beta, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: NCLH
+    name: Norwegian Cruise Line
+    tags: [mid_cap, consumer, travel, high_beta, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: EBAY
+    name: eBay
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: KR
+    name: Kroger
+    tags: [large_cap, consumer, defensive, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: DG
+    name: Dollar General
+    tags: [large_cap, consumer, defensive, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: DLTR
+    name: Dollar Tree
+    tags: [large_cap, consumer, defensive, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: ROST
+    name: Ross Stores
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: BBY
+    name: Best Buy
+    tags: [large_cap, consumer, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: UAL
+    name: United Airlines
+    tags: [large_cap, consumer, travel, high_beta, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: DAL
+    name: Delta Air Lines
+    tags: [large_cap, consumer, travel, discovery]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: T
+    name: AT&T
+    tags: [mega_cap, communication, defensive, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: VZ
+    name: Verizon
+    tags: [mega_cap, communication, defensive, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: CMCSA
+    name: Comcast
+    tags: [large_cap, communication, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: CHTR
+    name: Charter Communications
+    tags: [large_cap, communication, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: FOXA
+    name: Fox Corporation Class A
+    tags: [large_cap, communication, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: WBD
+    name: Warner Bros. Discovery
+    tags: [large_cap, communication, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: PARA
+    name: Paramount Global
+    tags: [large_cap, communication, discovery]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: GOOG
+    name: Alphabet Class C
+    tags: [mega_cap, tech, ai_related, discovery]
+    sector: technology
+    universe_role: reference
+    demo_profile: steady_mega_cap_trend
+  - symbol: AMT
+    name: American Tower
+    tags: [large_cap, real_estate, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: PLD
+    name: Prologis
+    tags: [large_cap, real_estate, industrial, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: EQIX
+    name: Equinix
+    tags: [large_cap, real_estate, data_center, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: DLR
+    name: Digital Realty
+    tags: [large_cap, real_estate, data_center, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: CCI
+    name: Crown Castle
+    tags: [large_cap, real_estate, communication, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: PSA
+    name: Public Storage
+    tags: [large_cap, real_estate, defensive, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: O
+    name: Realty Income
+    tags: [large_cap, real_estate, defensive, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: SPG
+    name: Simon Property Group
+    tags: [large_cap, real_estate, consumer, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: pullback_in_uptrend
+  - symbol: WELL
+    name: Welltower
+    tags: [large_cap, real_estate, healthcare, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: VICI
+    name: VICI Properties
+    tags: [large_cap, real_estate, consumer, discovery]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: NEE
+    name: NextEra Energy
+    tags: [large_cap, utilities, energy, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: DUK
+    name: Duke Energy
+    tags: [large_cap, utilities, defensive, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: SO
+    name: Southern Company
+    tags: [large_cap, utilities, defensive, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: AEP
+    name: American Electric Power
+    tags: [large_cap, utilities, defensive, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: CEG
+    name: Constellation Energy
+    tags: [large_cap, utilities, energy, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: VST
+    name: Vistra
+    tags: [large_cap, utilities, energy, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: momentum_continuation
+  - symbol: XEL
+    name: Xcel Energy
+    tags: [large_cap, utilities, defensive, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: EXC
+    name: Exelon
+    tags: [large_cap, utilities, defensive, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: D
+    name: Dominion Energy
+    tags: [large_cap, utilities, defensive, discovery]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+
 csv_path:
 filters:
   min_price: 3
@@ -1077,4 +2151,4 @@ filters:
   min_avg_volume: 300000
   exclude_otc: true
   exclude_missing_data: true
-  max_universe_size: 200
+  max_universe_size: 350

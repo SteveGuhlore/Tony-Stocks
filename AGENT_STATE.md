@@ -6,6 +6,58 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V30 handoff - Safe Universe Expansion To 300-500 Symbols
+
+### Current active task
+
+V30 is complete. Tony's active research universe has been expanded in a staged, liquid-first way so scan coverage can increase without changing scoring rules, trigger rules, quarantine behavior, or trading execution behavior.
+
+### Changes
+
+- **`config/universe_swing_research_config.yaml`**
+  - Added a staged liquid expansion batch made up of major sector ETFs plus liquid, actively traded common stocks across technology, financials, healthcare, industrials, energy, consumer, communication, real estate, and utilities.
+  - Kept existing core/watchlist/priority symbols intact.
+  - Left known bad symbols in the universe file so no data was deleted, but quarantine behavior still excludes them from real-data-only product flow.
+  - Added notes clarifying that this is a staged expansion before a broader screener funnel and not a jump to thousands of symbols.
+  - Raised `filters.max_universe_size` from `200` to `350`.
+
+- **`config/default_config.yaml`**
+  - Raised `max_symbols` from `100` to `175` so the expanded universe can actually increase scan coverage while still staying within the existing Alpaca/watch rotation caps.
+  - Added a short note that this remains a staged pre-screener expansion.
+
+- **`tests/test_universe.py`**
+  - Updated production-universe expectations to the new size band.
+  - Added coverage that default-config quarantine still removes `HCP`, `SAMSF`, `SMAR`, and `SQ` from real-data-only flow.
+  - Added coverage that larger-universe rotation still respects the cycle cap, preserves core symbols first, and carries open/previous-priority symbols without duplicates.
+
+### Current size
+
+- Previous configured universe load: `171` symbols (`168` non-excluded)
+- New configured universe load: `349` symbols (`346` non-excluded)
+- Default scan cap now: `175` symbols per scan
+
+### Files changed
+
+- `config/default_config.yaml`
+- `config/universe_swing_research_config.yaml`
+- `tests/test_universe.py`
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` -> **674 passed**
+- `git diff --check` -> passed (CRLF normalization warnings only)
+
+### Safety
+
+No scoring changes, no trigger-rule changes, no broker/paper/live/order changes, no quarantine removal, no data deletion, no demo data additions, and no dashboard visual changes. This is a staged universe/config expansion only.
+
+### Next recommended step
+
+Review a few live scan-coverage reports with the larger rotation pool before considering any further expansion beyond `350` or moving toward a full-market screener funnel.
+
+---
+
 ## V29 handoff - Scan Coverage And Scoring Funnel Report
 
 ### Current active task
