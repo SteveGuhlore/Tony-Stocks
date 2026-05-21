@@ -4,10 +4,12 @@ from types import SimpleNamespace
 import trading_bot.cli as cli
 from trading_bot.analytics import (
     CURRENT_STRATEGY_VERSION,
+    SIGNAL_NOT_STORED,
     SUGGESTION_STATUSES,
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
     build_replay_summary,
+    build_signal_scorecard,
     build_strategy_version_report,
     build_tony_self_review,
     generate_tony_rule_suggestions,
@@ -269,6 +271,175 @@ def test_new_york_market_date_uses_et_boundary():
     assert market_date_mask(pd.Series(["2026-05-20T01:30:00+00:00", "2026-05-20T05:30:00+00:00"]), "2026-05-19").tolist() == [True, False]
 
 
+def test_signal_scorecard_from_sample_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    target_id = create_snapshot(repo, stock("WIN", 92, "Breakout Watch", "primary_candidate"), "target_hit", provider="alpaca_iex")
+    stop_id = create_snapshot(repo, stock("LOSS", 84, "Pullback Watch", "speculative_candidate"), "stop_hit", result_5d=-0.03, provider="alpaca_iex")
+    partial_id = create_snapshot(repo, stock("PART", 73, "Momentum Continuation", "primary_candidate"), "partial_move", provider="alpaca_iex")
+    pending_id = create_snapshot(repo, stock("PEND", 67, "Breakout Watch", "primary_candidate"), "insufficient_future_data", provider="alpaca_iex")
+
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status='triggered',
+                actual_entry_price=100.0,
+                intraday_above_vwap=1,
+                intraday_opening_range_status='opening_range_breakout_watch',
+                tony_volume_read='volume_confirmation',
+                tony_risk_read='strong_risk_reward',
+                tony_market_context_read='market_supportive',
+                reassessment_label='still_valid',
+                risk_reward=3.4,
+                tracking_status='closed'
+            WHERE id=?
+            """,
+            (target_id,),
+        )
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status='triggered',
+                actual_entry_price=50.0,
+                intraday_above_vwap=0,
+                intraday_opening_range_status='opening_range_breakdown_warning',
+                tony_volume_read='low_liquidity_concern',
+                tony_risk_read='wide_atr_concern',
+                tony_market_context_read='market_weak',
+                reassessment_label='weakening',
+                risk_reward=1.4,
+                tracking_status='closed'
+            WHERE id=?
+            """,
+            (stop_id,),
+        )
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status='triggered',
+                actual_entry_price=70.0,
+                tony_volume_read='relative_volume_strength',
+                tony_risk_read='acceptable_risk',
+                tony_market_context_read='market_mixed',
+                reassessment_label='needs_review',
+                risk_reward=2.4,
+                tracking_status='active',
+                current_price=71.0
+            WHERE id=?
+            """,
+            (partial_id,),
+        )
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status='triggered',
+                actual_entry_price=40.0,
+                tony_volume_read='volume_confirmation',
+                tony_risk_read='acceptable_risk',
+                tony_market_context_read='market_supportive',
+                risk_reward=2.1,
+                tracking_status='active',
+                current_price=40.5
+            WHERE id=?
+            """,
+            (pending_id,),
+        )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    scorecard = build_signal_scorecard(analytics.prepared())
+
+    by_key = {entry["signal_key"]: entry for entry in scorecard["signals"]}
+    setup_rows = {row["signal_value"]: row for row in by_key["setup_category"]["counts"]}
+    assert setup_rows["Breakout Watch"]["total_rows"] == 2
+    assert setup_rows["Breakout Watch"]["target_hits"] == 1
+    assert setup_rows["Breakout Watch"]["insufficient_future_data"] == 1
+
+    vwap_rows = {row["signal_value"]: row for row in by_key["above_below_vwap"]["counts"]}
+    assert vwap_rows["above_vwap"]["target_hits"] == 1
+    assert vwap_rows["below_vwap"]["stop_hits"] == 1
+
+    rr_rows = {row["signal_value"]: row for row in by_key["risk_reward_bucket"]["counts"]}
+    assert rr_rows["3.0_plus"]["target_hits"] == 1
+    assert rr_rows["2.0_to_2.99"]["partial_moves"] == 1
+    assert rr_rows["1.0_to_1.99"]["stop_hits"] == 1
+
+
+def test_signal_scorecard_missing_signal_fallback(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap_id = create_snapshot(repo, stock("MISS", 80, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status='triggered',
+                actual_entry_price=100.0,
+                intraday_above_vwap=NULL,
+                intraday_opening_range_status=NULL,
+                tony_volume_read=NULL,
+                tony_market_context_read=NULL,
+                reassessment_label=NULL
+            WHERE id=?
+            """,
+            (snap_id,),
+        )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    prepared = analytics.prepared().drop(columns=["risk_reward"])
+    scorecard = build_signal_scorecard(prepared)
+    by_key = {entry["signal_key"]: entry for entry in scorecard["signals"]}
+
+    for signal_key in ("above_below_vwap", "opening_range", "volume_signal", "market_context", "reassessment_label", "risk_reward_bucket"):
+        assert by_key[signal_key]["counts"][0]["signal_value"] == SIGNAL_NOT_STORED
+
+
+def test_signal_scorecard_real_only_filtering_excludes_demo_rows(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    create_snapshot(repo, stock("REAL", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
+    create_snapshot(
+        repo,
+        stock("DEMO", 82, "Pullback Watch"),
+        "stop_hit",
+        provider="demo_generated",
+        data_source="demo_generated",
+    )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(include_seeded_demo=True), include_seeded_demo=True, real_only=True)
+    scorecard = build_signal_scorecard(analytics.prepared())
+    setup_rows = {
+        row["signal_value"]: row
+        for row in next(entry for entry in scorecard["signals"] if entry["signal_key"] == "setup_category")["counts"]
+    }
+    assert "Breakout Watch" in setup_rows
+    assert "Pullback Watch" not in setup_rows
+
+
+def test_signal_scorecard_insufficient_future_data_is_pending_not_failure(tmp_path):
+    repo = ScannerRepository(tmp_path / "analytics.db")
+    snap_id = create_snapshot(repo, stock("PEND", 81, "Breakout Watch"), "insufficient_future_data", provider="alpaca_iex")
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            """
+            UPDATE candidate_snapshots
+            SET entry_status='triggered',
+                actual_entry_price=100.0,
+                intraday_above_vwap=1,
+                risk_reward=2.3
+            WHERE id=?
+            """,
+            (snap_id,),
+        )
+
+    analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
+    scorecard = build_signal_scorecard(analytics.prepared())
+    vwap_rows = {
+        row["signal_value"]: row
+        for row in next(entry for entry in scorecard["signals"] if entry["signal_key"] == "above_below_vwap")["counts"]
+    }
+    assert vwap_rows["above_vwap"]["insufficient_future_data"] == 1
+    assert vwap_rows["above_vwap"]["stop_hits"] == 0
+    assert vwap_rows["above_vwap"]["conclusive_rows"] == 0
+
+
 def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_path, monkeypatch, capsys):
     repo = ScannerRepository(tmp_path / "analytics.db")
     snapshot_id = create_snapshot(repo, stock("ETDAY", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
@@ -281,6 +452,11 @@ def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_
                 entry_status = 'triggered',
                 actual_entry_price = 100.0,
                 actual_entry_time = '2026-05-20T01:20:00+00:00',
+                intraday_above_vwap = 1,
+                intraday_opening_range_status = 'opening_range_breakout_watch',
+                tony_volume_read = 'volume_confirmation',
+                tony_risk_read = 'strong_risk_reward',
+                tony_market_context_read = 'market_supportive',
                 target = 108.0,
                 stop = 96.0,
                 current_price = 101.0,
@@ -321,7 +497,10 @@ def test_run_eod_report_defaults_to_new_york_market_date_and_matches_memory(tmp_
     assert result["date"] == "2026-05-19"
     assert result["tony_memory_summary"]["report_date"] == "2026-05-19"
     assert result["real_only_snapshots_reviewed"] == 1
+    assert "signal_scorecard" in result
+    assert result["signal_scorecard"]["signals"]
     assert "Report date: 2026-05-19 America/New_York" in output
+    assert "Signal Scorecard:" in output
 
 
 def test_run_eod_report_date_override_uses_explicit_market_date(tmp_path, monkeypatch):

@@ -6,6 +6,46 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V28 handoff - Tony Signal Scorecard
+
+### Current active task
+
+V28 is complete. Outcome analytics and `eod-report` now build a research-only Tony Signal Scorecard from existing stored real-only snapshot fields so future outcome attribution can be reviewed without changing scoring or trigger logic.
+
+### Changes
+
+- **`src/trading_bot/analytics/outcomes.py`**
+  - Added `build_signal_scorecard()` plus `OutcomeAnalytics.signal_scorecard()`.
+  - Scorecard groups existing stored signals by signal value and reports: `total_rows`, `triggered_rows`, `active_rows`, `conclusive_rows`, `target_hits`, `stop_hits`, `partial_moves`, and `insufficient_future_data`.
+  - Included signal dimensions from existing data only: `setup_category`, above/below VWAP, opening-range breakout/breakdown, volume signal, ATR risk, market context, risk/reward bucket, reassessment label, score bucket, and universe role.
+  - Added `SIGNAL_NOT_STORED` fallback for rows where a signal was not stored.
+  - `insufficient_future_data` is counted as pending and excluded from conclusive/stop outcomes.
+
+- **`src/trading_bot/cli.py`**
+  - `run_outcome_analytics()` now prints and returns the Signal Scorecard.
+  - `run_eod_report()` now prints an `Signal Scorecard:` section and returns it in the result payload.
+  - After-market EOD markdown builder includes a Signal Scorecard section when present.
+
+- **`tests/test_outcome_analytics.py`**
+  - Added V28 coverage for sample signal rows, missing-signal fallback, real-only filtering, pending `insufficient_future_data`, and EOD signal-scorecard output.
+
+### Files changed
+
+- `src/trading_bot/analytics/__init__.py`
+- `src/trading_bot/analytics/outcomes.py`
+- `src/trading_bot/cli.py`
+- `tests/test_outcome_analytics.py`
+
+### Safety
+
+No scoring changes, no trigger-rule changes, no broker/paper/live execution changes, no orders, no demo-data inclusion in active analytics, no dashboard visual changes, and no data deletion. Signal attribution is explicitly labeled preliminary and research-only.
+
+### Next recommended step
+
+Collect more real-only market days before using any signal-count differences for judgment. This pass is reporting only.
+
+---
+
 ## V27A handoff - Restore V26D Ledger/Product Filters After V27 Visual Redesign
 
 ### Current active task

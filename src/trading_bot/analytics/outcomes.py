@@ -17,6 +17,7 @@ INSUFFICIENT_OUTCOMES = {"insufficient_future_data"}
 RETURN_COLUMNS = ["result_eod", "result_3d", "result_5d", "result_10d", "result_20d"]
 MARKET_TIMEZONE = "America/New_York"
 MARKET_TZ = ZoneInfo(MARKET_TIMEZONE)
+SIGNAL_NOT_STORED = "signal_not_stored"
 
 CURRENT_STRATEGY_VERSION = "v1"
 SUGGESTION_STATUSES = {"needs_review", "approved", "rejected", "applied_later"}
@@ -237,6 +238,10 @@ class OutcomeAnalytics:
         """Build a research-only replay summary from filtered real-only rows."""
         return build_replay_summary(self.prepared(), strategy_version=strategy_version)
 
+    def signal_scorecard(self) -> dict[str, Any]:
+        """Build a research-only signal scorecard from filtered rows."""
+        return build_signal_scorecard(self.prepared())
+
     def tony_self_review(
         self,
         memory_summary: dict[str, Any],
@@ -397,6 +402,70 @@ def build_daily_tony_memory_summary(
     }
 
 
+def build_signal_scorecard(rows: pd.DataFrame) -> dict[str, Any]:
+    """Summarize outcome attribution by stored Tony/context signal values.
+
+    This is reporting only. It does not change scoring, trigger rules, or trading
+    behavior, and sparse counts should not be treated as conclusions.
+    """
+    data = rows.copy()
+    note = (
+        "Signal attribution is preliminary and needs more real-market days before "
+        "any conclusion should be drawn. This scorecard is reporting only."
+    )
+    signal_specs = [
+        ("setup_category", "Setup Category", _signal_series_setup_category),
+        ("above_below_vwap", "Above/Below VWAP", _signal_series_above_below_vwap),
+        ("opening_range", "Opening Range Breakout/Breakdown", _signal_series_opening_range),
+        ("volume_signal", "Volume Confirmation/Warning", _signal_series_volume_signal),
+        ("atr_risk", "ATR Risk", _signal_series_atr_risk),
+        ("market_context", "Market Context", _signal_series_market_context),
+        ("risk_reward_bucket", "Risk/Reward Bucket", _signal_series_risk_reward_bucket),
+        ("reassessment_label", "Reassessment Label", _signal_series_reassessment_label),
+        ("score_bucket", "Score Bucket", _signal_series_score_bucket),
+        ("universe_role", "Universe Role", _signal_series_universe_role),
+    ]
+    if data.empty:
+        return {"note": note, "signals": []}
+
+    triggered_mask = _memory_triggered_mask(data)
+    active_mask = _memory_active_mask(data)
+    conclusive_mask = _conclusive_outcome_mask(data)
+    target_mask = _outcome_membership_mask(data, TARGET_OUTCOMES)
+    stop_mask = _outcome_membership_mask(data, STOP_OUTCOMES)
+    partial_mask = _outcome_membership_mask(data, PARTIAL_OUTCOMES)
+    insufficient_mask = _outcome_membership_mask(data, INSUFFICIENT_OUTCOMES)
+
+    signals: list[dict[str, Any]] = []
+    for signal_key, signal_label, builder in signal_specs:
+        values = builder(data)
+        counts: list[dict[str, Any]] = []
+        for signal_value, group in data.assign(_signal_value=values).groupby("_signal_value", dropna=False):
+            index = group.index
+            counts.append(
+                {
+                    "signal_value": str(signal_value or SIGNAL_NOT_STORED),
+                    "total_rows": int(len(group)),
+                    "triggered_rows": int(triggered_mask.loc[index].sum()),
+                    "active_rows": int(active_mask.loc[index].sum()),
+                    "conclusive_rows": int(conclusive_mask.loc[index].sum()),
+                    "target_hits": int(target_mask.loc[index].sum()),
+                    "stop_hits": int(stop_mask.loc[index].sum()),
+                    "partial_moves": int(partial_mask.loc[index].sum()),
+                    "insufficient_future_data": int(insufficient_mask.loc[index].sum()),
+                }
+            )
+        counts.sort(key=lambda item: (-item["total_rows"], item["signal_value"]))
+        signals.append(
+            {
+                "signal_key": signal_key,
+                "signal_label": signal_label,
+                "counts": counts,
+            }
+        )
+    return {"note": note, "signals": signals}
+
+
 def _memory_triggered_mask(data: pd.DataFrame) -> pd.Series:
     entry_status = data["entry_status"].str.lower()
     outcome_label = data["outcome_label"].str.lower()
@@ -410,10 +479,14 @@ def _memory_triggered_mask(data: pd.DataFrame) -> pd.Series:
     )
 
 
-def _memory_active_count(data: pd.DataFrame) -> int:
+def _memory_active_mask(data: pd.DataFrame) -> pd.Series:
     tracking_status = data["tracking_status"].str.lower()
     outcome_label = data["outcome_label"].str.lower()
-    return int((tracking_status.eq("active") | outcome_label.eq("still_open")).sum())
+    return tracking_status.eq("active") | outcome_label.eq("still_open")
+
+
+def _memory_active_count(data: pd.DataFrame) -> int:
+    return int(_memory_active_mask(data).sum())
 
 
 def _memory_closed_mask(data: pd.DataFrame) -> pd.Series:
@@ -421,6 +494,128 @@ def _memory_closed_mask(data: pd.DataFrame) -> pd.Series:
     outcome_label = data["outcome_label"].str.lower()
     closed_outcomes = TARGET_OUTCOMES | STOP_OUTCOMES | PARTIAL_OUTCOMES | NO_TRIGGER_OUTCOMES | INSUFFICIENT_OUTCOMES | FAILURE_OUTCOMES
     return tracking_status.isin({"closed", "expired", "invalidated"}) | outcome_label.isin(closed_outcomes)
+
+
+def _conclusive_outcome_mask(data: pd.DataFrame) -> pd.Series:
+    outcome_label = data["outcome_label"].str.lower()
+    tracking_status = data["tracking_status"].str.lower()
+    return outcome_label.isin(TARGET_OUTCOMES | STOP_OUTCOMES | PARTIAL_OUTCOMES | FAILURE_OUTCOMES | NO_TRIGGER_OUTCOMES) | (
+        tracking_status.isin({"closed", "expired", "invalidated"})
+        & ~outcome_label.isin(INSUFFICIENT_OUTCOMES | {"still_open", "unreviewed", ""})
+    )
+
+
+def _outcome_membership_mask(data: pd.DataFrame, allowed: set[str]) -> pd.Series:
+    return data["outcome_label"].str.lower().isin({value.lower() for value in allowed})
+
+
+def _signal_series_setup_category(data: pd.DataFrame) -> pd.Series:
+    return _normalized_signal_series(data, "setup_category")
+
+
+def _signal_series_above_below_vwap(data: pd.DataFrame) -> pd.Series:
+    values: list[str] = []
+    intraday_labels = data.get("tony_intraday_read", pd.Series(index=data.index, dtype="object")).fillna("").astype(str).str.lower()
+    for idx, row in data.iterrows():
+        intraday_value = intraday_labels.loc[idx]
+        above_vwap = row.get("intraday_above_vwap")
+        if above_vwap in (1, True, "1", "true", "True"):
+            values.append("above_vwap")
+        elif above_vwap in (0, False, "0", "false", "False"):
+            values.append("below_vwap")
+        elif intraday_value in {"above_vwap", "below_vwap"}:
+            values.append(intraday_value)
+        else:
+            values.append(SIGNAL_NOT_STORED)
+    return pd.Series(values, index=data.index, dtype="object")
+
+
+def _signal_series_opening_range(data: pd.DataFrame) -> pd.Series:
+    range_status = data.get("intraday_opening_range_status", pd.Series(index=data.index, dtype="object")).fillna("").astype(str).str.lower()
+    intraday_labels = data.get("tony_intraday_read", pd.Series(index=data.index, dtype="object")).fillna("").astype(str).str.lower()
+    allowed = {"opening_range_breakout_watch", "opening_range_breakdown_warning"}
+    values = []
+    for idx in data.index:
+        status = range_status.loc[idx]
+        label = intraday_labels.loc[idx]
+        if status in allowed:
+            values.append(status)
+        elif label in allowed:
+            values.append(label)
+        else:
+            values.append(SIGNAL_NOT_STORED)
+    return pd.Series(values, index=data.index, dtype="object")
+
+
+def _signal_series_volume_signal(data: pd.DataFrame) -> pd.Series:
+    return _normalized_signal_series(data, "tony_volume_read")
+
+
+def _signal_series_atr_risk(data: pd.DataFrame) -> pd.Series:
+    risk = data.get("tony_risk_read", pd.Series(index=data.index, dtype="object")).fillna("").astype(str).str.lower()
+    warnings = data.get("warnings_json", pd.Series(index=data.index, dtype="object"))
+    values = []
+    for idx in data.index:
+        risk_value = risk.loc[idx]
+        warning_values = " | ".join(str(item).lower() for item in _safe_json_list(warnings.loc[idx]))
+        if risk_value == "wide_atr_concern" or "atr risk is wide" in warning_values:
+            values.append("wide_atr_concern")
+        elif risk_value:
+            values.append("atr_risk_not_flagged")
+        else:
+            values.append(SIGNAL_NOT_STORED)
+    return pd.Series(values, index=data.index, dtype="object")
+
+
+def _signal_series_market_context(data: pd.DataFrame) -> pd.Series:
+    return _normalized_signal_series(data, "tony_market_context_read")
+
+
+def _signal_series_risk_reward_bucket(data: pd.DataFrame) -> pd.Series:
+    if "risk_reward" not in data.columns:
+        return pd.Series([SIGNAL_NOT_STORED] * len(data), index=data.index, dtype="object")
+    numeric = pd.to_numeric(data["risk_reward"], errors="coerce")
+    values = []
+    for value in numeric.tolist():
+        if pd.isna(value):
+            values.append(SIGNAL_NOT_STORED)
+        elif value >= 3:
+            values.append("3.0_plus")
+        elif value >= 2:
+            values.append("2.0_to_2.99")
+        elif value >= 1:
+            values.append("1.0_to_1.99")
+        else:
+            values.append("below_1.0")
+    return pd.Series(values, index=data.index, dtype="object")
+
+
+def _signal_series_reassessment_label(data: pd.DataFrame) -> pd.Series:
+    return _normalized_signal_series(data, "reassessment_label")
+
+
+def _signal_series_score_bucket(data: pd.DataFrame) -> pd.Series:
+    if "score_bucket" in data.columns:
+        values = data["score_bucket"]
+    else:
+        values = data["total_score"].apply(score_bucket) if "total_score" in data.columns else pd.Series(index=data.index, dtype="object")
+    return values.fillna(SIGNAL_NOT_STORED).replace("", SIGNAL_NOT_STORED).astype(str)
+
+
+def _signal_series_universe_role(data: pd.DataFrame) -> pd.Series:
+    return _normalized_signal_series(data, "universe_role")
+
+
+def _normalized_signal_series(data: pd.DataFrame, column: str) -> pd.Series:
+    if column not in data.columns:
+        return pd.Series([SIGNAL_NOT_STORED] * len(data), index=data.index, dtype="object")
+    return (
+        data[column]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace("", SIGNAL_NOT_STORED)
+    )
 
 
 def _best_worst_setup_notes(data: pd.DataFrame) -> tuple[str, str]:

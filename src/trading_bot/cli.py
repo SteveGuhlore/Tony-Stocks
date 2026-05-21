@@ -20,6 +20,7 @@ from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
     build_replay_summary,
+    build_signal_scorecard,
     build_strategy_version_report,
     build_tony_self_review,
     market_date_mask,
@@ -1189,8 +1190,10 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         reconciliation=None,
         exclusions=exclusions,
     )
+    signal_scorecard = build_signal_scorecard(prepared)
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
+    _print_signal_scorecard(signal_scorecard)
 
     best_group = _best_target_hit_group(printed_tables.get("setup_category"))
     tony = TonyStocksService(repo, settings.tony_stocks)
@@ -1230,6 +1233,7 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
         "snapshots_reviewed": len(prepared),
         "symbols": sorted(prepared["symbol"].tolist()) if not prepared.empty and "symbol" in prepared.columns else [],
         "date_filter": active_date,
+        "signal_scorecard": signal_scorecard,
     }
 
 
@@ -1271,6 +1275,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         reconciliation=reconciliation,
         exclusions=exclusions,
     )
+    signal_scorecard = build_signal_scorecard(prepared)
 
     latest_watch_status = str(watch_run.get("status", "none")) if watch_run else "none"
     cycles_completed = cycles_on_date
@@ -1414,6 +1419,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         )
     for note in replay["notes"]:
         print(f"  Note: {note}")
+    _print_signal_scorecard(signal_scorecard, header="\nSignal Scorecard:")
 
     print("\nOutcome counts:")
     _print_dataframe(outcome_counts)
@@ -1481,6 +1487,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
         "tony_self_review": self_review,
         "strategy_version_report": strategy_report,
         "replay_summary": replay,
+        "signal_scorecard": signal_scorecard,
     }
 
 
@@ -1571,6 +1578,27 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
             lines.append(f"- {entry['setup']}: triggered={entry['triggered']} target={entry['target_hits']} stop={entry['stop_hits']} partial={entry['partial_moves']} pending={entry['insufficient_future_data']} target_rate={rate_str}")
         for note in replay.get("notes") or []:
             lines.append(f"- Note: {note}")
+        lines.append("")
+
+    scorecard = eod.get("signal_scorecard") or {}
+    if scorecard.get("signals"):
+        lines.append("## Signal Scorecard")
+        lines.append(f"- Note: {scorecard.get('note', '')}")
+        for signal in scorecard.get("signals") or []:
+            lines.append(f"### {signal.get('signal_label', signal.get('signal_key', 'Signal'))}")
+            for row in signal.get("counts") or []:
+                lines.append(
+                    "- "
+                    f"{row.get('signal_value', 'unknown')}: "
+                    f"total={row.get('total_rows', 0)} "
+                    f"triggered={row.get('triggered_rows', 0)} "
+                    f"active={row.get('active_rows', 0)} "
+                    f"conclusive={row.get('conclusive_rows', 0)} "
+                    f"target={row.get('target_hits', 0)} "
+                    f"stop={row.get('stop_hits', 0)} "
+                    f"partial={row.get('partial_moves', 0)} "
+                    f"pending={row.get('insufficient_future_data', 0)}"
+                )
         lines.append("")
 
     lines.append("---")
@@ -2828,6 +2856,25 @@ def _best_target_hit_group(table: pd.DataFrame | None) -> str:
     if float(row.get("target_hit_rate", 0) or 0) <= 0:
         return "none"
     return str(row.iloc[0])
+
+
+def _print_signal_scorecard(scorecard: dict[str, Any], header: str = "\nSignal scorecard:") -> None:
+    signals = scorecard.get("signals") or []
+    print(header)
+    if not signals:
+        print("No signal scorecard rows.")
+        return
+    note = str(scorecard.get("note") or "").strip()
+    if note:
+        print(f"  {note}")
+    for signal in signals:
+        print(f"\n  {signal.get('signal_label', signal.get('signal_key', 'Signal'))}:")
+        counts = signal.get("counts") or []
+        if not counts:
+            print("    No rows.")
+            continue
+        table = pd.DataFrame(counts)
+        _print_dataframe(table)
 
 
 if __name__ == "__main__":
