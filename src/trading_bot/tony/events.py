@@ -732,6 +732,7 @@ class TonyStocksService:
         snapshot_count: int,
         analyzed_count: int,
         by_priority: dict[str, Any] | None = None,
+        memory_summary: dict[str, Any] | None = None,
     ) -> int | None:
         """Create one event when Tony hypothesis-to-outcome analytics is calculated.
 
@@ -752,6 +753,7 @@ class TonyStocksService:
                 "snapshot_count": snapshot_count,
                 "analyzed_count": analyzed_count,
                 "by_priority": by_priority or {},
+                "memory_summary": memory_summary or {},
             },
         )
 

@@ -1,6 +1,6 @@
 # Trading Bot Project - File Structure
 
-_Last updated: 2026-05-18 (V15)_
+_Last updated: 2026-05-19 (V15.8)_
 
 ```text
 TradingBotAgentProject/
@@ -73,6 +73,7 @@ TradingBotAgentProject/
       data/
         __init__.py
         universe.py
+        symbol_quarantine.py
         market_data.py
         universe_rotation.py
         cache.py
@@ -91,6 +92,7 @@ TradingBotAgentProject/
         score_models.py
       snapshots/
         __init__.py
+        active_tracking.py
         entry_triggers.py
         followup.py
         seeding.py
@@ -107,6 +109,8 @@ TradingBotAgentProject/
       dashboard/
         __init__.py
         app.py
+        helpers.py
+        theme.py
       utils/
         __init__.py
         time_utils.py

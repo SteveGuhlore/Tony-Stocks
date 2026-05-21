@@ -7,5 +7,7 @@ requires-python = ">=3.10"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# Delete per-test tmp dirs after each test; basetemp is set by scripts/run_tests.ps1
+# or tests/conftest.py under %LOCALAPPDATA%\TradingBotTests\pytest (not the repo).
 tmp_path_retention_policy = "none"
 

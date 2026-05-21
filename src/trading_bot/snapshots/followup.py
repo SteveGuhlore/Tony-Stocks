@@ -92,6 +92,8 @@ def calculate_snapshot_followup(
         entry_triggered = True
         entry_triggered_at = snapshot.get("actual_entry_time") or snapshot.get("entry_triggered_at")
         entry_at = pd.Timestamp(entry_triggered_at) if entry_triggered_at else None
+        if entry_at is not None and entry_at.tzinfo is not None:
+            entry_at = entry_at.tz_convert(None)
         if entry_at is not None and entry_at in future.index:
             pass
         elif entry_at is not None:
