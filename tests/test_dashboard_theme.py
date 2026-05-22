@@ -233,3 +233,80 @@ class TestTraceResultsTable:
         html = theme.build_results_table_html([self._card()])
         assert "trace-disclaimer" in html
         assert "Research outcomes only" in html
+
+
+class TestOutcomeCardColor:
+    def test_target_hit_green_border(self) -> None:
+        assert theme._outcome_card_color("target_hit")["border"] == "#22c55e"
+        assert theme._outcome_card_color("target_before_stop")["border"] == "#22c55e"
+
+    def test_stop_hit_red_border(self) -> None:
+        assert theme._outcome_card_color("stop_hit")["border"] == "#ef4444"
+        assert theme._outcome_card_color("failed_setup")["border"] == "#ef4444"
+
+    def test_active_purple_border(self) -> None:
+        assert theme._outcome_card_color("tracking")["border"] == "#7c6fff"
+        assert theme._outcome_card_color("still_active")["border"] == "#7c6fff"
+
+    def test_default_grey_border(self) -> None:
+        assert theme._outcome_card_color("unreviewed")["border"] == "#333"
+        assert theme._outcome_card_color("")["border"] == "#333"
+
+
+class TestRenderResultOutcomeCard:
+    _base_card: dict = {
+        "symbol": "PLTR",
+        "outcome_label": "target_hit",
+        "results_filter": "Target reached",
+        "research_pl_pct": "+14.1%",
+        "entry_trigger": "$18.40",
+        "target": "$21.00",
+        "stop": "$17.00",
+        "setup_type": "Breakout",
+        "trigger_date": "May 20",
+        "status": "Target Hit",
+        "reason": "Strong momentum setup.",
+        "result_explanation": "Target hit on May 20.",
+        "risk_reward": "1:2.5",
+        "price_value": "$21.10",
+        "price_label": "Exit price",
+        "active_entry": "$18.40",
+        "exit_price": "$21.10",
+        "exit_price_label": "Exit (target hit)",
+        "phase": "closed",
+    }
+
+    def test_render_result_outcome_card_runs(self) -> None:
+        mock_st = MagicMock()
+        with patch.object(theme, "st", mock_st):
+            theme.render_result_outcome_card(self._base_card)
+        mock_st.markdown.assert_called_once()
+
+    def test_render_result_outcome_cards_empty_state(self) -> None:
+        mock_st = MagicMock()
+        with patch.object(theme, "st", mock_st):
+            theme.render_result_outcome_cards([])
+        mock_st.info.assert_called_once()
+
+    def test_render_results_kpi_bar_runs(self) -> None:
+        summary = {
+            "active": 3,
+            "closed": 10,
+            "target_reached": 6,
+            "stop_reached": 3,
+            "watched": 13,
+            "triggered": 9,
+            "target_hits": 6,
+            "stop_hits": 3,
+            "partial_moves": 1,
+            "waiting": 0,
+            "expired": 0,
+            "insufficient_data": 0,
+            "watched_setups": 13,
+            "still_active": 3,
+        }
+        mock_st = MagicMock()
+        mock_st.columns.return_value = [MagicMock() for _ in range(5)]
+        with patch.object(theme, "st", mock_st):
+            theme.render_results_kpi_bar(summary)
+        mock_st.columns.assert_called_once_with(5)

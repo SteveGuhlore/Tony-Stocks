@@ -795,3 +795,85 @@ def build_results_table_html(cards: list[dict[str, str]]) -> str:
 def render_results_table(cards: list[dict[str, str]]) -> None:
     """Render the TRACE-style results table via st.markdown."""
     render_html(build_results_table_html(cards))
+
+
+# ── Outcome card renderer (V37 redesign) ─────────────────────────────────────
+
+_OUTCOME_COLORS: dict[str, dict[str, str]] = {
+    "target_hit":         {"border": "#22c55e", "bg": "#0d1f11", "pill_bg": "#14532d", "pill_text": "#4ade80"},
+    "target_before_stop": {"border": "#22c55e", "bg": "#0d1f11", "pill_bg": "#14532d", "pill_text": "#4ade80"},
+    "stop_hit":           {"border": "#ef4444", "bg": "#1a0d0d", "pill_bg": "#450a0a", "pill_text": "#f87171"},
+    "stop_before_target": {"border": "#ef4444", "bg": "#1a0d0d", "pill_bg": "#450a0a", "pill_text": "#f87171"},
+    "failed_setup":       {"border": "#ef4444", "bg": "#1a0d0d", "pill_bg": "#450a0a", "pill_text": "#f87171"},
+    "tracking":           {"border": "#7c6fff", "bg": "#13111f", "pill_bg": "#1e1b4b", "pill_text": "#a5b4fc"},
+    "still_active":       {"border": "#7c6fff", "bg": "#13111f", "pill_bg": "#1e1b4b", "pill_text": "#a5b4fc"},
+}
+_OUTCOME_COLORS_DEFAULT: dict[str, str] = {"border": "#333", "bg": "#111", "pill_bg": "#1a1a1a", "pill_text": "#888"}
+
+
+def _outcome_card_color(outcome_label: str) -> dict[str, str]:
+    return _OUTCOME_COLORS.get((outcome_label or "").lower().strip(), _OUTCOME_COLORS_DEFAULT)
+
+
+def render_result_outcome_card(card: dict[str, Any]) -> None:
+    """Render a single color-coded result outcome card."""
+    c = _outcome_card_color(card.get("outcome_label", ""))
+    symbol = _esc(card.get("symbol", "?"))
+    badge = _esc(card.get("results_filter") or card.get("status", "—"))
+    pl = _esc(card.get("research_pl_pct", "—"))
+    pl_color = (
+        "#22c55e" if str(card.get("research_pl_pct", "")).startswith("+")
+        else "#ef4444" if str(card.get("research_pl_pct", "")).startswith("-")
+        else "#888"
+    )
+    entry = _esc(card.get("entry_trigger") or card.get("active_entry") or "—")
+    target = _esc(card.get("target", "—"))
+    stop = _esc(card.get("stop", "—"))
+    setup = _esc(card.get("setup_type", "—"))
+    date = _esc(card.get("trigger_date", "—"))
+
+    render_html(
+        f'<div style="border:1px solid {c["border"]};border-left:3px solid {c["border"]};'
+        f'border-radius:6px;padding:10px 14px;background:{c["bg"]};margin-bottom:8px;">'
+        f'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'
+        f'<div>'
+        f'<span style="font-size:15px;font-weight:700;color:#fff;">{symbol}</span>'
+        f'<span style="margin-left:8px;background:{c["pill_bg"]};color:{c["pill_text"]};'
+        f'padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">{badge}</span>'
+        f'</div>'
+        f'<span style="color:{pl_color};font-size:14px;font-weight:700;">{pl}</span>'
+        f'</div>'
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px;color:#888;margin-bottom:6px;">'
+        f'<div>Entry <span style="color:#ccc;font-weight:500;">{entry}</span></div>'
+        f'<div>Target <span style="color:#4ade80;font-weight:500;">{target}</span></div>'
+        f'<div>Stop <span style="color:#f87171;font-weight:500;">{stop}</span></div>'
+        f'</div>'
+        f'<div style="font-size:10px;color:#555;">{setup} · {date}</div>'
+        f'</div>'
+    )
+
+
+def render_results_kpi_bar(summary: dict[str, Any]) -> None:
+    """Render the 5-metric KPI bar above the Results cards."""
+    active = summary.get("active") or summary.get("still_active", 0)
+    closed = summary.get("closed", 0)
+    targets = summary.get("target_reached") or summary.get("target_hits", 0)
+    stops = summary.get("stop_reached") or summary.get("stop_hits", 0)
+    triggered = summary.get("triggered", 0)
+    win_rate = f"{round(targets / triggered * 100)}%" if triggered else "—"
+
+    cols = st.columns(5)
+    cols[0].metric("Active", active)
+    cols[1].metric("Closed", closed)
+    cols[2].metric("Targets Hit", targets)
+    cols[3].metric("Stops Hit", stops)
+    cols[4].metric("Win Rate", win_rate, help="Targets hit / triggered setups")
+
+
+def render_result_outcome_cards(cards: list[dict[str, Any]]) -> None:
+    """Render all outcome cards; show empty state if none."""
+    if not cards:
+        st.info("No results match the current filter.")
+        return
+    for card in cards:
+        render_result_outcome_card(card)
