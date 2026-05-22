@@ -55,3 +55,27 @@ def test_load_yfinance_range_handles_multiindex_columns():
         result = load_yfinance_range("SPY", start="2024-01-01", end="2024-12-31")
     assert "close" in result.columns
     assert not isinstance(result.columns, pd.MultiIndex)
+
+
+def test_backtest_parser_accepts_start_end_args():
+    """backtest subcommand accepts --start, --end, --fast-window, --slow-window, --starting-cash."""
+    from trading_bot import cli
+    parser = cli.build_parser()
+    args = parser.parse_args([
+        "backtest",
+        "--ticker", "SPY,QQQ",
+        "--start", "2024-01-01",
+        "--end", "2024-12-31",
+        "--fast-window", "10",
+        "--slow-window", "30",
+        "--starting-cash", "25000",
+        "--save-report",
+        "--output-dir", "/tmp/reports",
+    ])
+    assert args.start == "2024-01-01"
+    assert args.end == "2024-12-31"
+    assert args.fast_window == 10
+    assert args.slow_window == 30
+    assert args.starting_cash == 25000.0
+    assert args.save_report is True
+    assert args.output_dir == "/tmp/reports"

@@ -107,12 +107,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Trading bot research CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    backtest = subparsers.add_parser("backtest", help="Run a sample backtest.")
+    backtest = subparsers.add_parser("backtest", help="Run a backtest against historical OHLCV data.")
     source = backtest.add_mutually_exclusive_group(required=False)
-    source.add_argument("--ticker", default=None, help="Ticker to download with yfinance, such as SPY.")
-    source.add_argument("--csv", default=None, help="Path to local OHLCV CSV file.")
-    backtest.add_argument("--period", default="1y", help="Download period for yfinance, such as 6mo, 1y, 5y.")
-    backtest.add_argument("--config", default="configs/default_config.yaml", help="Path to YAML config file.")
+    source.add_argument("--ticker", default=None,
+                        help="Ticker(s) to fetch via yfinance. Comma-separate for multiple, e.g. SPY,QQQ.")
+    source.add_argument("--csv", default=None, help="Path to a local OHLCV CSV file (single symbol).")
+    backtest.add_argument("--period", default="1y",
+                          help="yfinance download period (e.g. 6mo, 1y, 5y). Ignored when --start/--end set.")
+    backtest.add_argument("--start", default=None, help="Start date for historical data (YYYY-MM-DD).")
+    backtest.add_argument("--end", default=None, help="End date for historical data (YYYY-MM-DD).")
+    backtest.add_argument("--fast-window", type=int, default=None,
+                          help="Fast MA window. Overrides config value.")
+    backtest.add_argument("--slow-window", type=int, default=None,
+                          help="Slow MA window. Overrides config value.")
+    backtest.add_argument("--starting-cash", type=float, default=None,
+                          help="Starting cash for the backtest. Overrides config value.")
+    backtest.add_argument("--save-report", action="store_true",
+                          help="Save backtest_report.json and backtest_report.md to --output-dir.")
+    backtest.add_argument("--output-dir", default="reports",
+                          help="Base directory for saved reports (default: reports/).")
+    backtest.add_argument("--config", default="configs/default_config.yaml",
+                          help="Path to YAML config file.")
 
     scan = subparsers.add_parser("scan", help="Run the V1 stock scanner.")
     scan.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
