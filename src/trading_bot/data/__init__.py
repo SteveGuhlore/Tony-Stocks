@@ -30,5 +30,19 @@ def load_yfinance(ticker: str, period: str = "1y") -> pd.DataFrame:
     return normalize_ohlcv(df)
 
 
-__all__ = ["DemoGeneratedProvider", "MarketDataProvider", "load_csv", "load_yfinance", "normalize_ohlcv"]
+def load_yfinance_range(ticker: str, start: str | None = None, end: str | None = None) -> pd.DataFrame:
+    """Fetch OHLCV bars for a specific date range via yfinance."""
+    try:
+        import yfinance as yf
+    except ImportError as exc:
+        raise RuntimeError("yfinance is not installed. Run: pip install -r requirements.txt") from exc
+    df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
+    if df.empty:
+        raise ValueError(f"No data returned for ticker '{ticker}' (start={start}, end={end}).")
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] for col in df.columns]
+    return normalize_ohlcv(df)
+
+
+__all__ = ["DemoGeneratedProvider", "MarketDataProvider", "load_csv", "load_yfinance", "load_yfinance_range", "normalize_ohlcv"]
 
