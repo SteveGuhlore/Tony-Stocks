@@ -4,6 +4,10 @@ _Last updated: 2026-05-19_
 
 ## Overall status
 
+**V35** - Backtest CLI enhancements. The `backtest` command now supports multi-ticker runs (`--ticker SPY,QQQ`), date-range data fetching (`--start YYYY-MM-DD --end YYYY-MM-DD`), CLI-configurable strategy params (`--fast-window`, `--slow-window`, `--starting-cash`), and report saving (`--save-report` writes JSON + markdown to `reports/YYYY-MM-DD/`). Research only. No orders placed.
+
+**V34B** - Code review bug fixes. Fixed backward-compat fold double-count in `_build_scan_coverage_summary`, removed `no_eligible_setup` from `skip_reason_counts` (it is now tracked separately as `no_eligible_setup_count` in the scan summary), wrapped `render_agent_insights()` in `try/except`, and fixed EOD markdown skip-reason header showing when all counts are zero.
+
 **V16** - Tony memory engine foundation. `eod-report` now builds a daily Tony memory summary from real-only outcome rows and stores the same summary in the existing Tony learning event payload for later review. The memory summary includes setup counts, triggered counts, active/closed counts, target/stop/partial counts, reassessment-label counts, preliminary best/worst setup notes, and data-quality notes explaining exclusions and raw-history preservation. This is research-only reporting memory; it does not change scoring, trigger rules, fixed active entries, broker behavior, or stored raw history.
 
 **V16A** - Market-date fix for reporting and daily analytics. `eod-report`, `outcome-analytics --today`, and the daily Tony memory summary now default to the America/New_York market date instead of the UTC calendar date. Explicit `--date YYYY-MM-DD` still overrides `eod-report`, and report output now prints `Report date: YYYY-MM-DD America/New_York`. Stored timestamps remain UTC; only daily filtering/report semantics changed.

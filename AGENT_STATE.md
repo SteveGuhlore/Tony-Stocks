@@ -1,8 +1,137 @@
 # Agent State / Handoff Log
 
-_Last updated: 2026-05-20_
+_Last updated: 2026-05-21_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## V35 handoff - Backtest CLI Enhancements
+
+### Current active task
+
+V35 is complete. The `backtest` command now supports multi-ticker runs, date ranges, CLI strategy params, and report saving.
+
+### Changes
+
+- **`src/trading_bot/cli.py`**
+  - `run_backtest()`: rewrote to support multi-ticker (`--ticker SPY,QQQ`), `--start`/`--end` date range, `--fast-window`/`--slow-window`/`--starting-cash` overrides, and `--save-report` flag.
+  - Added `_save_backtest_report()` and `_build_backtest_markdown()` helpers.
+  - Updated import: added `load_yfinance_range`.
+  - Fixed `_build_eod_report_markdown`: skip-reason section header no longer renders when all counts are zero.
+  - Fixed `run_scan`: `no_eligible_setup` removed from `skip_reason_counts`, tracked separately as `no_eligible_setup_count`.
+
+- **`src/trading_bot/data/__init__.py`**
+  - Added `load_yfinance_range(ticker, start, end)` — fetches bars for a specific date range.
+
+- **`src/trading_bot/config.py`**
+  - Added `default_ticker` and `default_period` fields to `BacktestConfig`.
+
+- **`tests/test_backtest_cli.py`** (new)
+  - 7 tests covering: date-range fetch, multi-ticker, report file creation, start/end routing, parser args.
+
+- **`tests/test_outcome_analytics.py`**
+  - Added `test_eod_markdown_skip_section_hidden_when_all_zero`.
+
+### Files changed
+
+- `src/trading_bot/cli.py`
+- `src/trading_bot/data/__init__.py`
+- `src/trading_bot/config.py`
+- `tests/test_backtest_cli.py` (new)
+- `tests/test_outcome_analytics.py`
+- `CURRENT_STATUS.md`
+- `FILE_STRUCTURE.md`
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **756 passed**
+
+### Safety
+
+No scoring changes. No trigger-rule changes. No trading/paper/broker/orders. The `backtest` command remains research-only. All reports carry `research_only: True` and a `not_applied_note`.
+
+---
+
+## V35A handoff - Backtest CLI Enhancements (Task 3 of 5)
+
+### Current active task
+
+Task 3 complete: Added CLI args for multi-ticker, date range, and strategy params to the `backtest` subparser.
+
+### Changes
+
+- **`src/trading_bot/cli.py`**
+  - Updated `backtest` subparser in `build_parser()`:
+    - Updated help text: "Run a backtest against historical OHLCV data."
+    - `--ticker` now accepts comma-separated multi-ticker input (e.g., "SPY,QQQ")
+    - `--csv` documented as single symbol only
+    - `--period` note: "Ignored when --start/--end set"
+    - **New args:**
+      - `--start` (str, default None): Start date for historical data (YYYY-MM-DD)
+      - `--end` (str, default None): End date for historical data (YYYY-MM-DD)
+      - `--fast-window` (int, default None): Fast MA window. Overrides config value.
+      - `--slow-window` (int, default None): Slow MA window. Overrides config value.
+      - `--starting-cash` (float, default None): Starting cash for the backtest. Overrides config value.
+      - `--save-report` (action="store_true"): Save backtest_report.json and backtest_report.md to --output-dir.
+      - `--output-dir` (str, default "reports"): Base directory for saved reports.
+
+- **`tests/test_backtest_cli.py`**
+  - Added `test_backtest_parser_accepts_start_end_args()` — verifies parser accepts all new args and parses types correctly (int for fast/slow window, float for starting-cash).
+
+### Files changed
+
+- `src/trading_bot/cli.py` (backtest subparser block in `build_parser()`)
+- `tests/test_backtest_cli.py` (new test appended)
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **753 passed** (new test included)
+- Specific test `test_backtest_parser_accepts_start_end_args` → **passed**
+
+### Commit
+
+- `92d5598` - 2026-05-21 - Backtest - Add --start/--end/--fast-window/--slow-window/--save-report CLI args
+
+### Safety
+
+Parser-only change. No scoring, trigger, rotation, trading, demo, or data changes. No behavior changes; args are just available for future `run_backtest()` implementation (Task 4).
+
+### Next recommended step
+
+Task 4: Implement multi-ticker backtest and report saving in `run_backtest()`. This will consume the new parser args and build the backtest logic.
+
+---
+
+## V34B handoff - Code Review Bug Fixes
+
+### Current active task
+
+V34B is complete. Three correctness bugs found by code review were fixed. No behavior changes to scanning, scoring, trigger rules, or trading.
+
+### Changes
+
+- **`src/trading_bot/cli.py`**
+  - `_build_scan_coverage_summary()`: backward-compat fold of `not_enough_data` into `not_enough_bars` now only applies when the payload does NOT already have `not_enough_bars` set. Previously the fold ran unconditionally, causing double-counting for any payload that carried both keys (e.g. during a mixed deploy window).
+  - `run_scan()`: removed `skip_reason_counts["no_eligible_setup"] += no_eligible_setup_count`. Scored symbols with weak/invalid setup categories are not pre-scoring skips — adding them to `skip_reason_counts` inflated skip totals and broke funnel math. The count is now stored separately as `summary["no_eligible_setup_count"]`.
+
+- **`src/trading_bot/dashboard/app.py`**
+  - `render_system_health()`: wrapped the `render_agent_insights()` call in `try/except Exception` with `st.warning()` fallback. A missing or broken `agent_bridge` module previously crashed the entire Settings tab.
+
+### Files changed
+
+- `src/trading_bot/cli.py`
+- `src/trading_bot/dashboard/app.py`
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **717 passed**
+
+### Safety
+
+No scoring changes. No trigger-rule changes. No rotation changes. No trading/paper/broker/orders. No demo data. No data deletion. No dashboard visual changes. Fixes are to skip-reason accounting and dashboard error handling only.
 
 ---
 

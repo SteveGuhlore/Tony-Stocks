@@ -138,4 +138,5 @@ TradingBotAgentProject/
     test_dashboard_helpers.py     (V11) 50 tests for dashboard pure helpers
     test_watch_run.py             (V12) 52 tests for watch run CRUD + helpers
     test_v13_tony_learning.py     (V13) 39 tests for Tony hypothesis-to-outcome tracking
+    test_backtest_cli.py          (V35) multi-ticker backtest CLI tests
 ```
