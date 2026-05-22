@@ -195,6 +195,15 @@ def build_parser() -> argparse.ArgumentParser:
     after_market.add_argument("--force-update-snapshots", action="store_true", help="Run update-snapshots even when outside regular market hours.")
     after_market.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
 
+    backtest_review = subparsers.add_parser(
+        "backtest-review",
+        help="Research-only backtest review of candidate snapshot outcomes. Does not place trades.",
+    )
+    backtest_review.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    backtest_review.add_argument("--days", type=int, default=None, help="Only include snapshots from the last N days.")
+    backtest_review.add_argument("--save-report", action="store_true", help="Save backtest_review.json and .md to output-dir.")
+    backtest_review.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
+
     record_decision = subparsers.add_parser(
         "record-suggestion-decision",
         help="Record an approval decision for a pending rule suggestion. Does not apply the suggestion.",
@@ -409,13 +418,14 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
     _NO_ACTIONABLE_SETUP = frozenset({
         "Weak / Avoid", "Overextended / Wait", "Invalid Trade Plan", "Insufficient Data",
     })
+    # Count scored symbols with no actionable setup. These are NOT skipped — they passed
+    # all filters and were scored — so they go into a separate "not_scored" bucket rather
+    # than skip_reason_counts, which tracks pre-scoring drops only.
     no_eligible_setup_count = sum(
         1 for r in results
         if not str(r.setup_category or "").strip()
         or str(r.setup_category or "").strip() in _NO_ACTIONABLE_SETUP
     )
-    if no_eligible_setup_count:
-        skip_reason_counts["no_eligible_setup"] += no_eligible_setup_count
 
     scan_run_id = repo.create_scan_run(
         universe_count=len(symbols),
@@ -444,6 +454,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
             key: int(skip_reason_counts.get(key, 0))
             for key in SCAN_SKIP_REASON_KEYS
         },
+        "no_eligible_setup_count": no_eligible_setup_count,
         "score_error_count": int(score_error_count),
     }
     if quarantined_entries:
@@ -1318,6 +1329,88 @@ def run_outcome_analytics(args: argparse.Namespace) -> None:
     }
 
 
+def run_backtest_review(args: argparse.Namespace) -> dict[str, Any]:
+    """Research-only backtest review of candidate snapshot outcomes."""
+    from trading_bot.analytics.backtest_review import BacktestReview
+
+    settings = load_scanner_settings(args.config)
+    repo = ScannerRepository(settings.database_path)
+    snapshots = repo.list_snapshots_for_analytics(
+        include_seeded_demo=False,
+        days=args.days,
+    )
+
+    review = BacktestReview(snapshots)
+    result = review.summary()
+
+    print("Backtest Review")
+    print(result["research_disclaimer"])
+    print(f"Snapshots reviewed: {result['snapshots_reviewed']}")
+    print(f"Conclusive outcomes: {result['conclusive_outcomes']}")
+
+    wr = result["win_rate"]
+    avg_pl = result["avg_simulated_pl_per_trade"]
+    md = result["max_drawdown"]
+    print(f"Win rate (conclusive): {f'{wr * 100:.1f}%' if wr is not None else '—  (no conclusive data yet)'}")
+    print(f"Avg simulated P/L per trade: {f'{avg_pl * 100:.2f}%' if avg_pl is not None else '—'}")
+    print(f"Max simulated drawdown: {f'{md * 100:.1f}%' if md is not None else '—'}")
+
+    print("\nBy Setup Category:")
+    _print_dataframe(pd.DataFrame(result["by_setup_category"]))
+
+    print("\nBy Score Bucket:")
+    _print_dataframe(pd.DataFrame(result["by_score_bucket"]))
+
+    print("\nBy Universe Role:")
+    _print_dataframe(pd.DataFrame(result["by_universe_role"]))
+
+    if getattr(args, "save_report", False):
+        report_date = new_york_market_date()
+        output_base = Path(args.output_dir) / report_date
+        output_base.mkdir(parents=True, exist_ok=True)
+        json_path = output_base / "backtest_review.json"
+        md_path = output_base / "backtest_review.md"
+        json_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+        md_path.write_text(_build_backtest_review_markdown(result, report_date), encoding="utf-8")
+        print(f"\nReport saved: {json_path}")
+
+    return result
+
+
+def _build_backtest_review_markdown(result: dict[str, Any], date: str) -> str:
+    wr = result["win_rate"]
+    avg_pl = result["avg_simulated_pl_per_trade"]
+    md = result["max_drawdown"]
+    lines = [
+        f"# Backtest Review — {date}",
+        "",
+        "_Research only. Simulated from stored scanner outcomes. Not evidence of real market edge. No trades placed._",
+        "",
+        f"- Snapshots reviewed: {result['snapshots_reviewed']}",
+        f"- Conclusive outcomes: {result['conclusive_outcomes']}",
+        f"- Win rate (conclusive): {f'{wr * 100:.1f}%' if wr is not None else 'insufficient data'}",
+        f"- Avg simulated P/L per trade: {f'{avg_pl * 100:.2f}%' if avg_pl is not None else 'insufficient data'}",
+        f"- Max simulated drawdown: {f'{md * 100:.1f}%' if md is not None else 'insufficient data'}",
+        "",
+    ]
+    for label, rows in (
+        ("By Setup Category", result.get("by_setup_category", [])),
+        ("By Score Bucket", result.get("by_score_bucket", [])),
+        ("By Universe Role", result.get("by_universe_role", [])),
+    ):
+        lines.append(f"## {label}")
+        if rows:
+            headers = list(rows[0].keys())
+            lines.append("| " + " | ".join(str(h) for h in headers) + " |")
+            lines.append("| " + " | ".join("---" for _ in headers) + " |")
+            for row in rows:
+                lines.append("| " + " | ".join(str(row.get(h, "")) for h in headers) + " |")
+        else:
+            lines.append("_No data._")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     """Print a research-only end-of-day data quality report."""
     settings = load_scanner_settings(args.config)
@@ -1628,7 +1721,7 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
             )
         skip_counts_md = coverage.get("skip_reason_counts") or {}
         has_skip_data = any(int(v or 0) > 0 for v in skip_counts_md.values())
-        if has_skip_data or skip_counts_md:
+        if has_skip_data:
             lines.append("- **Skip / not-scored reasons:**")
             for key, label in _SKIP_REASON_LABELS.items():
                 count = int(skip_counts_md.get(key, 0) or 0)
@@ -2756,6 +2849,8 @@ def main() -> None:
         run_tony_events(args)
     elif args.command == "outcome-analytics":
         run_outcome_analytics(args)
+    elif args.command == "backtest-review":
+        run_backtest_review(args)
     elif args.command == "eod-report":
         run_eod_report(args)
     elif args.command == "after-market-review":
@@ -3033,8 +3128,10 @@ def _build_scan_coverage_summary(
             skip_payload_available = True
             for key in SCAN_SKIP_REASON_KEYS:
                 aggregated_skip_reasons[key] += int(skip_counts.get(key, 0) or 0)
-            # Backward compat: fold old not_enough_data counts into not_enough_bars
-            aggregated_skip_reasons["not_enough_bars"] += int(skip_counts.get("not_enough_data", 0) or 0)
+            # Backward compat: fold old not_enough_data counts into not_enough_bars only
+            # when not_enough_bars was not already set in this payload (avoids double-count).
+            if not skip_counts.get("not_enough_bars"):
+                aggregated_skip_reasons["not_enough_bars"] += int(skip_counts.get("not_enough_data", 0) or 0)
 
     scan_runs = repo.list_scan_runs(limit=500)
     run_ids_today = [

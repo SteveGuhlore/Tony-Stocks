@@ -1992,6 +1992,19 @@ def test_after_market_review_markdown_includes_scan_coverage_section():
     assert "missing real data" in md
 
 
+def test_eod_markdown_skip_section_hidden_when_all_zero():
+    """Skip-reasons section must not appear when all counts are zero."""
+    eod = _sample_eod_result()
+    # Force all skip counts to 0
+    coverage = eod.get("scan_coverage") or {}
+    if coverage:
+        counts = coverage.get("skip_reason_counts") or {}
+        for k in list(counts):
+            counts[k] = 0
+    md = cli._build_eod_report_markdown("2026-05-21", eod)
+    assert "**Skip / not-scored reasons:**" not in md
+
+
 def test_after_market_review_uses_et_date(tmp_path, monkeypatch):
     captured = {}
     def fake_eod(args):
