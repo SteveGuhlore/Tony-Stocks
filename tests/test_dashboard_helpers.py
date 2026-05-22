@@ -1748,3 +1748,26 @@ class TestV27TerminalExitPrices:
         assert "exit_price" in card
         assert "trigger_date" in card
         assert card["trigger_date"] != "Not triggered"
+
+
+def test_results_filter_open_returns_active_rows() -> None:
+    """'Open' chip must map to 'Active' filter, returning only active rows."""
+    import pandas as pd
+    from trading_bot.dashboard.helpers import filter_results_product_rows
+
+    rows = pd.DataFrame([
+        {"results_phase": "active",  "results_filter": "Active",  "symbol": "PLTR"},
+        {"results_phase": "closed",  "results_filter": "Target reached", "symbol": "SOFI"},
+        {"results_phase": "waiting", "results_filter": "Waiting for trigger", "symbol": "HOOD"},
+    ])
+    result = filter_results_product_rows(rows, "Active")
+    assert list(result["symbol"]) == ["PLTR"]
+    closed = filter_results_product_rows(rows, "Closed")
+    assert list(closed["symbol"]) == ["SOFI"]
+    all_rows = filter_results_product_rows(rows, "All")
+    assert len(all_rows) == 3
+
+
+def test_intelligence_page_imports() -> None:
+    """render_intelligence must be importable from app."""
+    from trading_bot.dashboard.app import render_intelligence  # noqa: F401

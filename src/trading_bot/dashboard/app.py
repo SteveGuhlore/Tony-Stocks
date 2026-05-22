@@ -2000,6 +2000,77 @@ def render_tony_learning_panel(repo: ScannerRepository) -> None:
             st.dataframe(risk_table[display_cols], hide_index=True)
 
 
+def render_intelligence(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    """Intelligence — what the last scan cycle found, plus learning trends."""
+    inject_tony_theme()
+    ctx = _dashboard_context(repo, results)
+
+    section_header("Scan Intelligence")
+    st.caption("What the last cycle found and whether the system is improving.")
+
+    last_scan_age = event_age_label(ctx["latest_scan_ts"]) if ctx["latest_scan_ts"] else "No scan yet"
+    symbols_scanned = ctx.get("symbols_scanned") or (len(results) if not results.empty else 0)
+    symbols_scored = int(results["final_score"].notna().sum()) if (not results.empty and "final_score" in results.columns) else 0
+    picks_count = len(ctx.get("picks_df", pd.DataFrame()))
+    tracking_count = len(ctx.get("tracking_df", pd.DataFrame()))
+
+    hero = st.columns(6)
+    hero[0].metric("Last Cycle", last_scan_age)
+    hero[1].metric("Scanned", symbols_scanned if symbols_scanned is not None else "—")
+    hero[2].metric("Pre-Screened", "—", help="Symbols passing pre-screener filter (not yet tracked per-cycle)")
+    hero[3].metric("Scored", symbols_scored)
+    hero[4].metric("Tony Picks", picks_count)
+    hero[5].metric("Active Tracking", tracking_count)
+
+    st.divider()
+
+    funnel_col, signals_col = st.columns([1, 1.4])
+
+    with funnel_col:
+        st.markdown("**Discovery Funnel — Last Cycle**")
+        universe_size = symbols_scanned or 0
+        scored = symbols_scored
+        picks = picks_count
+        st.markdown(
+            f"| Stage | Count | Pass % |\n"
+            f"|-------|-------|--------|\n"
+            f"| Universe | {universe_size} | — |\n"
+            f"| Pre-screener | — | — |\n"
+            f"| Scored | {scored} | {round(scored / universe_size * 100) if universe_size else '—'}% |\n"
+            f"| Tony Picks | {picks} | {round(picks / scored * 100) if scored else '—'}% |"
+        )
+
+    with signals_col:
+        st.markdown("**Top Signals — This Cycle**")
+        if not results.empty and "final_score" in results.columns:
+            cols_available = [c for c in ["symbol", "final_score", "setup_category"] if c in results.columns]
+            top = results[cols_available].sort_values("final_score", ascending=False).head(6).copy()
+            top["final_score"] = top["final_score"].round(1)
+            top.columns = [c.replace("_", " ").title() for c in cols_available]
+            st.dataframe(top, hide_index=True, use_container_width=True)
+        else:
+            st.info("No scan results yet. Run a scan cycle to populate.")
+
+    st.divider()
+
+    st.markdown("**Learning Trend**")
+    raw_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=2000)
+    research_snaps = filter_research_snapshots(raw_snaps)
+    counts = summarize_results_product_counts(build_results_product_rows(research_snaps))
+    triggered = counts.get("triggered", 0)
+    targets = counts.get("target_reached", 0)
+    win_rate_str = f"{round(targets / triggered * 100)}%" if triggered else "—"
+    avg_score_str = f"{round(float(results['final_score'].mean()), 1)}" if (not results.empty and "final_score" in results.columns) else "—"
+
+    trend_cols = st.columns(3)
+    trend_cols[0].metric("Win Rate (all time)", win_rate_str, help="Targets hit / triggered setups")
+    trend_cols[1].metric("Avg Score (last scan)", avg_score_str)
+    trend_cols[2].metric("Conclusive Outcomes", counts.get("closed", 0))
+
+    with st.expander("System Health & Config (developer)", expanded=False):
+        render_system_health(repo, results)
+
+
 def main() -> None:
     repo = repository()
     results = latest_results(repo)
@@ -2015,7 +2086,7 @@ def main() -> None:
         st.divider()
         page = st.radio(
             "Navigate",
-            ["Home", "Tony Watchlist", "Results", "Backtest Review", "Settings / System Health"],
+            ["Home", "Tony Watchlist", "Results", "Backtest Review", "Intelligence"],
             label_visibility="collapsed",
         )
     if page == "Home":
@@ -2026,8 +2097,8 @@ def main() -> None:
         render_results(repo)
     elif page == "Backtest Review":
         render_backtest_review(repo)
-    else:
-        render_system_health(repo, results)
+    elif page == "Intelligence":
+        render_intelligence(repo, results)
 
 
 if __name__ == "__main__":
