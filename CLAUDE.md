@@ -2,6 +2,34 @@
 
 Claude may be used as planner, coder, reviewer, or debugger depending on user limits. Do not assume Claude is only a planner.
 
+## Project status
+
+Currently at **V34A**. See `CURRENT_STATUS.md` for full status. See `AGENT_STATE.md` for the latest handoff.
+
+## Quick-start commands (Windows PowerShell)
+
+```powershell
+# Run full test suite (preferred — sets correct basetemp)
+powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1
+
+# Run tests directly (also works)
+$env:PYTHONPATH = "src"; python -m pytest
+
+# Launch dashboard (opens http://localhost:8501)
+powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1
+
+# End-of-day report
+$env:PYTHONPATH = "src"; python -m trading_bot.cli eod-report --config config/default_config.yaml
+
+# Full post-session review
+$env:PYTHONPATH = "src"; python -m trading_bot.cli after-market-review --config config/default_config.yaml
+
+# One-cycle watch smoke test
+$env:PYTHONPATH = "src"; python -m trading_bot.cli watch --config config/default_config.yaml --max-cycles 1
+```
+
+> **Windows gotcha:** Always set `$env:PYTHONPATH = "src"` before running CLI commands directly — the scripts do this automatically.
+
 ## Required behavior
 
 Before editing or advising, read:
@@ -13,7 +41,15 @@ Before editing or advising, read:
 - `ARCHITECTURE_RULES.md`
 - `DESIGN_RULES.md`
 - `TESTING_CHECKLIST.md`
+- `FILE_STRUCTURE.md`
+- `KNOWN_BACKLOG.md`
 - `AGENT_STATE.md`
+
+## Environment setup
+
+- Copy `.env.example` → `.env` and fill in `ALPACA_API_KEY` / `ALPACA_SECRET_KEY` for real data.
+- Without keys, all commands run in demo mode — safe for testing.
+- Never commit `.env` or API keys.
 
 ## If Claude is coding
 

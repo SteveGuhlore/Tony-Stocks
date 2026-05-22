@@ -45,7 +45,9 @@ from trading_bot.dashboard.helpers import (
     snapshots_today_dataframe,
     split_snapshots_by_phase,
     home_briefing_review_items,
+    RESULT_PERIODS,
     RESULTS_FILTERS,
+    filter_result_rows_by_period,
     filter_results_product_rows,
     risk_reward_definition_text,
     select_home_preview_picks,
@@ -1547,9 +1549,8 @@ def render_active_tracking(repo: ScannerRepository, results: pd.DataFrame) -> No
         render_tracking_position_card(build_tracked_setup_card_model(row))
 
 
-def _results_prepared_for_period(repo: ScannerRepository, period: str) -> pd.DataFrame:
-    snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=5000)
-    analytics = OutcomeAnalytics(snaps, include_seeded_demo=False, real_only=True)
+def _results_prepared_for_period(raw_snaps: pd.DataFrame, period: str) -> pd.DataFrame:
+    analytics = OutcomeAnalytics(raw_snaps, include_seeded_demo=False, real_only=True)
     prepared = filter_research_snapshots(analytics.prepared())
     if prepared.empty or "snapshot_time" not in prepared.columns:
         return prepared
@@ -1573,26 +1574,24 @@ def render_results(repo: ScannerRepository) -> None:
         "</div>"
     )
 
-    period = st.radio("Period", ["Today", "This week", "All time"], horizontal=True, key="results_period")
-    # prepared = period-filtered real-only analytics — used for stats/P&L summary only
-    prepared = _results_prepared_for_period(repo, period)
-    # research_snaps = same full ledger as Watchlist — used for product cards
-    # Active positions triggered before today must not disappear from Results
-    research_snaps = _load_research_snapshots(repo)
-    active_tracking_rows = build_active_tracking_product_rows(research_snaps)
+    period = st.radio("Period", RESULT_PERIODS, horizontal=True, key="results_period")
+    raw_snaps = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=5000)
+    research_snaps = filter_research_snapshots(raw_snaps)
     result_rows = build_results_product_rows(research_snaps)
+    period_rows = filter_result_rows_by_period(result_rows, period)
+    prepared = _results_prepared_for_period(raw_snaps, period)
+    avg_pl = avg_research_pl_from_prepared(prepared)
     summary = summarize_results_plain_english(
         prepared,
         period_label=period,
-        active_tracking_rows=active_tracking_rows,
+        active_tracking_rows=build_active_tracking_product_rows(research_snaps),
     )
-    summary.update(summarize_results_product_counts(result_rows))
-    avg_pl = avg_research_pl_from_prepared(prepared)
+    summary.update(summarize_results_product_counts(period_rows))
     render_results_performance(summary, avg_pl=avg_pl, period=period)
     st.caption(risk_reward_definition_text())
 
     filter_name = st.radio("Result filter", RESULTS_FILTERS, horizontal=True, key="results_filter")
-    filtered_rows = filter_results_product_rows(result_rows, filter_name)
+    filtered_rows = filter_results_product_rows(period_rows, filter_name)
     cards = [build_result_card_model(row) for _, row in filtered_rows.iterrows()]
     render_results_table(cards)
 
@@ -1716,6 +1715,12 @@ def render_system_health(repo: ScannerRepository, results: pd.DataFrame) -> None
         render_outcome_snapshot_panel(repo)
         render_tony_learning_panel(repo)
 
+    with st.expander("Agent Insights", expanded=False):
+        try:
+            render_agent_insights()
+        except Exception as _e:
+            st.warning(f"Agent Insights unavailable: {_e}")
+
 
 def render_command_center_legacy(
     repo: ScannerRepository,
@@ -1791,6 +1796,122 @@ def render_command_center_legacy(
         adv1[2].metric("API requests", api_requests if api_requests is not None else "—")
         adv1[3].metric("Rate-limit warnings", rate_limit_count)
         _cc_hypothesis_cards(analyst_events, limit=8)
+
+
+_REVIEW_COLS = [
+    "total_snapshots", "entry_triggered_count", "target_hit_count",
+    "stop_hit_count", "target_hit_rate", "failure_rate",
+    "average_result_5d", "average_result_20d",
+]
+
+
+def _render_grouped_table(records: list[dict], key_col: str, label: str) -> None:
+    st.markdown(f"#### {label}")
+    if not records:
+        category = label.removeprefix("By ").lower().strip()
+        st.info(f"No {category} data yet.")
+        return
+    df = pd.DataFrame(records)
+    cols_to_show = [key_col] + [c for c in _REVIEW_COLS if c in df.columns]
+    st.dataframe(df[cols_to_show], hide_index=True, use_container_width=True)
+
+
+def render_backtest_review(repo: ScannerRepository) -> None:
+    """Backtest Review page — research-only replay of stored scanner outcomes."""
+    from trading_bot.analytics.backtest_review import BacktestReview, RESEARCH_DISCLAIMER
+
+    inject_tony_theme()
+    section_header("Backtest Review")
+    st.caption(
+        RESEARCH_DISCLAIMER + " Results are preliminary until enough conclusive outcomes exist."
+    )
+
+    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=False, limit=5000)
+    result = BacktestReview(snapshots).summary()
+
+    n_reviewed = result["snapshots_reviewed"]
+    n_conclusive = result["conclusive_outcomes"]
+    wr = result["win_rate"]
+    md_val = result["max_drawdown"]
+
+    top = st.columns(4)
+    top[0].metric("Snapshots reviewed", n_reviewed)
+    top[1].metric("Conclusive outcomes", n_conclusive)
+    top[2].metric(
+        "Win rate (conclusive)",
+        f"{wr * 100:.1f}%" if wr is not None else "—",
+        help="Target hit / (target hit + stop hit). Insufficient data until conclusive outcomes exist.",
+    )
+    top[3].metric(
+        "Max simulated drawdown",
+        f"{md_val * 100:.1f}%" if md_val is not None else "—",
+    )
+
+    if n_conclusive == 0:
+        st.info(
+            "No conclusive outcomes yet (target_hit or stop_hit). "
+            "Win rate and equity metrics will appear once snapshots have resolved outcomes. "
+            "Run update-snapshots and eod-report after market hours."
+        )
+
+    st.markdown("#### By Setup Category")
+    by_setup_records = result["by_setup_category"]
+    if by_setup_records:
+        by_setup_df = pd.DataFrame(by_setup_records)
+        if "target_hit_rate" in by_setup_df.columns:
+            chart_data = by_setup_df[["setup_category", "target_hit_rate"]].dropna()
+            if not chart_data.empty:
+                st.plotly_chart(
+                    go.Figure(
+                        data=[go.Bar(x=chart_data["setup_category"], y=(chart_data["target_hit_rate"] * 100).round(1))]
+                    ).update_layout(title="Target Hit Rate % by Setup Category", yaxis_title="%"),
+                    width="stretch",
+                )
+        cols_to_show = ["setup_category"] + [c for c in _REVIEW_COLS if c in by_setup_df.columns]
+        st.dataframe(by_setup_df[cols_to_show], hide_index=True, use_container_width=True)
+    else:
+        st.info("No setup category data yet.")
+
+    _render_grouped_table(result["by_score_bucket"], "score_bucket", "By Score Bucket")
+    _render_grouped_table(result["by_universe_role"], "universe_role", "By Universe Role")
+
+    curve = result.get("equity_curve", [])
+    if curve:
+        st.markdown("#### Simulated Equity Curve (1-lot replay)")
+        st.caption("Each point = one conclusive scanner outcome, compounded chronologically. Research only.")
+        curve_df = pd.DataFrame({"trade": list(range(1, len(curve) + 1)), "equity": curve})
+        st.plotly_chart(
+            go.Figure(data=[go.Scatter(x=curve_df["trade"], y=curve_df["equity"], mode="lines+markers")])
+            .update_layout(title="Simulated Equity Curve", xaxis_title="Trade #", yaxis_title="Equity (start=1.0)"),
+            width="stretch",
+        )
+
+
+def render_agent_insights() -> None:
+    """Agent Insights panel — research notes written by the trading-bot Claude agent."""
+    from trading_bot.agent_bridge import load_agent_insights
+    st.caption("Research-only agent analysis. Not financial advice. Not applied automatically.")
+    insights = load_agent_insights(limit=30)
+    if not insights:
+        st.info("No agent insights yet. Run the trading-bot agent and call record_agent_insight() to populate this panel.")
+        return
+    conf_icon = {"high": "🟢", "medium": "🟡", "low": "🔴"}
+    cat_icon = {"strategy": "📐", "signal": "📡", "risk": "⚠️", "data": "🗄️", "general": "💬"}
+    for item in reversed(insights):
+        date_str = item.get("date", "?")
+        category = item.get("category", "general")
+        confidence = item.get("confidence", "low")
+        insight_text = item.get("insight", "")
+        symbols = item.get("symbols") or []
+        header = (
+            f"{cat_icon.get(category, '💬')} **{category.title()}** "
+            f"| {conf_icon.get(confidence, '⚪')} {confidence} confidence "
+            f"| {date_str}"
+        )
+        with st.expander(header, expanded=False):
+            st.write(insight_text)
+            if symbols:
+                st.caption(f"Symbols: {', '.join(symbols)}")
 
 
 def render_tony_learning_panel(repo: ScannerRepository) -> None:
@@ -1879,7 +2000,7 @@ def main() -> None:
         st.divider()
         page = st.radio(
             "Navigate",
-            ["Home", "Tony Watchlist", "Results", "Settings / System Health"],
+            ["Home", "Tony Watchlist", "Results", "Backtest Review", "Settings / System Health"],
             label_visibility="collapsed",
         )
     if page == "Home":
@@ -1888,6 +2009,8 @@ def main() -> None:
         render_tony_watchlist(repo, results)
     elif page == "Results":
         render_results(repo)
+    elif page == "Backtest Review":
+        render_backtest_review(repo)
     else:
         render_system_health(repo, results)
 

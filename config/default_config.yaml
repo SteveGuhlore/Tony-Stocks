@@ -114,6 +114,8 @@ symbol_quarantine:
       reason: "Repeated Alpaca IEX missing real data (acquired; delisted from active tape)"
     - symbol: SQ
       reason: "Repeated Alpaca IEX missing real data (symbol may not resolve on IEX feed)"
+    - symbol: PARA
+      reason: "Repeated Alpaca IEX missing real data flagged 2026-05-22 EOD report"
   # Optional replacements are NOT auto-added to the universe file.
   # Add replacements manually to universe YAML with full metadata if desired.
   replacement_symbols: []

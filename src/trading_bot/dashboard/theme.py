@@ -51,7 +51,7 @@ _TONY_APP_CSS = """
 }
 .trace-brand-sub {
   font-size: 0.68rem;
-  color: #334155;
+  color: #475569;
   letter-spacing: 0.09em;
   text-transform: uppercase;
   padding-bottom: 0.4rem;
@@ -143,7 +143,7 @@ _TONY_APP_CSS = """
 }
 .tony-stat-hint {
   font-size: 0.71rem;
-  color: #334155;
+  color: #64748b;
   margin-top: 0.2rem;
 }
 /* ── Cards ─────────────────────────────────────────────────────── */
@@ -301,7 +301,7 @@ _TONY_APP_CSS = """
   margin: 0 0 0.2rem 0;
   letter-spacing: -0.02em;
 }
-.trace-page-sub { font-size: 0.87rem; color: #475569; margin: 0; }
+.trace-page-sub { font-size: 0.87rem; color: #64748b; margin: 0; }
 /* ── TRACE Results table ───────────────────────────────────────── */
 .trace-results-table {
   background: #111827;
@@ -312,7 +312,7 @@ _TONY_APP_CSS = """
 }
 .trace-table-header {
   display: grid;
-  grid-template-columns: 1.6fr 1.2fr 1.1fr 0.85fr 0.85fr 0.85fr 0.85fr 0.75fr 0.6fr 1.1fr 1.5fr;
+  grid-template-columns: 1.6fr 1.2fr 1.1fr 0.85fr 0.85fr 0.85fr 0.85fr 0.75fr 0.75fr 1.0fr 1.6fr;
   padding: 0.6rem 1.1rem;
   border-bottom: 1px solid rgba(255,255,255,0.07);
   background: rgba(255,255,255,0.025);
@@ -322,15 +322,16 @@ _TONY_APP_CSS = """
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #334155;
+  color: #64748b;
 }
 .trace-table-row {
   display: grid;
-  grid-template-columns: 1.6fr 1.2fr 1.1fr 0.85fr 0.85fr 0.85fr 0.85fr 0.75fr 0.6fr 1.1fr 1.5fr;
+  grid-template-columns: 1.6fr 1.2fr 1.1fr 0.85fr 0.85fr 0.85fr 0.85fr 0.75fr 0.75fr 1.0fr 1.6fr;
   padding: 0.85rem 1.1rem;
   border-bottom: 1px solid rgba(255,255,255,0.04);
-  align-items: center;
+  align-items: start;
 }
+.trace-table-row:hover { background: rgba(255,255,255,0.025); }
 .trace-table-row:last-child { border-bottom: none; }
 .trace-symbol {
   font-size: 1.0rem;
@@ -347,7 +348,7 @@ _TONY_APP_CSS = """
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.trace-setup-type { font-size: 0.79rem; color: #475569; }
+.trace-setup-type { font-size: 0.79rem; color: #64748b; }
 .trace-status-pill {
   display: inline-block;
   padding: 0.2rem 0.55rem;
@@ -368,15 +369,15 @@ _TONY_APP_CSS = """
 .trace-pl-negative { color: #f87171; font-weight: 700; font-size: 0.83rem; }
 .trace-pl-neutral  { color: #64748b; font-size: 0.83rem; }
 .trace-notes-cell  {
-  font-size: 0.75rem; color: #334155;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.75rem; color: #64748b;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .trace-empty-state {
   text-align: center; padding: 2.5rem;
-  color: #334155; font-size: 0.88rem;
+  color: #64748b; font-size: 0.88rem;
 }
 .trace-disclaimer {
-  font-size: 0.71rem; color: #1e293b;
+  font-size: 0.71rem; color: #475569;
   text-align: right; padding: 0.55rem 1.1rem;
   border-top: 1px solid rgba(255,255,255,0.04);
   font-style: italic;
@@ -734,7 +735,7 @@ def build_results_table_html(cards: list[dict[str, str]]) -> str:
     headers = [
         "Ticker", "Setup Type", "Status",
         "Entry", "Exit / Current", "Target", "Stop",
-        "Research P/L", "R/R", "Date", "Notes",
+        "Research P/L", "R/R", "Date", "What Happened",
     ]
     header_row = "".join(f'<div class="trace-th">{h}</div>' for h in headers)
 
@@ -778,7 +779,7 @@ def build_results_table_html(cards: list[dict[str, str]]) -> str:
             f'<div class="trace-cell {pl_class}">{_esc(pl_raw)}</div>'
             f'<div class="trace-cell">{_esc(card.get("risk_reward", "—"))}</div>'
             f'<div class="trace-cell">{_esc(card.get("trigger_date", "—"))}</div>'
-            f'<div class="trace-cell trace-notes-cell">{_esc(card.get("reason", "—"))}</div>'
+            f'<div class="trace-cell trace-notes-cell">{_esc(card.get("result_explanation") or card.get("reason", "—"))}</div>'
             "</div>"
         )
 

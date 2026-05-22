@@ -1778,6 +1778,8 @@ def summarize_research_pl(snapshots: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+RESULT_PERIODS = ("Today", "This week", "All time")
+
 RESULTS_FILTERS = (
     "All",
     "Active",
@@ -1998,6 +2000,35 @@ def build_tony_watchlist_rows(
         na_position="last",
     )
     return combined.drop(columns=["_lifecycle_priority", "_sort_time"])
+
+
+def filter_result_rows_by_period(rows: pd.DataFrame, period: str) -> pd.DataFrame:
+    """Filter result rows by time period. Active tracking rows always shown (open positions)."""
+    if rows.empty or period == "All time":
+        return rows.copy()
+    active_mask = (
+        rows["results_phase"].astype(str).eq("active")
+        if "results_phase" in rows.columns
+        else pd.Series(False, index=rows.index)
+    )
+    time_cols = [c for c in ("snapshot_time", "tracking_started_at", "entry_triggered_at") if c in rows.columns]
+    if not time_cols:
+        return rows[active_mask].copy()
+    # Build the most-specific available date per row.
+    # snapshot_time is first (lowest priority); later columns overwrite it when present,
+    # so entry_triggered_at (most specific trade date) wins over tracking_started_at
+    # which wins over snapshot_time (scan time, always set but least precise).
+    row_dates = pd.Series("", index=rows.index, dtype=str)
+    for col in time_cols:
+        filled = rows[col].fillna("").astype(str).str.slice(0, 10)
+        row_dates = filled.where(filled.gt(""), row_dates)
+    if period == "Today":
+        cutoff = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+        period_mask = row_dates.eq(cutoff)
+    else:  # This week
+        cutoff = (pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=7)).strftime("%Y-%m-%d")
+        period_mask = row_dates.ge(cutoff)
+    return rows[active_mask | period_mask].copy()
 
 
 def filter_results_product_rows(rows: pd.DataFrame, filter_name: str) -> pd.DataFrame:

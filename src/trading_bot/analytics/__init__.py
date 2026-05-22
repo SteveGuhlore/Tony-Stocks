@@ -1,3 +1,4 @@
+from trading_bot.analytics.backtest_review import BacktestReview
 from trading_bot.analytics.outcomes import (
     CURRENT_STRATEGY_VERSION,
     SIGNAL_NOT_STORED,
@@ -17,6 +18,7 @@ from trading_bot.analytics.outcomes import (
 )
 
 __all__ = [
+    "BacktestReview",
     "CURRENT_STRATEGY_VERSION",
     "SIGNAL_NOT_STORED",
     "SUGGESTION_STATUSES",

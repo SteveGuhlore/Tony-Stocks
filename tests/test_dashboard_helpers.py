@@ -29,6 +29,7 @@ from trading_bot.dashboard.helpers import (
     eod_outcome_summary_today,
     event_age_label,
     filter_events_by_type,
+    filter_result_rows_by_period,
     filter_results_product_rows,
     format_data_quality_plain,
     format_entry_trigger_status_label,
@@ -1539,6 +1540,102 @@ class TestV26LifecycleAndWatchlist:
         filtered = filter_results_product_rows(result_rows, "Insufficient data")
         if not filtered.empty:
             assert all(r == "Insufficient data" for r in filtered["results_filter"])
+
+
+# ── Period filter tests ────────────────────────────────────────────────────────
+
+
+class TestFilterResultRowsByPeriod:
+    """filter_result_rows_by_period — period-based filtering preserving active rows."""
+
+    def _today(self) -> str:
+        from datetime import timezone
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    def _old_date(self) -> str:
+        return "2025-01-01"
+
+    def _active_row(self, symbol: str, snap_date: str | None = None) -> dict:
+        d = snap_date or self._today()
+        return {
+            "symbol": symbol,
+            "snapshot_time": f"{d}T15:00:00+00:00",
+            "tracking_started_at": f"{d}T14:30:00+00:00",
+            "entry_triggered": 1,
+            "entry_status": "triggered",
+            "planned_entry_price": 100.0,
+            "actual_entry_price": 100.0,
+            "target": 110.0,
+            "stop": 95.0,
+            "outcome_label": "still_open",
+            "tracking_status": "active",
+            "reassessment_label": "still_valid",
+        }
+
+    def _closed_row(self, symbol: str, snap_date: str | None = None) -> dict:
+        d = snap_date or self._today()
+        return {
+            "symbol": symbol,
+            "snapshot_time": f"{d}T15:00:00+00:00",
+            "entry_triggered": 1,
+            "entry_status": "triggered",
+            "planned_entry_price": 100.0,
+            "actual_entry_price": 100.0,
+            "tracking_started_at": f"{d}T14:30:00+00:00",
+            "target": 110.0,
+            "stop": 95.0,
+            "outcome_label": "target_hit",
+            "tracking_status": "target_hit",
+            "reassessment_label": None,
+        }
+
+    def _build_rows(self, rows: list[dict]) -> pd.DataFrame:
+        from trading_bot.dashboard.helpers import build_results_product_rows
+        return build_results_product_rows(pd.DataFrame(rows))
+
+    def test_all_time_returns_everything(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        rows = self._build_rows([self._active_row("A"), self._closed_row("B", self._old_date())])
+        assert len(filter_result_rows_by_period(rows, "All time")) == len(rows)
+
+    def test_empty_input_returns_empty(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        assert filter_result_rows_by_period(pd.DataFrame(), "Today").empty
+
+    def test_today_includes_todays_rows(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        rows = self._build_rows([self._closed_row("TODAY", self._today())])
+        filtered = filter_result_rows_by_period(rows, "Today")
+        assert not filtered.empty
+        assert "TODAY" in filtered["symbol"].values
+
+    def test_today_excludes_old_closed_rows(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        rows = self._build_rows([self._closed_row("OLD", self._old_date())])
+        filtered = filter_result_rows_by_period(rows, "Today")
+        assert filtered.empty or "OLD" not in filtered["symbol"].values
+
+    def test_today_always_includes_active_rows(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        rows = self._build_rows([self._active_row("ACT", self._old_date())])
+        filtered = filter_result_rows_by_period(rows, "Today")
+        # Active rows never excluded regardless of snapshot age
+        assert not filtered.empty
+        assert "ACT" in filtered["symbol"].values
+
+    def test_this_week_includes_recent_rows(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
+        rows = self._build_rows([self._closed_row("RECENT", yesterday)])
+        filtered = filter_result_rows_by_period(rows, "This week")
+        assert not filtered.empty
+        assert "RECENT" in filtered["symbol"].values
+
+    def test_this_week_excludes_old_rows(self) -> None:
+        from trading_bot.dashboard.helpers import filter_result_rows_by_period
+        rows = self._build_rows([self._closed_row("OLD", self._old_date())])
+        filtered = filter_result_rows_by_period(rows, "This week")
+        assert filtered.empty or "OLD" not in filtered["symbol"].values
 
 
 # ── V27 tests: TRACE table, terminal exit prices, trigger_date ────────────────
