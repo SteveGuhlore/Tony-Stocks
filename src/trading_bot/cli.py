@@ -1852,10 +1852,15 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
         lines.append(f"- Skipped symbols: {coverage.get('symbols_skipped', 'unknown') if coverage.get('symbols_skipped') is not None else 'unknown'}")
         lines.append(f"- Missing real-data symbols: {coverage.get('missing_real_data_count', 0)}")
         lines.append(f"- Quarantined symbols: {coverage.get('quarantined_count', 0)}")
-        lines.append(f"- Unique symbols scanned today: {coverage.get('unique_symbols_scanned_today', 'unknown') if coverage.get('unique_symbols_scanned_today') is not None else 'unknown'}")
-        lines.append(f"- Unique symbols scored today: {coverage.get('unique_symbols_scored_today', 'unknown') if coverage.get('unique_symbols_scored_today') is not None else 'unknown'}")
+        lines.append(f"- Unique symbols with bar data today (all symbols that returned OHLCV bars across all scan cycles): {coverage.get('unique_symbols_scanned_today', 'unknown') if coverage.get('unique_symbols_scanned_today') is not None else 'unknown'}")
+        lines.append(f"- Unique symbols fully scored today: {coverage.get('unique_symbols_scored_today', 'unknown') if coverage.get('unique_symbols_scored_today') is not None else 'unknown'}")
         pct = coverage.get("percent_universe_covered_today")
         lines.append(f"- Percent of universe covered today: {f'{pct:.2f}%' if pct is not None else 'unavailable'}")
+        lines.append(
+            "- Note: 'bar data' count above includes every symbol that returned OHLCV bars in any scan cycle today. "
+            "The rotation diagnostics section below counts only symbols tracked via discovery-rotation metadata — "
+            "a subset. The difference between these two counts is expected."
+        )
         lines.append(f"- API requests: {coverage.get('api_requests', 'unknown') if coverage.get('api_requests') is not None else 'unknown'}")
         lines.append(f"- Batch requests: {coverage.get('batch_requests', 'unknown') if coverage.get('batch_requests') is not None else 'unknown'}")
         rotation = coverage.get("rotation_bucket_summary") or {}
@@ -1886,7 +1891,10 @@ def _build_eod_report_markdown(report_date: str, eod: dict[str, Any]) -> str:
             lines.append("")
             lines.append("### Discovery Rotation Diagnostics")
             lines.append(f"- Note: {diag.get('note', '')}")
-            lines.append(f"- Unique symbols scanned today: {diag.get('unique_symbols_scanned', 'unavailable')}")
+            lines.append(
+                f"- Unique symbols in rotation tracking (discovery-rotation-selected symbols — "
+                f"subset of total bar-data symbols): {diag.get('unique_symbols_scanned', 'unavailable')}"
+            )
             lines.append(f"- Total scan appearances: {diag.get('total_scan_appearances', 'unavailable')}")
             lines.append(f"- Symbols with repeat scans: {diag.get('repeat_scan_count', 'unavailable')}")
             pct_u = diag.get("percent_universe_touched")
@@ -3506,10 +3514,15 @@ def _print_scan_coverage_summary(coverage: dict[str, Any], header: str = "\nScan
     )
     unique_scanned_today = coverage.get("unique_symbols_scanned_today")
     unique_scored_today = coverage.get("unique_symbols_scored_today")
-    print(f"Unique symbols scanned today: {unique_scanned_today if unique_scanned_today is not None else 'unknown'}")
-    print(f"Unique symbols scored today: {unique_scored_today if unique_scored_today is not None else 'unknown'}")
+    print(f"Unique symbols with bar data today (all symbols that returned OHLCV bars across all scan cycles): {unique_scanned_today if unique_scanned_today is not None else 'unknown'}")
+    print(f"Unique symbols fully scored today: {unique_scored_today if unique_scored_today is not None else 'unknown'}")
     pct = coverage.get("percent_universe_covered_today")
     print(f"Percent of universe covered today: {f'{pct:.2f}%' if pct is not None else 'unavailable'}")
+    print(
+        "Note: 'bar data' count above includes every symbol that returned OHLCV bars in any scan cycle today. "
+        "The rotation diagnostics section below counts only symbols tracked via discovery-rotation metadata — "
+        "a subset. The difference between these two counts is expected."
+    )
     print(f"API requests: {coverage.get('api_requests', 'unknown') if coverage.get('api_requests') is not None else 'unknown'}")
     print(f"Batch requests: {coverage.get('batch_requests', 'unknown') if coverage.get('batch_requests') is not None else 'unknown'}")
     rotation = coverage.get("rotation_bucket_summary") or {}
@@ -3551,7 +3564,7 @@ def _print_rotation_diagnostics(diag: dict[str, Any], header: str = "\nDiscovery
     repeats = diag.get("repeat_scan_count")
     pct = diag.get("percent_universe_touched")
     fresh = diag.get("estimated_fresh_discovery")
-    print(f"  Unique symbols scanned today: {unique if unique is not None else 'unavailable'}")
+    print(f"  Unique symbols in rotation tracking (discovery-rotation-selected symbols — subset of total bar-data symbols): {unique if unique is not None else 'unavailable'}")
     print(f"  Total scan appearances: {total if total is not None else 'unavailable'}")
     print(f"  Symbols with repeat scans: {repeats if repeats is not None else 'unavailable'}")
     print(f"  Estimated fresh discovery symbols: {fresh if fresh is not None else 'unavailable'}")

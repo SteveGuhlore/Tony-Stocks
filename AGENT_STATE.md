@@ -6,6 +6,52 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V31A handoff - Coverage and Rotation Diagnostic Label Consistency
+
+### Current active task
+
+V31A is complete. EOD report and after-market-review output no longer display two confusing "unique symbols scanned today" numbers. Both sections now have distinct, self-explaining labels and a bridging note that explicitly states why the counts differ.
+
+### Problem solved
+
+The EOD report previously showed:
+- Scan coverage: "Unique symbols scanned today: 345 unique symbols scanned (98.85%)"
+- Rotation diagnostics: "Unique symbols scanned today: 141 unique symbols scanned (40.4%)"
+
+Both used the same label string "Unique symbols scanned today" but measured completely different things, causing operator confusion.
+
+### Changes
+
+- **`src/trading_bot/cli.py`**
+  - `_build_eod_report_markdown()`: Scan coverage line changed from "Unique symbols scanned today" to "Unique symbols with bar data today (all symbols that returned OHLCV bars across all scan cycles)". Scored-symbols line changed from "Unique symbols scored today" to "Unique symbols fully scored today". Added bridging note after the percent-coverage line explaining the two counts differ by design. Rotation diagnostics line changed from "Unique symbols scanned today" to "Unique symbols in rotation tracking (discovery-rotation-selected symbols — subset of total bar-data symbols)".
+  - `_print_scan_coverage_summary()`: Same label changes for stdout output. Added bridging note after percent coverage print.
+  - `_print_rotation_diagnostics()`: Same rotation label change for stdout output.
+
+- **`tests/test_outcome_analytics.py`**
+  - Added 5 new V31A tests: `test_v31a_coverage_label_differs_from_rotation_label`, `test_v31a_markdown_coverage_uses_bar_data_label`, `test_v31a_markdown_rotation_uses_tracking_label`, `test_v31a_markdown_bridging_note_present`, `test_v31a_markdown_rotation_section_count_value`.
+
+### Files changed
+
+- `src/trading_bot/cli.py`
+- `tests/test_outcome_analytics.py`
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `pytest tests/test_outcome_analytics.py -x -q` → **123 passed**
+- `pytest tests/test_v31_rotation_diagnostics.py -x -q` → **17 passed**
+- `powershell -ExecutionPolicy Bypass -File scripts/run_tests.ps1` → **799 passed** (up from 794)
+
+### Behavior changed
+
+Labels only — no scoring, rotation, trigger, or data-flow changes. The numbers themselves are unchanged; only the text labels and an explanatory note were added.
+
+### Safety
+
+No scoring changes. No rotation behavior changes. No trigger-rule changes. No trading/paper/broker/orders. No demo data. No data deletion. No dashboard visual changes. Label-only edits plus new test assertions.
+
+---
+
 ## V36B handoff - Lightweight Pre-Screener Funnel
 
 ### Current active task

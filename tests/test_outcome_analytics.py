@@ -3070,3 +3070,73 @@ def test_terminal_outcome_summary_eod_includes_key(tmp_path, monkeypatch):
     summary = result.get("terminal_outcome_summary") or {}
     assert "terminal_count" in summary
     assert "note" in summary
+
+
+# ── V31A: Coverage and rotation diagnostic label consistency tests ────────────
+
+_COVERAGE_LABEL = "Unique symbols with bar data today"
+_ROTATION_LABEL = "Unique symbols in rotation tracking"
+
+
+def test_v31a_coverage_label_differs_from_rotation_label():
+    """The scan coverage label and the rotation diagnostics label must be distinct strings."""
+    assert _COVERAGE_LABEL != _ROTATION_LABEL
+
+
+def test_v31a_markdown_coverage_uses_bar_data_label():
+    """EOD markdown scan coverage section uses the bar-data label, not 'scanned today'."""
+    eod = _sample_eod_result()
+    md = cli._build_eod_report_markdown("2026-05-22", eod)
+    assert _COVERAGE_LABEL in md
+    # Must NOT use the old ambiguous label in the coverage section
+    assert "- Unique symbols scanned today:" not in md
+
+
+def test_v31a_markdown_rotation_uses_tracking_label():
+    """EOD markdown rotation diagnostics section uses the rotation-tracking label."""
+    eod = _sample_eod_result()
+    # Inject a minimal rotation_diagnostics payload so the section renders
+    coverage = eod.get("scan_coverage") or {}
+    coverage["rotation_diagnostics"] = {
+        "note": "Test note.",
+        "unique_symbols_scanned": 141,
+        "total_scan_appearances": 200,
+        "repeat_scan_count": 20,
+        "percent_universe_touched": 40.4,
+        "estimated_fresh_discovery": 50,
+        "top_repeated_symbols": [],
+        "active_core_repeats": [],
+    }
+    eod["scan_coverage"] = coverage
+    md = cli._build_eod_report_markdown("2026-05-22", eod)
+    assert _ROTATION_LABEL in md
+    # The rotation section should NOT re-use the bar-data label
+    assert md.count(_COVERAGE_LABEL) == 1  # only in coverage section, not rotation
+
+
+def test_v31a_markdown_bridging_note_present():
+    """EOD markdown includes a bridging note explaining the two counts differ by design."""
+    eod = _sample_eod_result()
+    md = cli._build_eod_report_markdown("2026-05-22", eod)
+    assert "bar data" in md
+    assert "rotation" in md.lower()
+    assert "subset" in md.lower()
+
+
+def test_v31a_markdown_rotation_section_count_value():
+    """Rotation tracking count value (141) appears correctly in the markdown."""
+    eod = _sample_eod_result()
+    coverage = eod.get("scan_coverage") or {}
+    coverage["rotation_diagnostics"] = {
+        "note": "Diagnostic note.",
+        "unique_symbols_scanned": 141,
+        "total_scan_appearances": 250,
+        "repeat_scan_count": 30,
+        "percent_universe_touched": 40.4,
+        "estimated_fresh_discovery": 60,
+        "top_repeated_symbols": [],
+        "active_core_repeats": [],
+    }
+    eod["scan_coverage"] = coverage
+    md = cli._build_eod_report_markdown("2026-05-22", eod)
+    assert "141" in md
