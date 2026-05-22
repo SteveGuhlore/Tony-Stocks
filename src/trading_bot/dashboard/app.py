@@ -72,6 +72,8 @@ from trading_bot.dashboard.theme import (
     render_pick_preview_card,
     render_pick_signal_card,
     render_result_card,
+    render_result_outcome_cards,
+    render_results_kpi_bar,
     render_results_performance,
     render_results_table,
     render_stat_grid,
@@ -1565,7 +1567,7 @@ def _results_prepared_for_period(raw_snaps: pd.DataFrame, period: str) -> pd.Dat
 
 
 def render_results(repo: ScannerRepository) -> None:
-    """Results — TRACE-style research performance table."""
+    """Results — outcome cards with filter chips."""
     inject_tony_theme()
     render_html(
         '<div class="trace-page-header">'
@@ -1587,13 +1589,26 @@ def render_results(repo: ScannerRepository) -> None:
         active_tracking_rows=build_active_tracking_product_rows(research_snaps),
     )
     summary.update(summarize_results_product_counts(period_rows))
-    render_results_performance(summary, avg_pl=avg_pl, period=period)
+
+    render_results_kpi_bar(summary)
     st.caption(risk_reward_definition_text())
 
-    filter_name = st.radio("Result filter", RESULTS_FILTERS, horizontal=True, key="results_filter")
+    chip_labels = ["All", "Open", "Closed", "Targets", "Stops", "Expired", "Waiting", "Insufficient Data"]
+    chip_to_filter = {
+        "All": "All",
+        "Open": "Active",
+        "Closed": "Closed",
+        "Targets": "Target reached",
+        "Stops": "Stop reached",
+        "Expired": "Expired / not triggered",
+        "Waiting": "Waiting for trigger",
+        "Insufficient Data": "Insufficient data",
+    }
+    chip = st.radio("Filter", chip_labels, horizontal=True, key="results_chip")
+    filter_name = chip_to_filter[chip]
     filtered_rows = filter_results_product_rows(period_rows, filter_name)
     cards = [build_result_card_model(row) for _, row in filtered_rows.iterrows()]
-    render_results_table(cards)
+    render_result_outcome_cards(cards)
 
 
 def render_system_health(repo: ScannerRepository, results: pd.DataFrame) -> None:
