@@ -1,8 +1,88 @@
 # Agent State / Handoff Log
 
-_Last updated: 2026-05-21_
+_Last updated: 2026-05-22_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## V36B handoff - Lightweight Pre-Screener Funnel
+
+### Current active task
+
+V36B is complete. A lightweight pre-screener funnel now filters the symbol universe ONCE per watch cycle before the discovery rotation picks symbols for full scoring. No extra API calls per symbol. Uses cached scan_results data.
+
+### Problem solved
+
+EOD reports showed ~88 of ~163 selected symbols failing cheap checks (volume/price/bars) per cycle, wasting rotation slots on always-failing symbols. Only ~75 of 349 symbols were actually scored per cycle (~40% universe coverage).
+
+### Changes
+
+- **`src/trading_bot/data/pre_screener.py`** (new file)
+  - `pre_screen_universe(symbols, *, recent_metrics, min_price, max_price, min_avg_volume, min_symbols_after_filter)` — applies price and volume filters using cached data; missing-data symbols pass through unconditionally.
+  - `build_recent_symbol_metrics(scan_result_rows, *, max_cache_age_days)` — builds per-symbol metrics dict from recent scan_results rows; picks most-recent row per symbol within the cache window.
+  - `load_pre_screener_config(settings_dict)` — returns normalized config dict with defaults.
+  - `PreScreenResult` dataclass — carries filtered symbol list and diagnostic counts (original_count, filtered_count, screened_out_count, no_cache_data_count, fallback_used, reasons).
+
+- **`src/trading_bot/storage/repositories.py`**
+  - Added `get_recent_scan_result_metrics(max_age_days, limit)` — lightweight query fetching only `symbol`, `latest_close`, `avg_volume_20`, `created_at` from scan_results within the age window.
+
+- **`src/trading_bot/settings.py`**
+  - Added `pre_screener: dict[str, Any] | None = None` field to `ScannerSettings` so YAML config is loaded without being ignored.
+
+- **`src/trading_bot/cli.py`**
+  - Added import of `PreScreenResult`, `build_recent_symbol_metrics`, `load_pre_screener_config`, `pre_screen_universe` from `trading_bot.data.pre_screener`.
+  - `run_watch()`: after quarantine, before `WatchUniverseRotator.__init__()`, runs the pre-screener to filter `universe_symbols`. Pre-screener failure is caught and logged; the full list is used as fallback.
+  - Added `_log_pre_screen_result(result)` helper — prints one-line summary with screened-out reasons to stdout.
+
+- **`config/default_config.yaml`**
+  - Added `pre_screener:` block with `enabled: true`, `min_symbols_after_filter: 50`, `use_snapshot_cache: true`, `max_cache_age_days: 7`.
+
+- **`tests/test_pre_screener.py`** (new file, 38 tests)
+  - `TestPreScreenUniverse` — price below/above bounds excluded, volume below excluded, exact boundary passes, no-cache-data passes, partial cache passes, fallback trigger, no-fallback, immutability, count consistency, to_dict keys.
+  - `TestBuildRecentSymbolMetrics` — empty input, newest row wins, age cutoff, within cutoff, missing close/volume handled, missing symbol/created_at skipped, uppercase normalization, multiple symbols.
+  - `TestLoadPreScreenerConfig` — defaults when None/empty, overrides, partial overrides keep defaults.
+  - `TestRepositoryGetRecentScanResultMetrics` — empty DB, within window, outside window, correct fields, multiple symbols (real in-memory SQLite).
+  - `TestPreScreenerEndToEnd` — full pipeline filters bad symbols, no-data pass-through, stale data excluded from metrics.
+
+### Files changed
+
+- `src/trading_bot/data/pre_screener.py` (new)
+- `src/trading_bot/storage/repositories.py`
+- `src/trading_bot/settings.py`
+- `src/trading_bot/cli.py`
+- `config/default_config.yaml`
+- `tests/test_pre_screener.py` (new)
+- `AGENT_STATE.md`
+
+### Tests/checks run
+
+- `.venv/Scripts/python.exe -m pytest tests/test_pre_screener.py -v` → **38 passed**
+- `.venv/Scripts/python.exe -m pytest --tb=short -q` → **794 passed** (up from 756)
+
+### How the pre-screener integrates
+
+```
+run_watch() startup (once, before cycle loop):
+  1. load_universe() → 349 symbols
+  2. apply_symbol_quarantine() → ~344 symbols
+  3. [NEW] pre_screen_universe() → ~200 quality-eligible symbols
+     (uses get_recent_scan_result_metrics → build_recent_symbol_metrics)
+  4. WatchUniverseRotator(universe_symbols=filtered_pool, ...)
+     → discovery rotation now draws from ~200 symbols instead of 344
+```
+
+First run after a cold start: no scan_results data yet → all 344 symbols have no cached metrics → all pass through (no_cache_data_count=344). After the first scan cycle, future restarts of watch will have metrics and start filtering.
+
+### Safety
+
+No scoring changes. No trigger-rule changes. No trading/paper/broker/orders. No demo data inclusion. No data deletion. Pre-screener is read-only — it only filters which symbols enter the rotation discovery pool. Worst-case failure mode is catching the exception and using the full list (existing behavior).
+
+### Next recommended step
+
+1. Run `watch --max-cycles 1` to confirm pre-screener prints its summary line during startup.
+2. After a few cycles, check that EOD rotation diagnostics show improved universe coverage (fewer repeat symbols in discovery bucket).
+3. Consider adding the pre-screen result to the scan_coverage EOD report section so operators can see screened_out counts in daily output.
 
 ---
 

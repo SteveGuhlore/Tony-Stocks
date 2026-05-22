@@ -48,6 +48,12 @@ from trading_bot.data.symbol_quarantine import (
 )
 from trading_bot.data.universe_rotation import RotationResult, WatchUniverseRotator
 from trading_bot.data.universe import load_universe, load_universe_metadata, load_universe_tags
+from trading_bot.data.pre_screener import (
+    PreScreenResult,
+    build_recent_symbol_metrics,
+    load_pre_screener_config,
+    pre_screen_universe,
+)
 from trading_bot.intraday import IntradayFeatures, calculate_intraday_features
 from trading_bot.logging_config import configure_logging
 from trading_bot.risk import RiskManager
@@ -1117,6 +1123,32 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 f"Symbol quarantine: {len(watch_quarantined)} symbol(s) removed from rotation pool — "
                 f"{format_quarantine_symbols(watch_quarantined)}"
             )
+        # Pre-screener: filter discovery pool using cached scan data.
+        # Runs once here — no extra API calls per cycle.
+        pre_screener_cfg = load_pre_screener_config(settings.pre_screener)
+        pre_screen_result: PreScreenResult | None = None
+        if pre_screener_cfg.get("enabled", True) and pre_screener_cfg.get("use_snapshot_cache", True):
+            try:
+                max_cache_age = int(pre_screener_cfg.get("max_cache_age_days", 7))
+                raw_metrics_rows = repo.get_recent_scan_result_metrics(max_age_days=max_cache_age)
+                recent_metrics = build_recent_symbol_metrics(
+                    raw_metrics_rows, max_cache_age_days=max_cache_age
+                )
+                pre_screen_result = pre_screen_universe(
+                    universe_symbols,
+                    recent_metrics=recent_metrics,
+                    min_price=float(settings.min_price),
+                    max_price=float(settings.max_price),
+                    min_avg_volume=float(settings.min_avg_volume),
+                    min_symbols_after_filter=int(
+                        pre_screener_cfg.get("min_symbols_after_filter", 50)
+                    ),
+                )
+                universe_symbols = pre_screen_result.symbols
+                _log_pre_screen_result(pre_screen_result)
+            except Exception as exc:
+                LOGGER.warning("Pre-screener failed; using full universe list: %s", exc)
+
         rotator = WatchUniverseRotator(universe_symbols, rotation_cfg)
         LOGGER.info(
             "Universe rotation enabled: %d symbols available, max %d per cycle",
@@ -3025,6 +3057,26 @@ def _print_snapshot_summary(results: list[object], snapshot_count: int) -> None:
     print(f"Benchmark/reference symbols scored: {reference_count}")
     print(f"Warnings across scored symbols: {warnings_count}")
     print(f"Top setup categories: {top_categories}")
+
+
+def _log_pre_screen_result(result: PreScreenResult) -> None:
+    """Print a one-line pre-screener summary to stdout and log detail."""
+    if result.fallback_used:
+        print(
+            f"Pre-screener: filtered pool too small ({result.filtered_count}); "
+            f"using full list ({result.original_count} symbols)."
+        )
+    else:
+        print(
+            f"Pre-screener: {result.original_count} → {result.symbols.__len__()} symbols "
+            f"(screened_out={result.screened_out_count} no_cache_data={result.no_cache_data_count})"
+        )
+        if result.screened_out_count > 0:
+            reasons_str = ", ".join(
+                f"{k}={v}" for k, v in result.reasons.items() if v > 0
+            )
+            if reasons_str:
+                print(f"  Screened-out reasons: {reasons_str}")
 
 
 def _resolve_watch_max_cycles(args: argparse.Namespace, watch_config: dict[str, Any]) -> int | None:

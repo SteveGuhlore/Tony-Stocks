@@ -130,6 +130,15 @@ intraday:
   require_real_provider: true
   allow_demo_fallback: false
 
+pre_screener:
+  enabled: true
+  # If fewer than this many symbols pass the filter, fall back to the full list.
+  min_symbols_after_filter: 50
+  # Use avg_volume_20 / latest_close from recent scan results as a cache.
+  use_snapshot_cache: true
+  # Ignore symbols with no scan_results row within this many days.
+  max_cache_age_days: 7
+
 watch_universe_rotation:
   enabled: true
   max_symbols_per_cycle: 175

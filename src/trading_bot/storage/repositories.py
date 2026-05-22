@@ -134,6 +134,39 @@ class ScannerRepository:
             ).fetchall()
         return pd.DataFrame([dict(row) for row in rows])
 
+    def get_recent_scan_result_metrics(self, max_age_days: int = 7, limit: int = 5000) -> list[dict[str, Any]]:
+        """Return lightweight symbol metrics from recent scan results for pre-screening.
+
+        Only fetches the fields needed by the pre-screener (symbol, latest_close,
+        avg_volume_20, created_at).  Returns one row per (symbol, created_at) — the
+        caller (``build_recent_symbol_metrics``) picks the most recent per symbol.
+
+        Parameters
+        ----------
+        max_age_days:
+            Only return rows created within this many days.  Set conservatively;
+            7 days means a symbol that last appeared in a scan up to a week ago
+            can still be pre-screened without any extra API calls.
+        limit:
+            Hard cap on result rows to avoid reading the entire history table.
+        """
+        cutoff_iso = (
+            __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            - __import__("datetime").timedelta(days=max_age_days)
+        ).isoformat()
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT symbol, latest_close, avg_volume_20, created_at
+                FROM scan_results
+                WHERE created_at >= ?
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (cutoff_iso, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def add_manual_pick(
         self,
         symbol: str,
