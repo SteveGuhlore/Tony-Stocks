@@ -30,7 +30,7 @@ from trading_bot.analytics import (
 )
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
-from trading_bot.data import load_csv, load_yfinance
+from trading_bot.data import load_csv, load_yfinance, load_yfinance_range
 from trading_bot.dashboard.helpers import (
     is_heartbeat_stale,
     summarize_product_reconciliation,
@@ -237,21 +237,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_backtest(args: argparse.Namespace) -> None:
+def run_backtest(args: argparse.Namespace) -> dict[str, Any]:
+    """Run a strategy backtest against yfinance historical data. Research only."""
     config = load_config(args.config)
-    ticker = args.ticker or "SPY"
 
-    if args.csv:
-        data = load_csv(args.csv)
-    else:
-        data = load_yfinance(ticker=ticker, period=args.period)
+    _fw = getattr(args, "fast_window", None)
+    fast_window = _fw if _fw is not None else config.strategy.fast_window
+    _sw = getattr(args, "slow_window", None)
+    slow_window = _sw if _sw is not None else config.strategy.slow_window
+    _sc = getattr(args, "starting_cash", None)
+    starting_cash = float(_sc if _sc is not None else config.backtest.starting_cash)
 
-    strategy = MovingAverageCrossoverStrategy(
-        fast_window=config.strategy.fast_window,
-        slow_window=config.strategy.slow_window,
-    )
+    strategy = MovingAverageCrossoverStrategy(fast_window=fast_window, slow_window=slow_window)
     risk_manager = RiskManager(
-        starting_cash=config.risk.starting_cash,
+        starting_cash=starting_cash,
         max_position_fraction=config.risk.max_position_fraction,
         max_risk_per_trade_fraction=config.risk.max_risk_per_trade_fraction,
         max_drawdown_fraction=config.risk.max_drawdown_fraction,
@@ -262,13 +261,119 @@ def run_backtest(args: argparse.Namespace) -> None:
     backtester = Backtester(
         strategy=strategy,
         risk_manager=risk_manager,
-        starting_cash=config.backtest.starting_cash,
+        starting_cash=starting_cash,
         fee_per_trade=config.backtest.fee_per_trade,
         slippage_fraction=config.backtest.slippage_fraction,
     )
-    result = backtester.run(data)
-    print(f"Data rows: {len(data)}")
-    result.print_summary()
+
+    backtest_results: dict[str, Any] = {}
+
+    if getattr(args, "csv", None):
+        data = load_csv(args.csv)
+        result = backtester.run(data)
+        print(f"Data rows: {len(data)}")
+        result.print_summary()
+        backtest_results["CSV"] = result
+    else:
+        ticker_str = getattr(args, "ticker", None) or "SPY"
+        tickers = [t.strip().upper() for t in ticker_str.split(",") if t.strip()]
+        start = getattr(args, "start", None)
+        end = getattr(args, "end", None)
+
+        for ticker in tickers:
+            if start or end:
+                data = load_yfinance_range(ticker, start=start, end=end)
+            else:
+                data = load_yfinance(ticker=ticker, period=args.period)
+            result = backtester.run(data)
+            print(f"\n--- {ticker} ---")
+            print(f"Data rows: {len(data)}")
+            result.print_summary()
+            backtest_results[ticker] = result
+
+    if getattr(args, "save_report", False):
+        _save_backtest_report(backtest_results, args, strategy.name)
+
+    return {
+        "symbols": {
+            ticker: {
+                "starting_cash": r.metrics.starting_cash,
+                "ending_equity": r.metrics.ending_equity,
+                "total_return_pct": round(r.metrics.total_return_fraction * 100, 2),
+                "max_drawdown_pct": round(r.metrics.max_drawdown_fraction * 100, 2),
+                "trade_count": r.metrics.trade_count,
+                "win_rate_pct": (
+                    round(r.metrics.win_rate_fraction * 100, 2)
+                    if r.metrics.win_rate_fraction is not None else None
+                ),
+            }
+            for ticker, r in backtest_results.items()
+        }
+    }
+
+
+def _save_backtest_report(
+    results: dict[str, Any],
+    args: argparse.Namespace,
+    strategy_name: str,
+) -> None:
+    """Save backtest results as JSON and markdown. Research only."""
+    from datetime import datetime as _dt
+    report_date = _dt.now().strftime("%Y-%m-%d")
+    output_base = Path(getattr(args, "output_dir", "reports")) / report_date
+    output_base.mkdir(parents=True, exist_ok=True)
+
+    summary: dict[str, Any] = {
+        "report_date": report_date,
+        "strategy": strategy_name,
+        "research_only": True,
+        "not_applied_note": "This is a research simulation. No orders were placed.",
+        "symbols": {
+            ticker: {
+                "starting_cash": r.metrics.starting_cash,
+                "ending_equity": r.metrics.ending_equity,
+                "total_return_pct": round(r.metrics.total_return_fraction * 100, 2),
+                "max_drawdown_pct": round(r.metrics.max_drawdown_fraction * 100, 2),
+                "trade_count": r.metrics.trade_count,
+                "win_rate_pct": (
+                    round(r.metrics.win_rate_fraction * 100, 2)
+                    if r.metrics.win_rate_fraction is not None else None
+                ),
+            }
+            for ticker, r in results.items()
+        },
+    }
+    json_path = output_base / "backtest_report.json"
+    md_path = output_base / "backtest_report.md"
+    json_path.write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
+    md_path.write_text(_build_backtest_markdown(summary), encoding="utf-8")
+    print(f"\nReport saved: {json_path}")
+    print(f"Report saved: {md_path}")
+
+
+def _build_backtest_markdown(summary: dict[str, Any]) -> str:
+    """Build human-readable markdown from a backtest summary dict."""
+    lines = [
+        f"# Backtest Report — {summary['report_date']}",
+        "",
+        f"_Strategy: {summary['strategy']}_",
+        "",
+        "_Research only. Simulated returns using historical data. Not evidence of future performance. No orders placed._",
+        "",
+        "## Results by Symbol",
+        "",
+        "| Symbol | Return % | Max DD % | Trades | Win Rate % |",
+        "|--------|----------|----------|--------|------------|",
+    ]
+    for ticker, data in summary.get("symbols", {}).items():
+        wr = data.get("win_rate_pct")
+        lines.append(
+            f"| {ticker} | {data['total_return_pct']:.2f}% | "
+            f"{data['max_drawdown_pct']:.2f}% | {data['trade_count']} | "
+            f"{'—' if wr is None else f'{wr:.1f}%'} |"
+        )
+    lines += ["", "_End of report._"]
+    return "\n".join(lines)
 
 
 def run_scan(args: argparse.Namespace) -> dict[str, Any]:

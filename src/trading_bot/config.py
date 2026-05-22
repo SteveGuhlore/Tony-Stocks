@@ -23,6 +23,8 @@ class BacktestConfig:
     starting_cash: float = 10_000.0
     fee_per_trade: float = 0.0
     slippage_fraction: float = 0.0005
+    default_ticker: str = "SPY"
+    default_period: str = "1y"
 
 
 @dataclass(frozen=True)
