@@ -29,53 +29,30 @@ _TONY_APP_CSS = """
   padding-top: 1.5rem;
   max-width: 1280px;
 }
-/* ── Sidebar nav — style st.radio as nav items ─────────────────── */
-[data-testid="stSidebar"] [data-testid="stRadio"] {
-  width: 100%;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] > div {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: 100%;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label {
-  display: flex !important;
-  align-items: center !important;
-  padding: 8px 12px !important;
+/* ── Sidebar nav — style st.button as nav items ────────────────── */
+[data-testid="stSidebar"] .stButton > button {
+  background: transparent !important;
+  border: none !important;
   border-left: 3px solid transparent !important;
   border-radius: 0 6px 6px 0 !important;
-  margin: 1px 8px 1px 0 !important;
-  cursor: pointer !important;
-  transition: background 0.15s !important;
-  min-height: unset !important;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-  background: rgba(255,255,255,0.04) !important;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
-  background: #1e293b !important;
-  border-left-color: #3b82f6 !important;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label p,
-[data-testid="stSidebar"] [data-testid="stRadio"] label span {
   color: #64748b !important;
+  text-align: left !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  margin: 0 !important;
+  padding: 8px 12px !important;
+  margin: 1px 8px 1px 0 !important;
+  width: calc(100% - 8px) !important;
+  box-shadow: none !important;
+  transition: background 0.12s, color 0.12s !important;
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p,
-[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) span {
-  color: #93c5fd !important;
-  font-weight: 600 !important;
+[data-testid="stSidebar"] .stButton > button:hover {
+  background: rgba(255,255,255,0.04) !important;
+  color: #94a3b8 !important;
+  border-left-color: rgba(59,130,246,0.3) !important;
 }
-/* hide the native radio circle indicator */
-[data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stMarkdownContainer"],
-[data-testid="stSidebar"] [data-testid="stRadio"] input[type="radio"] {
-  display: none !important;
-}
-[data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child {
-  display: none !important;
+[data-testid="stSidebar"] .stButton > button:focus {
+  box-shadow: none !important;
+  outline: none !important;
 }
 /* ── Sidebar brand ─────────────────────────────────────────────── */
 .trace-brand {

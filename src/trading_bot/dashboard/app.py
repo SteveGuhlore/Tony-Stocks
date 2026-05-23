@@ -2189,6 +2189,14 @@ def main() -> None:
     repo = repository()
     results = latest_results(repo)
     inject_tony_theme()
+
+    if "page" not in st.session_state:
+        st.session_state["page"] = "Today"
+
+    _NAV = [("⚡  Today", "Today"), ("📋  Watchlist", "Watchlist"), ("📊  Outcomes", "Outcomes"), ("🔬  Research", "Research")]
+    active = st.session_state["page"]
+    active_idx = next((i + 1 for i, (_, k) in enumerate(_NAV) if k == active), 1)
+
     with st.sidebar:
         render_html(
             '<div class="trace-brand">'
@@ -2197,19 +2205,37 @@ def main() -> None:
             "</div>"
             '<div class="trace-brand-sub">Research terminal</div>'
         )
-        st.divider()
-        page = st.radio(
-            "Navigate",
-            ["Today", "Watchlist", "Outcomes", "Research"],
-            label_visibility="collapsed",
+        render_html('<div style="border-top:1px solid #1f2937;margin:8px 0 6px 0;"></div>')
+        for label, key in _NAV:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state["page"] = key
+                st.rerun()
+        render_html(
+            '<div style="margin-top:12px;padding:8px 14px;border-top:1px solid #1f2937;">'
+            '<div style="font-size:9px;color:#334155;letter-spacing:.06em;">● SCAN READY</div>'
+            "</div>"
         )
-    if page == "Today":
+
+    # Inject active nav state — targets the Nth .stButton in the sidebar
+    st.markdown(
+        f"""<style>
+[data-testid="stSidebar"] .stButton:nth-of-type({active_idx}) > button {{
+    background: #1e293b !important;
+    border-left: 3px solid #3b82f6 !important;
+    color: #93c5fd !important;
+    font-weight: 600 !important;
+}}
+</style>""",
+        unsafe_allow_html=True,
+    )
+
+    if active == "Today":
         render_today(repo, results)
-    elif page == "Watchlist":
+    elif active == "Watchlist":
         render_watchlist(repo, results)
-    elif page == "Outcomes":
+    elif active == "Outcomes":
         render_outcomes(repo)
-    elif page == "Research":
+    elif active == "Research":
         render_research(repo, results)
 
 
