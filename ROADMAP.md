@@ -1,181 +1,234 @@
-# Trading Bot Project - Roadmap
+# Trading Bot Project — Roadmap
 
-_Last updated: 2026-05-19_
+_Last updated: 2026-05-23_
 
-## Phase 1 - V1/V2 scanner, scorer, and dashboard
+---
 
-Status: V1 scaffold, V2 swing scoring, V3 mid/small-cap universe role pass, candidate snapshot foundation, trade-plan validation, V4 snapshot follow-up update command, V4.5 demo outcome seeder, V5 scheduled watch mode, V6 Tony Stocks internal event layer, and V7 outcome analytics tested locally.
+## Naming clarification
 
-Goals:
+Throughout this project "Tony" in older code, comments, and version notes refers to the **trading bot's internal analyst engine** — the deterministic scoring, self-review, memory summary, and rule suggestion system built into this repo. It is not an LLM agent.
 
-- Load a configurable stock universe.
-- Fetch or generate OHLCV data through provider adapters.
-- Calculate explainable technical indicators.
-- Score and rank stocks using config-driven weights.
-- Save scan runs/results to SQLite.
-- Export latest results to CSV.
-- Show dashboard views for scan review, manual picks, paper journal, and basic performance.
-- Add swing-trade setup categories, ETF/benchmark warnings, mega-cap warnings, and dashboard review filters.
-- Add mid/small-cap focused demo universe, universe roles, profile-aware demo data, primary candidate ranking, and CSV smoke coverage.
-- Add candidate snapshots so scan signals can be tracked later without creating paper trades.
+The **Tony Stocks agent** is a separate Claude agent living in the AI Operations Command Center (`C:\Users\alexa\Downloads\AI Operations Command Center`). It does qualitative deep analysis on signals the bot surfaces and is a distinct system. Any roadmap item involving the Command Center or the agent explicitly says so.
 
-Exit criteria:
+---
 
-- `python -m compileall src` passes. Done.
-- `pytest` passes. Done with 51 tests.
-- Scanner runs with demo data and writes SQLite/CSV output. Done.
-- Snapshot command saves eligible candidate snapshots. Done.
-- Dashboard opens and reads latest scan. Startup verified.
+## Completed — V1 through V37
 
-## Phase 1B - Missed opportunity tracking
+| Version | What shipped |
+|---------|-------------|
+| V1–V7 | Core scanner, scorer, OHLCV providers, SQLite storage, Tony event layer, outcome analytics foundation |
+| V8–V9.5 | Alpaca IEX adapter, batch fetching, universe rotation, 171-symbol universe |
+| V10–V13 | Tony Analyst Engine, Watch Mode, Dashboard Command Center, Hypothesis-to-Outcome tracking |
+| V14–V14.7 | Real-data-only enforcement, intraday data foundation, 5Min VWAP/opening-range reads |
+| V15–V15.9 | Intraday trigger simulation, Active Tracking fields, frozen original plan at trigger, product dedupe, reassessment labels |
+| V16–V16B | Tony memory engine, daily memory summary, New York market-date reporting |
+| V17 | Tony self-review (strongest/weakest setup, tomorrow watch) |
+| V18–V18A | Rule suggestions (confidence-tagged), safer future-outcome wording |
+| V19 | Strategy versioning (v1, v1.1, ...) |
+| V20 | Replay summary by setup category |
+| V21–V21B | After-market review package, after-hours guard, EOD wording/NaN cleanup |
+| V22–V23 | Approval package, approval/reject decision ledger |
+| V24–V25 | Strategy proposal package, proposal replay |
+| V26–V26D | Unified Watchlist + lifecycle, PATH/ledger fixes, fake-symbol filtering, Results source repair |
+| V27–V27A | TRACE-style dashboard redesign, restore product filters after redesign |
+| V28 | Tony Signal Scorecard |
+| V29 | Scan coverage and scoring funnel report |
+| V30 | Universe expansion 171 → 349 symbols |
+| V31 | Discovery rotation diagnostics |
+| V31A | Coverage vs rotation label consistency |
+| V33 | Better skipped/not-scored reason categories |
+| V34A | Terminal outcome backend fields (exit price, final P/L, days held) |
+| V34B | Code review bug fixes (skip-reason double-count, no_eligible_setup accounting, dashboard error handling) |
+| V35 | Backtest CLI — multi-ticker, date range, strategy params, report saving |
+| V36B | Lightweight pre-screener funnel (filters before rotation) |
+| V37 | Dashboard revamp — 4-tab Professional Slate design (Today / Watchlist / Outcomes / Research) |
 
-Status: Initial follow-up update command, demo outcome seeder, and scheduled scan/snapshot watch mode tested locally with demo daily data.
+**Current state:**
+- Universe: 349 symbols | ~345 with bar data | ~98.85% coverage
+- Fully scored per cycle: ~140 unique symbols | Scan cap: 175
+- Provider: alpaca_iex
+- After-market review: working
+- Data integrity: V27A filters solid, PATH no longer silently lost
 
-Goals:
+---
 
-- Track candidate snapshots after scan time.
-- Update highest/lowest price seen and follow-up return fields.
-- Label missed opportunities, failed setups, and untriggered watches.
-- Keep this separate from paper trades and live execution.
+## Track A — Trading Bot Core
 
-Exit criteria:
+Improvements to the scanning, scoring, reporting, and dashboard system in this repo.
 
-- Follow-up update command or script exists. Done.
-- Outcome fields are populated from demo or future provider data. Done when future bars exist; same-day daily demo runs correctly mark insufficient future data.
-- Dashboard can compare setup categories by follow-up result. Initial outcome summary/filter added.
-- Demo seeded historical snapshots exist for dashboard/outcome testing only. Done; they are not evidence of real market edge.
-- Scheduled Watch Mode can collect snapshots during the day. Done; it is scanning/snapshot collection only and does not place paper or live trades.
-- Tony Stocks can create internal watcher/analyst events for scans, snapshot updates, high-score candidates, and watch cycles. Done; it does not send external notifications or trade.
-- Outcome analytics can compare setup categories, score buckets, universe roles, warning types, and seeded-demo fixture separation. Done; seeded demo rows are excluded by default and are not evidence of real market edge.
+---
 
-## Phase 1C - Tony Stocks watcher/analyst layer
+### A-Phase 1 — Stabilize Results and Position Ledger
 
-Status: Initial internal event log implemented and tested locally.
+**V34C — Results organization cleanup** _(next up after B-Phase 1)_
+- Separate Active / Closed / Missed Entry / Waiting sections
+- Make filters trustworthy, outcome labels clearer
+- Closed outcomes freeze final P/L; active positions use live P/L
+- Stop/target hit shows exit price + final P/L; entry-never-triggered shows N/A P/L
+- Keep TRACE style; do not bypass V26D/V27A ledger filters
 
-Goals:
+---
 
-- Give the scanner a deterministic internal watcher persona.
-- Create structured events for dashboard review and future notifications.
-- Keep Tony as watcher/analyst only until paper-trade rules are explicit and tested.
-- Avoid LLM-based trade decisions.
+### A-Phase 2 — Rotation and Coverage Optimization
 
-Exit criteria:
+**V32 — Discovery rotation tuning**
+- Always scan: active positions, stale/needs-review, high-priority triggers, core ETFs
+- Rotate: four discovery buckets (A/B/C/D) round-robin
+- Goal: stop repeating same discovery names every cycle; use 349-symbol universe more efficiently
 
-- Tony event table exists. Done.
-- Scan/update/watch flows create events. Done.
-- Dashboard can display Tony events. Done.
-- CLI can print recent Tony events. Done.
-- Tony does not create paper trades or live trades. Done.
+**V32B — Rotation priority scoring**
+- Higher-priority names checked more often; active and stale positions stay protected
+- Low-priority names rotate less frequently; no scoring rule changes unless explicitly approved
 
-## Phase 1D - Outcome analytics and model evaluation
+---
 
-Status: Real-data-only outcome analytics implemented and tested locally. First live market-hours Tony run completed successfully; next focus is real-data-only analytics hygiene before intraday scoring.
+### A-Phase 3 — Better Funnel Intelligence
 
-Goals:
+**V33B — Skip reason refinement**
+- Show skip reasons by cycle and by day; separate "not scored" from "not selected"
+- Reason buckets: not_enough_bars, avg_volume_below_minimum, dollar_volume_below_minimum, price_outside_range, no_eligible_setup, already_tracked, quarantined, missing_real_data, stale_data, other
 
-- Compare outcomes by setup category, universe role, score bucket, warning type, and tags.
-- Keep demo, missing-real-data, and legacy rows excluded from active watch/learning analytics by default.
-- Produce CLI and dashboard summaries for model evaluation.
-- Let Tony create one concise internal event when analytics runs.
-- Hard rule: active Tony watch/learning runs are real-data-only. Demo provider data is never allowed in watch, snapshots, Tony learning, analytics, paper trading, or live trading. Tests may use mocks or recorded real fixtures, but not synthetic demo market series.
+**V37B — Scoring eligibility report**
+- Why did a stock get ranked high / low / ignored?
+- Which score components mattered most? Which warnings lowered confidence?
 
-Exit criteria:
+---
 
-- Outcome analytics service exists. Done.
-- CLI command prints grouped summaries. Done.
-- Dashboard tab displays grouped tables and basic charts. Done.
-- Seeded demo rows are excluded by default. Done.
-- Analytics remain research-only and do not create trades. Done.
+### A-Phase 4 — API and Data Upgrade Planning
 
-## Phase 2 - Real API providers
+**V36 — API upgrade decision report**
+- Provider, API requests, symbols requested vs returned, missing/stale/quarantined counts
+- Recommendation: no upgrade needed / monitor / upgrade useful soon / upgrade needed
 
-Status: **V15.7 complete** for trading-app style five-tab dashboard shell (no scoring/trading/DB changes). **V15.5 complete** for beginner-friendly Command Center dashboard UX. **V15.2 complete** for config-driven symbol quarantine during real-data-only runs. **V15 complete** for research-only intraday entry trigger simulation on candidate snapshots. **V14.7 complete** for real-data-only enforcement. V15 adds research-only intraday trigger simulation. It does not create paper trades or broker orders. Outcome analytics now separates `real_alpaca`, `demo_generated`, `mixed_fallback`, and `unknown_legacy` snapshots, and the CLI/dashboard include market-day review tooling. Daily scoring remains the default.
+**V36C — Provider comparison plan**
+- Compare Alpaca IEX, Alpaca SIP, Polygon, Finnhub, Twelve Data, Financial Modeling Prep
+- By: cost, rate limits, real-time depth, historical bars, news, fundamentals, sector data
 
-V13: Tony Hypothesis-to-Outcome Tracking operational. Tony analyst reads stored with candidate snapshots at creation time. Outcome analytics groups by Tony fields. Dashboard Tony Learning panel. `TONY_ANALYSIS_VERSION = "v1"`. 321 tests pass, 0 errors.
+**V40 — Paid API integration** _(only after reports prove needed)_
+- No live trading; keep Alpaca IEX fallback; provider health checks
 
-V12: Workday Watch Mode operational. Watch run lifecycle tracked in SQLite. Heartbeat staleness detection. Market-hours guard. Tony lifecycle events. Dashboard Command Center (V11) shows real-time watch status. Analyst Engine (V10) produces deterministic reads every cycle. 282 tests pass, 0 errors.
+---
 
-Goals:
+### A-Phase 5 — Universe Expansion
 
-- Add provider adapters for Polygon, Alpaca, Finnhub, Financial Modeling Prep, and/or Twelve Data.
-- Alpaca IEX (free tier): Done for historical daily bars + multi-symbol batch endpoint. V14 adds 5Min intraday fetch support for Tony research reads; scanner scoring still uses daily bars by default.
-- Rate-limit handling (sliding 60s window, buffer%, sleep): Done.
-- Large-universe ingestion (175 symbols/cycle with rotation): Done.
-- Universe rotation (core → open snapshots → prev candidates → round-robin discovery): Done.
-- Batch fetch (`limit=10000`, 1–2 HTTP calls for 175 symbols): Done.
-- Keep all keys in environment variables only: Done.
+**V38 — Expand to 500–1,000 symbols** _(only after V32 rotation is stable)_
 
-- Watch run lifecycle (heartbeat, stale detection, stop/error recording): Done (V12).
-- Dashboard Command Center with live watch status: Done (V11/V12).
-- Tony Analyst Engine (deterministic reads, priority labels, no LLM): Done (V10).
-- Dashboard Command Center tab (first/default): Done (V11).
-- Intraday VWAP/opening-range research reads: Initial foundation done (V14) and watch/snapshot verification tightened (V14.5). Not entry automation.
+**V39 — Broad screener funnel** _(required before thousands of symbols)_
+- Cheap first pass (price/volume/liquidity/trend) → deep scan top candidates only
 
-**Next validation step:** After the next supervised market-hours run, compare `outcome-analytics --real-only --today --provider alpaca_iex` with `eod-report` and confirm demo/fallback/legacy rows are excluded before any intraday scoring work.
+**V39B — Full-market discovery architecture** _(long-term)_
+- 4,000–5,000+ symbols with staged filtering
 
-**Alpaca IEX notice:** Alpaca IEX is a single-exchange feed and may differ from consolidated SIP market tape. It is for research and scanning only. Not for production execution decisions. **Universe symbols are curated for research/scanning and are not recommendations to buy or trade any security.**
+---
 
-## Phase 3 - Paper execution integration
+### A-Phase 6 — Strategy Learning System
 
-Goals:
+**V41 — Signal outcome attribution** — use V28 Signal Scorecard; show which signals worked vs failed by dimension
 
-- Add paper broker adapter.
-- Log order intents and fills.
-- Keep real orders disabled.
-- Add explicit risk approvals before any simulated order.
+**V42 — Rule suggestion quality upgrade** — minimum thresholds, setup-specific suggestions, stronger "needs more data" logic
 
-## Phase 4 - Strategy validation and backtesting
+**V43 — Proposal replay upgrade** — deeper replay across target/stop/partial/missed/active; still report-only
 
-Goals:
+**V44 — Human-approved strategy version bump** — suggestion → approve → proposal → replay → approve → new version recorded; no live trading
 
-- Add scanner-to-backtest review workflow.
-- Track whether manual picks worked over time.
-- Add benchmark and sector-relative comparisons.
-- Add out-of-sample validation and parameter sensitivity tests.
+---
 
-## Phase 5 - Live trading safety gates
+### A-Phase 7 — Paper Trading Readiness
 
-Goals:
+**V45 — Paper-trading readiness checklist** — verify frozen entries, clean ledger, risk rules, reports working
 
-- Keep `live_trading_enabled: false` by default.
-- Require explicit user approval before any live mode.
-- Require separate broker credentials, risk limits, emergency stop, logs, and passing tests.
-- Start only with tiny size after paper validation.
+**V46 — Paper position simulator** _(no broker)_ — simulate fills/exits/P/L from Tony triggers internally
 
-## Future research
+**V47 — Paper broker adapter** _(only after simulator stable)_ — paper only; risk checks; order logs; duplicate guard
 
-- News/sentiment scoring.
-- Fundamentals scoring.
-- Sector and industry relative strength.
-- Alerting.
-- Risk dashboard.
-- Scheduled scans.
+**V48 — Risk rules and kill switch** — max position size, max daily loss, max open positions, max drawdown, emergency stop, manual override
 
-## V15.8A note
+---
 
-- Product dashboard symbol dedupe is complete: one Tony Pick card per symbol, one Active Tracking card per symbol, fixed first valid triggered entry per active symbol, and later rows only refresh live tracking fields plus Results still-active counts.
+### A-Phase 8 — Dashboard Product Polish
 
-## V15.8B note
+**V35B — Reports / Approvals dashboard page** — EOD report, approval package, strategy proposal, signal scorecard, scan coverage all inside dashboard
 
-- Product dashboard semantics are now aligned around `Entry trigger`, fixed `Active entry` / `Tracked from`, after-hours `Closing price`, risk/reward helper text, and Results stock cards/filters driven by the same deduped symbol-level product rows as Home, Tony Picks, and Active Tracking.
-- Future Tony Explanation Engine work: Tony descriptions are still repetitive in some cards. A later pass should create more varied skill-specific explanations without surfacing raw history on the main dashboard.
+**V35C — Dashboard health indicators** — last scan, data quality, active positions, ledger gaps, stale warnings
 
-## V15.8C note
+**V35D — Dark TRACE polish pass** _(only after data logic stable)_ — spacing, tables, card hierarchy, color states
 
-- `eod-report` now includes a raw-vs-product reconciliation section showing that dashboard dedupe/hiding changes visibility only; it does not delete candidate snapshot history from `data/trading_bot.db`.
-- Settings / System Health includes a small reconciliation summary so product visibility counts can be compared against raw retained rows without exposing full history on the main dashboard.
+---
 
-## V15.9 note
+### A-Phase 9 — Alerts and Automation
 
-- Active tracked research setups now receive deterministic Tony reassessment labels: `still_valid`, `weakening`, `invalidated`, or `needs_review`.
-- Reassessment uses stored tracking data only and does not move the fixed active entry or alter trigger/scoring behavior.
+**V50 — Local alerting** — entry trigger, stop/target hit, stale tracking, data provider issue, ledger gap; start terminal/file/dashboard, later email/Discord/Slack
 
-## V16 note
+**V51 — Scheduled after-market review** — auto-run after close; reports ready when user gets home
 
-- Daily Tony memory summaries now roll up real-only outcome rows into setup counts, triggered/active/closed counts, target/stop/partial counts, reassessment-label counts, preliminary best/worst setup notes, and data-quality notes.
-- Tony memory is stored through the existing learning-event/reporting path for later review only. It does not auto-apply learning changes to scoring, triggers, or execution behavior.
+**V52 — Morning startup helper** — one command: dashboard + provider health + watch + safety reminders
 
-## V16A note
+---
 
-- Daily reporting semantics now use the America/New_York market date by default instead of the UTC calendar date.
-- `eod-report`, `outcome-analytics --today`, and Tony memory now align on the same ET market day while keeping stored timestamps in UTC.
+## Track B — Memory and Agent Integration
+
+Obsidian vaults, bridge pipeline, and Tony Stocks agent in the AI Operations Command Center.
+Full design spec: `docs/superpowers/specs/2026-05-23-obsidian-memory-layer-design.md`
+
+---
+
+### B-Phase 1 — EOD Memory Layer ← **THIS WEEKEND** ← IN SCOPE
+
+**What gets built:**
+- `src/trading_bot/vault/` module: `writer.py`, `bridge.py`, `sector_map.py`
+- `vault/` directory in this repo: daily notes (10 sections), signal pages, outcomes, strategy, agent-context
+- Bridge export: curated analyst brief → `AI Operations Command Center/bridge/tony-stocks/YYYY-MM-DD.md`
+- `scripts/seed_vault.py`: one-time backfill from existing SQLite DB
+- `vault:` block in `default_config.yaml`; `--vault-dir` / `--command-center-dir` args on `after-market-review`
+- Standalone `export-to-vault` CLI command
+- Tests: `test_vault_writer.py`, `test_vault_bridge.py`
+
+No changes to scoring, triggers, rotation, trading logic, or existing tests.
+
+---
+
+### B-Phase 2 — Live Signal Handoff _(next sprint)_
+
+During watch cycles, bot writes live alert to `bridge/tony-stocks/live/` on new high-conviction signal. Tony Stocks agent (Command Center) runs a `/loop` watching that folder, does deep analysis, writes verdict to `bridge/tony-stocks/verdicts/`. Bot reads verdicts next cycle and stores Tony's conviction score + notes in snapshot. Dashboard shows Tony's verdict on Watchlist cards. Latency ~5–10 min — fine for swing trading.
+
+---
+
+### B-Phase 3 — MCP Live Alerts _(future)_
+
+Bot pushes real-time signal alerts via MCP when a signal triggers intraday. Includes entry level, target, stop, R/R, Tony's prior verdict.
+
+---
+
+### B-Phase 4 — MCP Paper Trading _(future)_
+
+Bot initiates and manages paper trades via MCP. Live P/L updates streamed back. Full trade lifecycle in Vault 1.
+
+---
+
+### B-Phase 5 — MCP Live Trading _(future — safety gates required)_
+
+Bot initiates live trades via MCP. All Phase 4 safety gates verified. Explicit human approval gate before any live order. Never enabled by default.
+
+**Forward-compatibility constraint:** Vault 1 ticker page and outcomes schema must accommodate execution fields (fill price, order ID, broker confirmation) from B-Phase 1.
+
+---
+
+## Convergence Points
+
+| Bot track | Memory/Agent track | When they meet |
+|-----------|--------------------|----------------|
+| A-Phase 7 (paper simulator) | B-Phase 4 (MCP paper trading) | Same paper trading goal, different layers — build together |
+| A-Phase 9 (local alerts) | B-Phase 3 (MCP alerts) | Same alerting infrastructure, different delivery |
+| A-Phase 6 (strategy learning) | B-Phase 2 (live Tony verdict) | Tony's conviction scores feed strategy learning over time |
+
+---
+
+## Recommended immediate sequence
+
+1. **B-Phase 1** — Vault + bridge (this weekend, markets closed) ← starting now
+2. **A-Phase 1 / V34C** — Results organization cleanup
+3. **A-Phase 2 / V32** — Discovery rotation tuning
+4. **B-Phase 2** — Live signal handoff to Tony Stocks agent
+5. **A-Phase 3** — Better funnel intelligence
+6. **A-Phase 6** — Strategy learning system
+7. **A-Phase 7 + B-Phase 4** — Paper trading (converged)
