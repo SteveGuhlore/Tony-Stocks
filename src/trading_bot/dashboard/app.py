@@ -2031,13 +2031,31 @@ def render_intelligence(repo: ScannerRepository, results: pd.DataFrame) -> None:
         universe_size = symbols_scanned or 0
         scored = symbols_scored
         picks = picks_count
-        st.markdown(
-            f"| Stage | Count | Pass % |\n"
-            f"|-------|-------|--------|\n"
-            f"| Universe | {universe_size} | — |\n"
-            f"| Pre-screener | — | — |\n"
-            f"| Scored | {scored} | {round(scored / universe_size * 100) if universe_size else '—'}% |\n"
-            f"| Tony Picks | {picks} | {round(picks / scored * 100) if scored else '—'}% |"
+
+        def _funnel_row(stage: str, count: str, pct: str, highlight: bool = False) -> str:
+            bg = "#141414" if highlight else "#0d0d0d"
+            return (
+                f'<div style="display:grid;grid-template-columns:1fr 60px 50px;'
+                f'padding:6px 10px;background:{bg};border-bottom:1px solid #1a1a1a;">'
+                f'<div style="font-size:12px;color:#aaa;">{stage}</div>'
+                f'<div style="font-size:12px;color:#fff;font-weight:600;text-align:right;">{count}</div>'
+                f'<div style="font-size:11px;color:#555;text-align:right;">{pct}</div>'
+                f'</div>'
+            )
+
+        render_html(
+            '<div style="border:1px solid #1e1e1e;border-radius:6px;overflow:hidden;margin-top:6px;">'
+            '<div style="display:grid;grid-template-columns:1fr 60px 50px;padding:5px 10px;'
+            'background:#0a0a0a;border-bottom:1px solid #222;">'
+            '<div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;">Stage</div>'
+            '<div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;text-align:right;">Count</div>'
+            '<div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.05em;text-align:right;">Pass%</div>'
+            '</div>'
+            + _funnel_row("Universe", str(universe_size), "—")
+            + _funnel_row("Pre-screener", "—", "—")
+            + _funnel_row("Scored", str(scored), f"{round(scored / universe_size * 100)}%" if universe_size else "—")
+            + _funnel_row("Tony Picks", str(picks), f"{round(picks / scored * 100)}%" if scored else "—", highlight=True)
+            + '</div>'
         )
 
     with signals_col:
@@ -2067,7 +2085,7 @@ def render_intelligence(repo: ScannerRepository, results: pd.DataFrame) -> None:
     trend_cols[1].metric("Avg Score (last scan)", avg_score_str)
     trend_cols[2].metric("Conclusive Outcomes", counts.get("closed", 0))
 
-    with st.expander("System Health & Config (developer)", expanded=False):
+    with st.expander("Developer: System Health & Config", expanded=False):
         render_system_health(repo, results)
 
 

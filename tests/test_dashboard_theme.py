@@ -306,7 +306,8 @@ class TestRenderResultOutcomeCard:
             "still_active": 3,
         }
         mock_st = MagicMock()
-        mock_st.columns.return_value = [MagicMock() for _ in range(5)]
         with patch.object(theme, "st", mock_st):
             theme.render_results_kpi_bar(summary)
-        mock_st.columns.assert_called_once_with(5)
+        mock_st.markdown.assert_called_once()
+        _, kwargs = mock_st.markdown.call_args
+        assert kwargs.get("unsafe_allow_html") is True

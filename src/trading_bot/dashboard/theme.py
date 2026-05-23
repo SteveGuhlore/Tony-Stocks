@@ -848,7 +848,7 @@ def render_result_outcome_card(card: dict[str, Any]) -> None:
         f'<div>Target <span style="color:#4ade80;font-weight:500;">{target}</span></div>'
         f'<div>Stop <span style="color:#f87171;font-weight:500;">{stop}</span></div>'
         f'</div>'
-        f'<div style="font-size:10px;color:#555;">{setup} · {date}</div>'
+        f'<div style="border-top:1px solid #1e1e1e;margin-top:6px;padding-top:5px;font-size:10px;color:#666;">{setup} · {date}</div>'
         f'</div>'
     )
 
@@ -862,12 +862,24 @@ def render_results_kpi_bar(summary: dict[str, Any]) -> None:
     triggered = summary.get("triggered", 0)
     win_rate = f"{round(targets / triggered * 100)}%" if triggered else "—"
 
-    cols = st.columns(5)
-    cols[0].metric("Active", active)
-    cols[1].metric("Closed", closed)
-    cols[2].metric("Targets Hit", targets)
-    cols[3].metric("Stops Hit", stops)
-    cols[4].metric("Win Rate", win_rate, help="Targets hit / triggered setups")
+    def _tile(label: str, value: Any, color: str = "#fff") -> str:
+        return (
+            f'<div style="padding:10px 14px;background:#111;text-align:center;border-right:1px solid #1e1e1e;">'
+            f'<div style="font-size:20px;font-weight:700;color:{color};line-height:1.2;">{value}</div>'
+            f'<div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-top:3px;">{label}</div>'
+            f'</div>'
+        )
+
+    render_html(
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;'
+        'border:1px solid #1e1e1e;border-radius:6px;overflow:hidden;margin-bottom:12px;">'
+        + _tile("Active", active)
+        + _tile("Closed", closed)
+        + _tile("Targets Hit", targets, "#22c55e")
+        + _tile("Stops Hit", stops, "#ef4444")
+        + _tile("Win Rate", win_rate, "#7c6fff")
+        + '</div>'
+    )
 
 
 def render_result_outcome_cards(cards: list[dict[str, Any]]) -> None:
