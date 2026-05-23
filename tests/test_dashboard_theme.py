@@ -176,7 +176,7 @@ class TestTraceResultsTable:
         return base  # type: ignore[return-value]
 
     def test_dark_css_present(self) -> None:
-        assert "#080d1c" in theme._TONY_APP_CSS
+        assert "#0f172a" in theme._TONY_APP_CSS  # Professional Slate base
         assert ".trace-results-table" in theme._TONY_APP_CSS
         assert ".trace-page-header" in theme._TONY_APP_CSS
 

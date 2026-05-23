@@ -11,26 +11,77 @@ from trading_bot.dashboard.helpers import format_percent_or_missing, is_missing_
 
 _TONY_APP_CSS = """
 <style>
-/* ── Base: dark navy research terminal ─────────────────────────── */
+/* ── Base: Professional Slate ──────────────────────────────────── */
 [data-testid="stAppViewContainer"] {
-  background: #080d1c;
+  background: #0f172a;
 }
 [data-testid="stAppViewContainer"] > .main > .block-container {
   background: transparent;
 }
 [data-testid="stSidebar"] {
-  background: #040810;
-  border-right: 1px solid rgba(255,255,255,0.07);
+  background: #111827;
+  border-right: 1px solid #1f2937;
+}
+[data-testid="stSidebar"] > div:first-child {
+  background: #111827;
 }
 .block-container {
   padding-top: 1.5rem;
   max-width: 1280px;
 }
+/* ── Sidebar nav — style st.radio as nav items ─────────────────── */
+[data-testid="stSidebar"] [data-testid="stRadio"] {
+  width: 100%;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label {
+  display: flex !important;
+  align-items: center !important;
+  padding: 8px 12px !important;
+  border-left: 3px solid transparent !important;
+  border-radius: 0 6px 6px 0 !important;
+  margin: 1px 8px 1px 0 !important;
+  cursor: pointer !important;
+  transition: background 0.15s !important;
+  min-height: unset !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+  background: rgba(255,255,255,0.04) !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+  background: #1e293b !important;
+  border-left-color: #3b82f6 !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label p,
+[data-testid="stSidebar"] [data-testid="stRadio"] label span {
+  color: #64748b !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p,
+[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) span {
+  color: #93c5fd !important;
+  font-weight: 600 !important;
+}
+/* hide the native radio circle indicator */
+[data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stMarkdownContainer"],
+[data-testid="stSidebar"] [data-testid="stRadio"] input[type="radio"] {
+  display: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child {
+  display: none !important;
+}
 /* ── Sidebar brand ─────────────────────────────────────────────── */
 .trace-brand {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #e2e8f0;
+  color: #f1f5f9;
   letter-spacing: -0.01em;
   padding: 0.5rem 0 0.1rem 0;
   display: flex;
@@ -58,45 +109,44 @@ _TONY_APP_CSS = """
 }
 /* ── Hero ──────────────────────────────────────────────────────── */
 .tony-hero {
-  border-radius: 18px;
-  padding: 1.5rem 1.75rem;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
   margin-bottom: 1.25rem;
-  background: linear-gradient(135deg, #1e3a5f 0%, #1a2a5e 55%, #15194a 100%);
+  background: #1e293b;
   color: #e2e8f0;
-  border: 1px solid rgba(99,102,241,0.25);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 1px solid #1f2937;
 }
 .tony-hero-title {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   margin: 0 0 0.3rem 0;
   color: #f1f5f9;
 }
 .tony-hero-sub {
-  font-size: 0.98rem;
-  opacity: 0.85;
+  font-size: 0.95rem;
   margin: 0;
-  color: #cbd5e1;
+  color: #94a3b8;
 }
 .tony-hero-badge {
   display: inline-block;
   margin-top: 0.75rem;
   padding: 0.26rem 0.72rem;
   border-radius: 999px;
-  background: rgba(99,102,241,0.22);
-  border: 1px solid rgba(99,102,241,0.38);
+  background: rgba(59,130,246,0.15);
+  border: 1px solid rgba(59,130,246,0.3);
   font-size: 0.76rem;
   font-weight: 600;
-  color: #a5b4fc;
+  color: #93c5fd;
 }
 /* ── Section header ────────────────────────────────────────────── */
 .tony-section {
-  font-size: 1.05rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: #e2e8f0;
-  margin: 1.25rem 0 0.6rem 0;
-  letter-spacing: -0.01em;
+  color: #475569;
+  margin: 1.25rem 0 0.5rem 0;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
 }
 /* ── Stat grid ─────────────────────────────────────────────────── */
 .tony-stat-grid {
@@ -106,26 +156,26 @@ _TONY_APP_CSS = """
   margin: 0.75rem 0 1rem 0;
 }
 .tony-stat-tile {
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 0.85rem 1rem;
-  background: #111827;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: #1e293b;
+  border: 1px solid #1f2937;
 }
 .tony-stat-tile-purple {
-  background: linear-gradient(145deg, #1e1b4b 0%, #111827 100%);
-  border-color: rgba(99,102,241,0.35);
+  background: #1e293b;
+  border-color: rgba(139,92,246,0.3);
 }
 .tony-stat-tile-blue {
-  background: linear-gradient(145deg, #0c1d3b 0%, #111827 100%);
-  border-color: rgba(59,130,246,0.35);
+  background: #1e293b;
+  border-color: rgba(59,130,246,0.3);
 }
 .tony-stat-tile-green {
-  background: linear-gradient(145deg, #052e16 0%, #111827 100%);
-  border-color: rgba(34,197,94,0.35);
+  background: #1e293b;
+  border-color: rgba(52,211,153,0.3);
 }
 .tony-stat-tile-amber {
-  background: linear-gradient(145deg, #1c1003 0%, #111827 100%);
-  border-color: rgba(245,158,11,0.35);
+  background: #1e293b;
+  border-color: rgba(251,191,36,0.3);
 }
 .tony-stat-label {
   font-size: 0.67rem;
@@ -148,12 +198,11 @@ _TONY_APP_CSS = """
 }
 /* ── Cards ─────────────────────────────────────────────────────── */
 .tony-card {
-  border-radius: 18px;
-  padding: 1.2rem 1.4rem;
-  margin-bottom: 0.9rem;
-  background: #111827;
-  border: 1px solid rgba(255,255,255,0.07);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 6px;
+  background: #1e293b;
+  border: 1px solid #1f2937;
 }
 .tony-card-preview {
   padding: 0.95rem 1.1rem;
@@ -181,34 +230,34 @@ _TONY_APP_CSS = """
   margin-bottom: 0.5rem;
 }
 .tony-card-symbol {
-  font-size: 1.85rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   color: #f1f5f9;
   line-height: 1.1;
 }
 .tony-card-symbol-sm {
-  font-size: 1.35rem;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #f1f5f9;
 }
 .tony-pl-hero {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
   text-align: right;
 }
-.tony-pl-positive { color: #22c55e; }
+.tony-pl-positive { color: #34d399; }
 .tony-pl-negative { color: #ef4444; }
 .tony-pl-neutral  { color: #94a3b8; }
 .tony-card-why {
   color: #94a3b8;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.5;
-  margin: 0.6rem 0 0.8rem 0;
-  padding: 0.7rem 0.85rem;
-  background: #0d1526;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.05);
+  margin: 0.5rem 0 0.7rem 0;
+  padding: 0.6rem 0.8rem;
+  background: #0f172a;
+  border-radius: 6px;
+  border: 1px solid #1f2937;
 }
 .tony-pill-row {
   display: flex;
@@ -223,14 +272,14 @@ _TONY_APP_CSS = """
   margin: 0.6rem 0 0.7rem 0;
 }
 .tony-metric {
-  background: #0d1526;
-  border-radius: 12px;
+  background: #0f172a;
+  border-radius: 6px;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid #1f2937;
 }
 .tony-metric-highlight {
-  background: linear-gradient(145deg, #0c1d3b 0%, #0d1526 100%);
-  border-color: rgba(59,130,246,0.2);
+  background: #0f172a;
+  border-color: rgba(59,130,246,0.3);
 }
 .tony-metric-label {
   font-size: 0.65rem;
