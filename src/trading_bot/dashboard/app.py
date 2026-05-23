@@ -2089,6 +2089,341 @@ def render_intelligence(repo: ScannerRepository, results: pd.DataFrame) -> None:
         render_system_health(repo, results)
 
 
+def render_today(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    import datetime as _dt
+    from trading_bot.dashboard.theme import render_compact_card
+
+    ctx = _dashboard_context(repo, results)
+    picks_df: pd.DataFrame = ctx.get("picks_df", pd.DataFrame())
+    tracking_df: pd.DataFrame = ctx.get("tracking_df", pd.DataFrame())
+    latest_scan_ts = ctx.get("latest_scan_ts")
+    win_rate = ctx.get("win_rate_pct", "—")
+
+    scan_age_str = "—"
+    status_label, status_bg, status_text = "READY", "#064e3b", "#6ee7b7"
+    if latest_scan_ts:
+        try:
+            age = _dt.datetime.now() - pd.Timestamp(latest_scan_ts).to_pydatetime().replace(tzinfo=None)
+            mins = int(age.total_seconds() / 60)
+            scan_age_str = f"{mins}m ago" if mins < 60 else f"{mins // 60}h ago"
+            if age.total_seconds() > 7200:
+                status_label, status_bg, status_text = "STALE", "#3f1f04", "#fbbf24"
+        except Exception:
+            pass
+
+    n_watching = len(picks_df) if not picks_df.empty else 0
+    n_triggered = len(tracking_df) if not tracking_df.empty else 0
+
+    render_html(
+        f'<div style="background:#111827;border:1px solid #1f2937;border-radius:8px;'
+        f'padding:10px 14px;margin-bottom:14px;">'
+        f'<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">'
+        f'<span style="background:{status_bg};color:{status_text};font-size:9px;'
+        f'padding:3px 10px;border-radius:12px;font-weight:600;">{status_label}</span>'
+        f'<span style="background:#1e3a5f;color:#93c5fd;font-size:9px;'
+        f'padding:3px 10px;border-radius:12px;">Scan {scan_age_str}</span>'
+        f'</div>'
+        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">'
+        f'<div style="background:#0f172a;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">'
+        f'<div style="font-size:16px;font-weight:700;color:#60a5fa;">{n_watching}</div>'
+        f'<div style="font-size:9px;color:#64748b;">Watching</div></div>'
+        f'<div style="background:#0f172a;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">'
+        f'<div style="font-size:16px;font-weight:700;color:#34d399;">{n_triggered}</div>'
+        f'<div style="font-size:9px;color:#64748b;">Triggered</div></div>'
+        f'<div style="background:#0f172a;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">'
+        f'<div style="font-size:16px;font-weight:700;color:#fbbf24;">—</div>'
+        f'<div style="font-size:9px;color:#64748b;">Alerts</div></div>'
+        f'<div style="background:#0f172a;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">'
+        f'<div style="font-size:16px;font-weight:700;color:#f1f5f9;">{win_rate}</div>'
+        f'<div style="font-size:9px;color:#64748b;">Win Rate</div></div>'
+        f'</div></div>'
+    )
+
+    col_left, col_right = st.columns([1, 1.5])
+
+    with col_left:
+        section_header("Briefing")
+        briefing_events: pd.DataFrame = pd.DataFrame()
+        if hasattr(repo, "load_events"):
+            try:
+                briefing_events = repo.load_events(event_type="agent_insight", limit=1)
+            except Exception:
+                pass
+        if not briefing_events.empty:
+            note = str(briefing_events.iloc[0].get("notes", ""))
+            render_html(
+                f'<div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;'
+                f'border-radius:0 6px 6px 0;padding:10px 12px;font-size:10px;color:#94a3b8;'
+                f'line-height:1.6;font-style:italic;">{_esc(note[:300])}</div>'
+            )
+        else:
+            st.caption("No briefing available.")
+
+        section_header("Review Today")
+        items: list[str] = []
+        if not tracking_df.empty:
+            items.append(f"{len(tracking_df)} active position(s) — review stops")
+        if not picks_df.empty:
+            items.append(f"{len(picks_df)} setup(s) being watched")
+        if not items:
+            items.append("Nothing flagged for review today")
+        review_html = "".join(
+            f'<div style="font-size:10px;color:#94a3b8;line-height:2.0;">• {_esc(i)}</div>'
+            for i in items
+        )
+        render_html(f'<div style="margin-top:6px;">{review_html}</div>')
+
+    with col_right:
+        section_header("Live Setups")
+        any_setups = False
+
+        if not tracking_df.empty:
+            for _, row in tracking_df.iterrows():
+                pl = row.get("research_pl_pct")
+                pl_str = (f"+{pl:.1f}%" if isinstance(pl, float) and pl >= 0
+                          else f"{pl:.1f}%" if isinstance(pl, float) else "—")
+                render_compact_card({
+                    "symbol": str(row.get("symbol", "")),
+                    "setup_type": str(row.get("setup_type", "")),
+                    "status": "active",
+                    "status_label": "ACTIVE",
+                    "headline_right": pl_str,
+                    "detail_line": (f"Entry {row.get('entry_price','—')} · "
+                                    f"Target {row.get('target','—')} · "
+                                    f"Stop {row.get('stop','—')}"),
+                    "border_color": "#34d399",
+                    "badge_bg": "#064e3b",
+                    "badge_text_color": "#6ee7b7",
+                })
+                any_setups = True
+
+        if not picks_df.empty:
+            for _, row in picks_df.iterrows():
+                render_compact_card({
+                    "symbol": str(row.get("symbol", "")),
+                    "setup_type": str(row.get("setup_type", "")),
+                    "status": "watching",
+                    "status_label": "WATCHING",
+                    "headline_right": f"Entry {row.get('entry_price','—')}",
+                    "detail_line": str(row.get("entry_trigger", ""))[:80],
+                    "border_color": "#3b82f6",
+                    "badge_bg": "#1e3a5f",
+                    "badge_text_color": "#93c5fd",
+                })
+                any_setups = True
+
+        if not any_setups:
+            st.caption("No active setups.")
+
+
+def render_watchlist(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    from trading_bot.dashboard.theme import render_compact_card
+
+    ctx = _dashboard_context(repo, results)
+    picks_df: pd.DataFrame = ctx.get("picks_df", pd.DataFrame())
+    tracking_df: pd.DataFrame = ctx.get("tracking_df", pd.DataFrame())
+
+    st.markdown("#### Watchlist")
+    chip = st.radio("Filter", ["All", "Watching", "Active", "Pending"],
+                    horizontal=True, key="wl_chip")
+
+    any_shown = False
+
+    if chip in ("All", "Active") and not tracking_df.empty:
+        section_header("Active")
+        for _, row in tracking_df.iterrows():
+            pl = row.get("research_pl_pct")
+            pl_str = (f"+{pl:.1f}%" if isinstance(pl, float) and pl >= 0
+                      else f"{pl:.1f}%" if isinstance(pl, float) else "—")
+            render_compact_card({
+                "symbol": str(row.get("symbol", "")),
+                "setup_type": str(row.get("setup_type", "")),
+                "status": "active",
+                "status_label": "ACTIVE",
+                "headline_right": pl_str,
+                "detail_line": (f"Entry {row.get('entry_price','—')} · "
+                                f"Target {row.get('target','—')} · "
+                                f"Stop {row.get('stop','—')}"),
+                "border_color": "#34d399",
+                "badge_bg": "#064e3b",
+                "badge_text_color": "#6ee7b7",
+            })
+            any_shown = True
+
+    if chip in ("All", "Watching") and not picks_df.empty:
+        watching = picks_df
+        if "status" in picks_df.columns:
+            watching = picks_df[~picks_df["status"].str.lower().isin(["pending"])]
+        if not watching.empty:
+            section_header("Watching")
+            for _, row in watching.iterrows():
+                render_compact_card({
+                    "symbol": str(row.get("symbol", "")),
+                    "setup_type": str(row.get("setup_type", "")),
+                    "status": "watching",
+                    "status_label": "WATCHING",
+                    "headline_right": f"Entry {row.get('entry_price','—')}",
+                    "detail_line": str(row.get("entry_trigger", ""))[:80],
+                    "border_color": "#3b82f6",
+                    "badge_bg": "#1e3a5f",
+                    "badge_text_color": "#93c5fd",
+                })
+                any_shown = True
+
+    if chip in ("All", "Pending") and not picks_df.empty and "status" in picks_df.columns:
+        pending = picks_df[picks_df["status"].str.lower() == "pending"]
+        if not pending.empty:
+            section_header("Pending")
+            for _, row in pending.iterrows():
+                render_compact_card({
+                    "symbol": str(row.get("symbol", "")),
+                    "setup_type": str(row.get("setup_type", "")),
+                    "status": "pending",
+                    "status_label": "PENDING",
+                    "headline_right": f"Entry {row.get('entry_price','—')}",
+                    "detail_line": str(row.get("entry_trigger", ""))[:80],
+                    "border_color": "#8b5cf6",
+                    "badge_bg": "#1e1b4b",
+                    "badge_text_color": "#a5b4fc",
+                })
+                any_shown = True
+
+    if not any_shown:
+        st.info("No setups match the selected filter.")
+
+
+def render_outcomes(repo: ScannerRepository) -> None:
+    from trading_bot.dashboard.theme import render_compact_card, render_results_kpi_bar
+    from trading_bot.dashboard.helpers import build_result_card_model
+
+    raw_snaps = _load_research_snapshots(repo)
+    if raw_snaps.empty:
+        st.info("No outcome data yet.")
+        return
+
+    prepared = _results_prepared_for_period(raw_snaps, "All")
+    cards = [build_result_card_model(row) for _, row in prepared.iterrows()]
+
+    n_active  = sum(1 for c in cards if str(c.get("phase","")).lower() in ("active","triggered"))
+    n_closed  = sum(1 for c in cards if str(c.get("phase","")).lower() == "closed")
+    n_targets = sum(1 for c in cards if str(c.get("outcome_label","")).lower() in ("target_hit","target_before_stop"))
+    n_stops   = sum(1 for c in cards if str(c.get("outcome_label","")).lower() in ("stop_hit","stop_before_target","failed_setup"))
+    win_rate  = f"{round(n_targets / n_closed * 100)}%" if n_closed > 0 else "—"
+    render_results_kpi_bar({
+        "n_active": n_active, "n_closed": n_closed,
+        "n_targets": n_targets, "n_stops": n_stops, "win_rate_pct": win_rate,
+    })
+
+    chip = st.radio("Filter", ["All", "Open", "Targets", "Stops"],
+                    horizontal=True, key="outcomes_chip")
+    chip_filter_map: dict[str, list[str]] = {
+        "All":     [],
+        "Open":    ["active", "triggered"],
+        "Targets": ["target_hit", "target_before_stop"],
+        "Stops":   ["stop_hit", "stop_before_target", "failed_setup"],
+    }
+    active_filters = chip_filter_map[chip]
+
+    BORDER = {
+        "target_hit": "#22c55e", "target_before_stop": "#22c55e",
+        "stop_hit": "#ef4444", "stop_before_target": "#ef4444", "failed_setup": "#ef4444",
+        "active": "#34d399", "triggered": "#34d399",
+    }
+    BADGE_BG = {
+        "target_hit": "#14532d", "target_before_stop": "#14532d",
+        "stop_hit": "#450a0a", "stop_before_target": "#450a0a", "failed_setup": "#450a0a",
+        "active": "#064e3b", "triggered": "#064e3b",
+    }
+    BADGE_TEXT = {
+        "target_hit": "#4ade80", "target_before_stop": "#4ade80",
+        "stop_hit": "#f87171", "stop_before_target": "#f87171", "failed_setup": "#f87171",
+        "active": "#6ee7b7", "triggered": "#6ee7b7",
+    }
+    BADGE_LABEL = {
+        "target_hit": "TARGET HIT", "target_before_stop": "TARGET HIT",
+        "stop_hit": "STOP HIT", "stop_before_target": "STOP HIT", "failed_setup": "FAILED",
+        "active": "ACTIVE", "triggered": "TRIGGERED",
+    }
+
+    shown = 0
+    for card in cards:
+        ol = str(card.get("outcome_label", "")).lower().replace(" ", "_")
+        phase = str(card.get("phase", "")).lower()
+        key = ol if ol in BORDER else phase
+        if active_filters and ol not in active_filters and phase not in active_filters:
+            continue
+        pl = card.get("research_pl_pct")
+        pl_str = (f"+{pl:.1f}%" if isinstance(pl, float) and pl >= 0
+                  else f"{pl:.1f}%" if isinstance(pl, float) else "—")
+        closed_date = str(card.get("trigger_date") or card.get("last_event_date") or "")
+        render_compact_card({
+            "symbol": card.get("symbol", ""),
+            "setup_type": card.get("setup_type", ""),
+            "status": key,
+            "status_label": BADGE_LABEL.get(key, key.upper()),
+            "headline_right": pl_str,
+            "detail_line": (f"Entry {card.get('entry_price','—')} · "
+                            f"Target {card.get('target','—')} · "
+                            f"Stop {card.get('stop','—')}"
+                            + (f" · {closed_date}" if closed_date else "")),
+            "border_color": BORDER.get(key, "#334155"),
+            "badge_bg": BADGE_BG.get(key, "#1e293b"),
+            "badge_text_color": BADGE_TEXT.get(key, "#94a3b8"),
+        })
+        shown += 1
+
+    if shown == 0:
+        st.info("No outcomes match the selected filter.")
+
+
+def render_research(repo: ScannerRepository, results: pd.DataFrame) -> None:
+    ctx = _dashboard_context(repo, results)
+
+    st.markdown("#### Research")
+
+    n_scanned    = ctx.get("symbols_scanned") or 0
+    picks_df     = ctx.get("picks_df", pd.DataFrame())
+    n_candidates = ctx.get("n_candidates") or 0
+    n_picks      = len(picks_df) if not picks_df.empty else 0
+
+    render_html(
+        f'<div style="background:#111827;border:1px solid #1f2937;border-radius:8px;'
+        f'padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;">'
+        f'<div style="flex:1;text-align:center;">'
+        f'<div style="font-size:18px;font-weight:700;color:#60a5fa;">{n_scanned}</div>'
+        f'<div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Scanned</div>'
+        f'</div>'
+        f'<div style="color:#334155;font-size:18px;padding:0 8px;">›</div>'
+        f'<div style="flex:1;text-align:center;">'
+        f'<div style="font-size:18px;font-weight:700;color:#8b5cf6;">{n_candidates}</div>'
+        f'<div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Candidates</div>'
+        f'</div>'
+        f'<div style="color:#334155;font-size:18px;padding:0 8px;">›</div>'
+        f'<div style="flex:1;text-align:center;">'
+        f'<div style="font-size:18px;font-weight:700;color:#34d399;">{n_picks}</div>'
+        f'<div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Picks</div>'
+        f'</div>'
+        f'</div>'
+    )
+
+    section_header("Top Signals — Last Scan")
+    scan_df = ctx.get("scan_df", pd.DataFrame())
+    if not scan_df.empty:
+        show_cols = [c for c in ["symbol", "score", "setup_type", "entry_trigger"] if c in scan_df.columns]
+        st.dataframe(scan_df[show_cols].head(5), use_container_width=True, hide_index=True)
+    else:
+        st.caption("No scan data available.")
+
+    section_header("Backtest Review")
+    render_backtest_review(repo)
+
+    section_header("Agent Insights")
+    render_agent_insights()
+
+    with st.expander("Developer: System Health & Config"):
+        render_system_health(repo, results)
+
+
 def main() -> None:
     repo = repository()
     results = latest_results(repo)
@@ -2104,19 +2439,17 @@ def main() -> None:
         st.divider()
         page = st.radio(
             "Navigate",
-            ["Home", "Tony Watchlist", "Results", "Backtest Review", "Intelligence"],
+            ["Today", "Watchlist", "Outcomes", "Research"],
             label_visibility="collapsed",
         )
-    if page == "Home":
-        render_home(repo, results)
-    elif page == "Tony Watchlist":
-        render_tony_watchlist(repo, results)
-    elif page == "Results":
-        render_results(repo)
-    elif page == "Backtest Review":
-        render_backtest_review(repo)
-    elif page == "Intelligence":
-        render_intelligence(repo, results)
+    if page == "Today":
+        render_today(repo, results)
+    elif page == "Watchlist":
+        render_watchlist(repo, results)
+    elif page == "Outcomes":
+        render_outcomes(repo)
+    elif page == "Research":
+        render_research(repo, results)
 
 
 if __name__ == "__main__":

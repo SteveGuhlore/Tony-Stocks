@@ -889,3 +889,32 @@ def render_result_outcome_cards(cards: list[dict[str, Any]]) -> None:
         return
     for card in cards:
         render_result_outcome_card(card)
+
+
+def render_compact_card(card: dict[str, Any]) -> None:
+    """Unified compact row card — used by all four dashboard pages."""
+    symbol = _esc(str(card.get("symbol", "")))
+    setup_type = _esc(str(card.get("setup_type", "")))
+    status_label = _esc(str(card.get("status_label", "")))
+    headline_right = _esc(str(card.get("headline_right", "")))
+    detail_line = _esc(str(card.get("detail_line", "")))
+    border = card.get("border_color", "#334155")
+    badge_bg = card.get("badge_bg", "#1e293b")
+    badge_text = card.get("badge_text_color", "#94a3b8")
+
+    st.markdown(
+        f'<div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid {border};'
+        f'border-radius:6px;padding:10px 14px;margin-bottom:4px;">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+        f'<div style="display:flex;align-items:center;gap:10px;">'
+        f'<span style="font-size:15px;font-weight:700;color:#f1f5f9;">{symbol}</span>'
+        f'<span style="font-size:10px;color:#64748b;">{setup_type}</span>'
+        f'<span style="background:{badge_bg};color:{badge_text};font-size:9px;padding:1px 7px;'
+        f'border-radius:3px;font-weight:600;">{status_label}</span>'
+        f'</div>'
+        f'<span style="font-size:12px;font-weight:600;color:#f1f5f9;">{headline_right}</span>'
+        f'</div>'
+        f'<div style="margin-top:4px;font-size:10px;color:#475569;">{detail_line}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )

@@ -311,3 +311,56 @@ class TestRenderResultOutcomeCard:
         mock_st.markdown.assert_called_once()
         _, kwargs = mock_st.markdown.call_args
         assert kwargs.get("unsafe_allow_html") is True
+
+
+class TestRenderCompactCard:
+    def _make_card(self, status="watching", headline_right="$18.40", detail_line="Trigger: close > $18.80"):
+        return {
+            "symbol": "PLTR",
+            "setup_type": "Breakout",
+            "status": status,
+            "status_label": "WATCHING",
+            "headline_right": headline_right,
+            "detail_line": detail_line,
+            "border_color": "#3b82f6",
+            "badge_bg": "#1e3a5f",
+            "badge_text_color": "#93c5fd",
+        }
+
+    def test_watching_card_calls_st_markdown(self):
+        card = self._make_card(status="watching")
+        with patch.object(theme, "st", MagicMock()) as mock_st:
+            theme.render_compact_card(card)
+            mock_st.markdown.assert_called_once()
+            html = mock_st.markdown.call_args[0][0]
+            assert "#3b82f6" in html
+            assert "PLTR" in html
+            assert "WATCHING" in html
+
+    def test_active_card_shows_pl(self):
+        card = self._make_card(status="active", headline_right="+8.3%")
+        card.update({"border_color": "#34d399", "badge_bg": "#064e3b",
+                     "badge_text_color": "#6ee7b7", "status_label": "ACTIVE"})
+        with patch.object(theme, "st", MagicMock()) as mock_st:
+            theme.render_compact_card(card)
+            html = mock_st.markdown.call_args[0][0]
+            assert "#34d399" in html
+            assert "+8.3%" in html
+
+    def test_target_hit_card(self):
+        card = self._make_card(status="target_hit", headline_right="+14.1%")
+        card.update({"border_color": "#22c55e", "badge_bg": "#14532d",
+                     "badge_text_color": "#4ade80", "status_label": "TARGET HIT"})
+        with patch.object(theme, "st", MagicMock()) as mock_st:
+            theme.render_compact_card(card)
+            html = mock_st.markdown.call_args[0][0]
+            assert "#22c55e" in html
+
+    def test_stop_hit_card(self):
+        card = self._make_card(status="stop_hit", headline_right="-5.2%")
+        card.update({"border_color": "#ef4444", "badge_bg": "#450a0a",
+                     "badge_text_color": "#f87171", "status_label": "STOP HIT"})
+        with patch.object(theme, "st", MagicMock()) as mock_st:
+            theme.render_compact_card(card)
+            html = mock_st.markdown.call_args[0][0]
+            assert "#ef4444" in html

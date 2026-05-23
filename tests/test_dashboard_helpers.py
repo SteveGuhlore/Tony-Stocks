@@ -1771,3 +1771,34 @@ def test_results_filter_open_returns_active_rows() -> None:
 def test_intelligence_page_imports() -> None:
     """render_intelligence must be importable from app."""
     from trading_bot.dashboard.app import render_intelligence  # noqa: F401
+
+def test_nav_has_four_tabs():
+    import inspect
+    from trading_bot.dashboard import app
+    src = inspect.getsource(app.main)
+    for tab in ["Today", "Watchlist", "Outcomes", "Research"]:
+        assert tab in src, f"Tab '{tab}' missing from main()"
+    for old_tab in ["Tony Watchlist", "Backtest Review", "Intelligence"]:
+        assert old_tab not in src, f"Old tab '{old_tab}' still in main()"
+
+def test_render_today_exists():
+    from trading_bot.dashboard import app
+    assert hasattr(app, "render_today"), "render_today() not defined"
+
+def test_render_watchlist_exists():
+    from trading_bot.dashboard import app
+    assert hasattr(app, "render_watchlist"), "render_watchlist() not defined"
+    import inspect
+    src = inspect.getsource(app.render_watchlist)
+    assert "render_compact_card" in src
+
+def test_render_outcomes_exists():
+    from trading_bot.dashboard import app
+    assert hasattr(app, "render_outcomes"), "render_outcomes() not defined"
+    import inspect
+    src = inspect.getsource(app.render_outcomes)
+    assert "render_compact_card" in src
+
+def test_render_research_exists():
+    from trading_bot.dashboard import app
+    assert hasattr(app, "render_research"), "render_research() not defined"
