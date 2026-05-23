@@ -6,6 +6,27 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## V37 handoff - Dashboard Revamp (4-tab Professional Slate)
+
+V37 is complete. The Streamlit dashboard has been fully redesigned with a uniform Professional Slate visual system across 4 pages.
+
+**What changed:**
+- Navigation: 5 tabs → 4 tabs: **Today / Watchlist / Outcomes / Research**
+- Added `render_compact_card()` to `theme.py` — single unified card renderer used by all pages
+- `render_today()`: Split Hero layout — KPI header band always visible; briefing left, live setups right
+- `render_watchlist()`: Compact cards with chip filter (All/Watching/Active/Pending)
+- `render_outcomes()`: KPI bar + chip filter (All/Open/Targets/Stops) + compact cards
+- `render_research()`: Discovery funnel strip + signals table + backtest + agent insights + system health expander
+- Removed old dispatchers: `render_home`, `render_tony_watchlist`, `render_results`, `render_intelligence`
+
+**Files changed:** `src/trading_bot/dashboard/theme.py`, `src/trading_bot/dashboard/app.py`, `tests/test_dashboard_theme.py`, `tests/test_dashboard_helpers.py`
+
+**Design tokens (Professional Slate):** base `#0f172a`, surface `#1e293b`, header `#111827`, blue `#3b82f6`, violet `#8b5cf6`, green `#34d399`, red `#ef4444`, amber `#fbbf24`
+
+No changes to: helpers.py logic, database, CLI, backtest module, scoring, or trading rules.
+
+---
+
 ## V31A handoff - Coverage and Rotation Diagnostic Label Consistency
 
 ### Current active task

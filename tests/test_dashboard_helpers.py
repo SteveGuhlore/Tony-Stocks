@@ -1769,8 +1769,8 @@ def test_results_filter_open_returns_active_rows() -> None:
 
 
 def test_intelligence_page_imports() -> None:
-    """render_intelligence must be importable from app."""
-    from trading_bot.dashboard.app import render_intelligence  # noqa: F401
+    """render_research must be importable from app (replaces render_intelligence)."""
+    from trading_bot.dashboard.app import render_research  # noqa: F401
 
 def test_nav_has_four_tabs():
     import inspect
