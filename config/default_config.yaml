@@ -195,3 +195,9 @@ tony_stocks:
   high_score_threshold: 85
   include_seeded_demo_events: false
   max_events_per_cycle: 30
+
+vault:
+  enabled: true
+  vault_dir: vault
+  command_center_dir: C:/Users/alexa/Downloads/AI Operations Command Center
+  bridge_enabled: true

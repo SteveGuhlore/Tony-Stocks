@@ -1,0 +1,59 @@
+<h2>Three Approaches to the Memory Layer</h2>
+<p class="subtitle">All three use two vaults + auto-export on EOD. They differ in how the bridge works and how much the Tony Stocks agent does.</p>
+
+<div class="options" style="flex-direction:column;gap:20px">
+
+  <!-- Option A -->
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="align-items:flex-start;padding:20px">
+    <div class="letter">A</div>
+    <div class="content" style="width:100%">
+      <h3>File Drop Bridge</h3>
+      <p style="margin-bottom:12px">Bot writes a clean JSON export to <code>bridge/tony-stocks/daily-export.json</code> after EOD. Tony Stocks agent reads that file and manually (or via a separate Claude session) updates the Command Center vault.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Simplest to build</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ No dependencies</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#fbbf24">⚠ Tony agent update is manual</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#fbbf24">⚠ Vault 2 doesn't auto-update</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="option" data-choice="b" onclick="toggleSelect(this)" style="align-items:flex-start;padding:20px;border-color:#8b5cf6">
+    <div class="letter" style="background:#8b5cf6;color:white">B</div>
+    <div class="content" style="width:100%">
+      <h3>Full Auto Pipeline <span style="font-size:11px;color:#8b5cf6;font-weight:600;margin-left:8px">RECOMMENDED</span></h3>
+      <p style="margin-bottom:12px">Bot writes Vault 1 notes + bridge export after EOD. A Python script in the bot then calls the Command Center's Tony Stocks agent (via Claude API) to enrich and write directly to Vault 2. Fully automated end-to-end.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Fully hands-off</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Vault 2 always current</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Tony adds real insight</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#ef4444">✗ Needs Claude API key + cost per run</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#fbbf24">⚠ More moving parts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="option" data-choice="c" onclick="toggleSelect(this)" style="align-items:flex-start;padding:20px">
+    <div class="letter">C</div>
+    <div class="content" style="width:100%">
+      <h3>Markdown-First, Agent-Later</h3>
+      <p style="margin-bottom:12px">Bot writes rich Vault 1 markdown (daily notes, ticker pages, signal history) + a clean bridge file. No Tony agent call yet — you open the bridge file in your Command Center session and run Tony manually when you want deeper analysis. Build the agent automation later once the vault format is proven.</p>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Vault 1 gets built now</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Low risk, easy to extend</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#34d399">✓ Proves the format before automating</div>
+        <div style="background:#0f172a;border-radius:6px;padding:8px 12px;font-size:11px;color:#fbbf24">⚠ Tony agent step stays manual for now</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="margin-top:20px;background:#1e293b;border-radius:10px;padding:16px 20px;border-left:3px solid #8b5cf6">
+  <div style="font-size:12px;color:#8b5cf6;font-weight:600;margin-bottom:6px">My take</div>
+  <div style="font-size:12px;color:#94a3b8;line-height:1.7">
+    Start with <strong style="color:#f1f5f9">C</strong>, build toward <strong style="color:#f1f5f9">B</strong>. Get the vault format right with real data first, then add the API automation once you know what Tony should be saying. Trying to automate Tony before the vault structure is proven tends to produce garbage at speed.
+  </div>
+</div>

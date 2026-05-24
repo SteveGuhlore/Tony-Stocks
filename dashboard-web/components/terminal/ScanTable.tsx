@@ -2,6 +2,21 @@
 import { TickerSymbol } from "./TickerSymbol"
 import type { ScanResultRow } from "@/lib/types"
 
+function rr(r: ScanResultRow): string {
+  if (!r.entry || !r.stop || !r.target) return "—"
+  const risk = r.entry - r.stop
+  const reward = r.target - r.entry
+  if (risk <= 0) return "—"
+  return `${(reward / risk).toFixed(1)}:1`
+}
+
+function entryDelta(r: ScanResultRow): string {
+  if (!r.close || !r.entry || r.close === 0) return ""
+  const pct = ((r.entry - r.close) / r.close) * 100
+  if (Math.abs(pct) < 0.01) return "at mkt"
+  return pct > 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`
+}
+
 export function ScanTable({ results }: { results: ScanResultRow[] }) {
   if (!results.length) return <p style={{ color: "var(--text-secondary)", padding: 16 }}>No results</p>
   return (
@@ -20,11 +35,16 @@ export function ScanTable({ results }: { results: ScanResultRow[] }) {
                 {r.score.toFixed(1)}
               </td>
               <td style={{ color: "var(--text-secondary)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>{r.setup_category}</td>
-              <td>${r.close.toFixed(2)}</td>
-              <td>${r.entry.toFixed(2)}</td>
-              <td style={{ color: "var(--red)" }}>${r.stop.toFixed(2)}</td>
-              <td style={{ color: "var(--green)" }}>${r.target.toFixed(2)}</td>
-              <td>{r.rr.toFixed(1)}:1</td>
+              <td style={{ fontFamily: "JetBrains Mono, monospace" }}>${r.close.toFixed(2)}</td>
+              <td style={{ fontFamily: "JetBrains Mono, monospace" }}>
+                ${r.entry.toFixed(2)}
+                {entryDelta(r) && (
+                  <span style={{ fontSize: 9, color: "var(--text-secondary)", marginLeft: 4 }}>{entryDelta(r)}</span>
+                )}
+              </td>
+              <td style={{ color: "var(--red)", fontFamily: "JetBrains Mono, monospace" }}>${r.stop.toFixed(2)}</td>
+              <td style={{ color: "var(--green)", fontFamily: "JetBrains Mono, monospace" }}>${r.target.toFixed(2)}</td>
+              <td style={{ fontFamily: "JetBrains Mono, monospace" }}>{rr(r)}</td>
               <td style={{ color: r.trade_plan_valid ? "var(--green)" : "var(--red)" }}>
                 {r.trade_plan_valid ? "✓" : "✗"}
               </td>

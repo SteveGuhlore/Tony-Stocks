@@ -4,6 +4,14 @@ const SEV_COLOR: Record<string, string> = {
   error: "var(--red)", warning: "var(--amber)", info: "var(--blue)", high: "var(--red)"
 }
 
+function relativeTime(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
 export function ActivityFeed({ events }: { events: TonyEvent[] }) {
   if (!events.length) return <p style={{ color: "var(--text-secondary)", fontSize: 11 }}>No recent events</p>
   return (
@@ -15,7 +23,7 @@ export function ActivityFeed({ events }: { events: TonyEvent[] }) {
           borderLeft: `2px solid ${SEV_COLOR[e.severity] ?? "var(--border)"}`,
         }}>
           <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--text-secondary)", whiteSpace: "nowrap", paddingTop: 1 }}>
-            {e.created_at.slice(11, 19)}
+            {relativeTime(e.created_at)}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

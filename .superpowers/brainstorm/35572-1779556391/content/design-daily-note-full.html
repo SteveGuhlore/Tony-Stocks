@@ -1,0 +1,150 @@
+<h2>Design — Section 2 (revised): Full Daily Note</h2>
+<p class="subtitle">Everything the bot generates, stored in one comprehensive daily note. Nothing left out.</p>
+
+<div style="display:flex;gap:20px;margin-top:20px">
+
+  <!-- Full note mockup -->
+  <div class="mockup" style="flex:1.2">
+    <div class="mockup-header">vault/daily/2026-05-22.md — Full Structure</div>
+    <div class="mockup-body" style="font-family:monospace;font-size:10.5px;line-height:1.75;color:#94a3b8;white-space:pre-wrap;max-height:600px;overflow-y:auto">---
+date: 2026-05-22
+tags: [daily, eod]
+strategy_version: v1
+universe_size: 349
+scored_count: 175
+coverage_pct: 50.1
+cycles: 12
+---
+
+# 2026-05-22 — EOD Daily Note
+
+## 1. Scan Coverage
+- Universe: 349 symbols | Scored: 175 (50.1%)
+- Cycles completed: 12
+- Real data symbols: 168
+
+## 2. All Scored Symbols
+*(every symbol that ran through scoring)*
+
+| Ticker | Score | Setup Category | Status | Days Active |
+|--------|-------|---------------|--------|-------------|
+| [[GTLB]] | 87 | Breakout Watch | active | 4 |
+| [[ZETA]] | 82 | Momentum Cont. | active | 3 |
+| [[CVS]]  | 71 | Breakout Watch | waiting | 2 |
+| [[DAL]]  | 68 | Breakout Watch | waiting | 2 |
+| [[ANET]] | 61 | Breakout Watch | watching | 1 |
+| [[SPY]]  | 44 | Weak / Avoid  | skipped | 0 |
+| ... (all 175 scored rows) ...     |
+
+## 3. Skip Reasons
+*(why symbols didn't get scored)*
+
+| Reason | Count |
+|--------|-------|
+| Not enough bars | 38 |
+| Volume below minimum | 29 |
+| Stale data | 7 |
+| Avg vol below min | 18 |
+| Pre-screener filtered | 82 |
+
+## 4. Rotation Diagnostics
+- Unique symbols scanned today: 141
+- Fresh discoveries: 53
+- Repeat scans (expected active/core): 31
+- Repeat scans (discovery): 57
+- Universe coverage: 40.4%
+- Top repeated: [[GTLB]] x8, [[ZETA]] x6
+
+## 5. Top Signals (Curated)
+
+### Tier 1 — High Conviction (3+ days)
+| Ticker | Setup | Score | First Seen |
+|--------|-------|-------|-----------|
+| [[GTLB]] | Breakout Watch | 87 | 2026-05-19 |
+| [[ZETA]] | Momentum Cont. | 82 | 2026-05-20 |
+
+### Tier 2 — Medium Conviction (2 days)
+| Ticker | Setup | Score | First Seen |
+|--------|-------|-------|-----------|
+| [[CVS]] | Breakout Watch | 71 | 2026-05-21 |
+| [[DAL]] | Breakout Watch | 68 | 2026-05-21 |
+
+### Tier 3 — Monitor (1 day)
+[[ANET]] · [[BKR]] · [[CRM]] · [[EBAY]] · [[KMI]]
+
+## 6. Outcomes Today
+- Active positions: 7
+- Target hits: 1 ([[ORCL]] +4.2%)
+- Stop hits: 0
+- Insufficient data: 3
+- Avg terminal P/L: +2.1%
+
+## 7. Signal Scorecard
+| Setup | Triggered | Target Rate | Stop Rate |
+|-------|-----------|-------------|-----------|
+| Breakout Watch | 14 | 64% | 21% |
+| Momentum Cont. | 8 | 50% | 25% |
+| Pullback Watch | 3 | 33% | 33% |
+
+## 8. EOD Self-Review
+- Strongest: Breakout Watch (64% rate, 14 rows)
+- Weakest: Pullback Watch (insufficient data)
+- Active carry over tomorrow: 7
+- Pending triggers: 3
+
+## 9. Rule Suggestions
+1. [medium] Consider prioritizing Breakout Watch
+2. [low] Insufficient data for Pullback Watch
+
+## 10. Strategy
+- Version: v1 | Proposals pending: 2
+- No changes applied today
+
+## Links
+← [[2026-05-21]] | → [[2026-05-23]] | [[index]]</div>
+  </div>
+
+  <!-- Section guide -->
+  <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:11px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">What each section stores</div>
+
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #3b82f6">
+      <div style="font-size:11px;font-weight:700;color:#3b82f6">1. Scan Coverage</div>
+      <div style="font-size:11px;color:#94a3b8">Universe size, scored count, %, cycles, real data count</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #34d399">
+      <div style="font-size:11px;font-weight:700;color:#34d399">2. All Scored Symbols</div>
+      <div style="font-size:11px;color:#94a3b8">Every symbol that ran through scoring — full table, not just top picks. The complete picture.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #ef4444">
+      <div style="font-size:11px;font-weight:700;color:#ef4444">3. Skip Reasons</div>
+      <div style="font-size:11px;color:#94a3b8">Why each non-scored symbol was dropped. Tracks data quality trends over time.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #8b5cf6">
+      <div style="font-size:11px;font-weight:700;color:#8b5cf6">4. Rotation Diagnostics</div>
+      <div style="font-size:11px;color:#94a3b8">Fresh discoveries vs repeats, universe coverage %. Is the bot seeing enough of the market?</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #fbbf24">
+      <div style="font-size:11px;font-weight:700;color:#fbbf24">5. Top Signals</div>
+      <div style="font-size:11px;color:#94a3b8">Curated Tier 1/2/3. The bridge to Command Center pulls only from here.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #f97316">
+      <div style="font-size:11px;font-weight:700;color:#f97316">6. Outcomes</div>
+      <div style="font-size:11px;color:#94a3b8">Target/stop hits, active count, P/L. Performance record per day.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #06b6d4">
+      <div style="font-size:11px;font-weight:700;color:#06b6d4">7. Signal Scorecard</div>
+      <div style="font-size:11px;color:#94a3b8">Rate breakdown by setup. Accumulates into learning data over days/weeks.</div>
+    </div>
+    <div style="background:#1e293b;border-radius:8px;padding:10px 14px;border-left:2px solid #64748b">
+      <div style="font-size:11px;font-weight:700;color:#f1f5f9">8–10. Self-Review, Suggestions, Strategy</div>
+      <div style="font-size:11px;color:#94a3b8">Tony's assessment, rule suggestions with confidence levels, strategy version tracking.</div>
+    </div>
+
+    <div style="background:#0f172a;border-radius:8px;padding:12px 14px;margin-top:4px;border:1px solid #1e293b">
+      <div style="font-size:11px;color:#34d399;font-weight:600;margin-bottom:4px">Why this enables learning</div>
+      <div style="font-size:11px;color:#64748b;line-height:1.6">After 20 trading days, Claude can read across the vault and answer: "which setups have been hitting targets?", "is rotation coverage improving?", "what skip reasons are growing?" The full data — not just curated picks — is what makes this a real memory layer.</div>
+    </div>
+  </div>
+
+</div>

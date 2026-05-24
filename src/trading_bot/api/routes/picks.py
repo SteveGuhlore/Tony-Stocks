@@ -6,10 +6,13 @@ from trading_bot.storage.repositories import ScannerRepository
 
 router = APIRouter(tags=["picks"])
 
+def _nan(v):
+    return v if isinstance(v, str) else None
+
 def _pick(r):
     return ManualPickRow(id=r["id"], symbol=r["symbol"], status=r.get("status", ""),
         planned_entry=r.get("planned_entry"), planned_stop=r.get("planned_stop"),
-        planned_target=r.get("planned_target"), notes=r.get("notes"), picked_at=r.get("picked_at", ""))
+        planned_target=r.get("planned_target"), notes=_nan(r.get("notes")), picked_at=r.get("picked_at", ""))
 
 def _snap(r):
     return CandidateSnapshotRow(
@@ -17,11 +20,11 @@ def _snap(r):
         setup_category=r.get("setup_category", ""), universe_role=r.get("universe_role", ""),
         total_score=r.get("total_score"), close=r.get("close"), entry=r.get("entry"),
         stop=r.get("stop"), target=r.get("target"), risk_reward=r.get("risk_reward"),
-        snapshot_time=r.get("snapshot_time", ""), outcome_label=r.get("outcome_label"),
-        notes=r.get("notes"), tony_priority_label=r.get("tony_priority_label"),
-        tony_recommended_action=r.get("tony_recommended_action"),
-        tony_setup_read=r.get("tony_setup_read"), tony_hypothesis=r.get("tony_hypothesis"),
-        entry_triggered=bool(r.get("entry_triggered", 0)), entry_triggered_at=r.get("entry_triggered_at"))
+        snapshot_time=r.get("snapshot_time", ""), outcome_label=_nan(r.get("outcome_label")),
+        notes=_nan(r.get("notes")), tony_priority_label=_nan(r.get("tony_priority_label")),
+        tony_recommended_action=_nan(r.get("tony_recommended_action")),
+        tony_setup_read=_nan(r.get("tony_setup_read")), tony_hypothesis=_nan(r.get("tony_hypothesis")),
+        entry_triggered=bool(r.get("entry_triggered", 0)), entry_triggered_at=_nan(r.get("entry_triggered_at")))
 
 @router.get("/picks", response_model=PicksResponse)
 def get_picks(repo: ScannerRepository = Depends(get_repo)):

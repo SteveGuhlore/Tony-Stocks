@@ -1,0 +1,168 @@
+<h2>Navigation Architecture — Two Options</h2>
+<p class="subtitle">Based on what the project actually does: scan → watch → track → analyze. Same data, different organization. Both are 4 pages.</p>
+
+<div class="split" style="gap:24px;align-items:flex-start;">
+
+  <!-- OPTION A: Today / Watchlist / Outcomes / Research -->
+  <div class="mockup" data-choice="time-based" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Option A — Time-based</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="padding:0;display:flex;min-height:420px;background:#0f172a;">
+
+      <div style="width:170px;background:#111827;border-right:1px solid #1f2937;padding:12px 0;flex-shrink:0;">
+        <div style="padding:0 12px 12px;border-bottom:1px solid #1f2937;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;">Tony Stocks</div>
+          <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;">Research Terminal</div>
+        </div>
+        <div style="padding:7px 12px;background:#1e293b;border-left:3px solid #3b82f6;margin-bottom:1px;">
+          <div style="font-size:11px;font-weight:600;color:#93c5fd;">⚡ Today</div>
+          <div style="font-size:9px;color:#475569;margin-top:1px;">Live pulse · scan age · alerts</div>
+        </div>
+        <div style="padding:7px 12px;margin-bottom:1px;border-left:3px solid transparent;">
+          <div style="font-size:11px;color:#64748b;">📋 Watchlist</div>
+          <div style="font-size:9px;color:#334155;margin-top:1px;">All setups · picks + tracking</div>
+        </div>
+        <div style="padding:7px 12px;margin-bottom:1px;border-left:3px solid transparent;">
+          <div style="font-size:11px;color:#64748b;">📊 Outcomes</div>
+          <div style="font-size:9px;color:#334155;margin-top:1px;">Results · win rate · analytics</div>
+        </div>
+        <div style="padding:7px 12px;border-left:3px solid transparent;">
+          <div style="font-size:11px;color:#64748b;">🔬 Research</div>
+          <div style="font-size:9px;color:#334155;margin-top:1px;">Backtest · agent notes · lab</div>
+        </div>
+        <div style="margin-top:12px;padding:8px 12px;border-top:1px solid #1f2937;">
+          <div style="font-size:9px;color:#1e3a5f;">● SCAN OK · 2m ago</div>
+        </div>
+      </div>
+
+      <div style="flex:1;padding:14px;">
+        <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:2px;">Today</div>
+        <div style="font-size:10px;color:#475569;margin-bottom:10px;">Live pulse — what's active right now</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+          <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:3px 10px;border-radius:12px;font-weight:600;">READY</span>
+          <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:3px 10px;border-radius:12px;">Scan 2m ago</span>
+          <span style="background:#1e1b4b;color:#a5b4fc;font-size:9px;padding:3px 10px;border-radius:12px;">7 watching</span>
+          <span style="background:#3f1f04;color:#fbbf24;font-size:9px;padding:3px 10px;border-radius:12px;">2 alerts</span>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:10px;color:#94a3b8;line-height:1.5;font-style:italic;">
+          Momentum conditions improving. PLTR and HOOD both near breakout levels. No macro events today.
+        </div>
+        <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Top Active Setups</div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #3b82f6;border-radius:6px;padding:7px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;font-weight:700;color:#f1f5f9;">PLTR <span style="color:#64748b;font-weight:400;font-size:9px;">Breakout · $18.40</span></span>
+          <span style="background:#064e3b;color:#6ee7b7;font-size:10px;padding:2px 7px;border-radius:4px;">+14.1%</span>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;border-radius:6px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;font-weight:700;color:#f1f5f9;">HOOD <span style="color:#64748b;font-weight:400;font-size:9px;">Consolidation · Waiting</span></span>
+          <span style="background:#1e1b4b;color:#a5b4fc;font-size:10px;padding:2px 7px;border-radius:4px;">Pending</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 12px;background:#0f172a;border-top:1px solid #1f2937;">
+      <div style="font-size:10px;color:#475569;margin-bottom:4px;font-weight:600;">Content mapping:</div>
+      <div style="font-size:10px;color:#64748b;line-height:1.7;">
+        <b style="color:#93c5fd;">Today</b> = Home briefing + scan intel merged into one live view<br>
+        <b style="color:#93c5fd;">Watchlist</b> = Picks + Active Tracking with lifecycle filter<br>
+        <b style="color:#93c5fd;">Outcomes</b> = Results cards + win rate + outcome analytics charts<br>
+        <b style="color:#93c5fd;">Research</b> = Backtest + Agent Insights + Learning
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B: Command / Plays / Performance / Lab -->
+  <div class="mockup" data-choice="role-based" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Option B — Role-based</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="padding:0;display:flex;min-height:420px;background:#0f172a;">
+
+      <div style="width:170px;background:#111827;border-right:1px solid #1f2937;padding:12px 0;flex-shrink:0;">
+        <div style="padding:0 12px 12px;border-bottom:1px solid #1f2937;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:#f1f5f9;">Tony Stocks</div>
+          <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;">Research Terminal</div>
+        </div>
+        <div style="padding:7px 12px;background:#1e293b;border-left:3px solid #3b82f6;margin-bottom:1px;">
+          <div style="font-size:11px;font-weight:600;color:#93c5fd;">🏠 Command</div>
+          <div style="font-size:9px;color:#475569;margin-top:1px;">Status · briefing · top 3</div>
+        </div>
+        <div style="padding:7px 12px;margin-bottom:1px;border-left:3px solid transparent;">
+          <div style="font-size:11px;color:#64748b;">🎯 Plays</div>
+          <div style="font-size:9px;color:#334155;margin-top:1px;">Full watchlist · all lifecycle</div>
+        </div>
+        <div style="padding:7px 12px;margin-bottom:1px;border-left:3px solid transparent;">
+          <div style="font-size:11px;color:#64748b;">📈 Performance</div>
+          <div style="font-size:9px;color:#334155;margin-top:1px;">Outcomes · win rate · charts</div>
+        </div>
+        <div style="padding:7px 12px;border-left:3px solid transparent;">
+          <div style="font-size:11px;color:#64748b;">🧪 Lab</div>
+          <div style="font-size:9px;color:#334155;margin-top:1px;">Backtest · scan intel · AI notes</div>
+        </div>
+        <div style="margin-top:12px;padding:8px 12px;border-top:1px solid #1f2937;">
+          <div style="font-size:9px;color:#1e3a5f;">● SCAN OK · 2m ago</div>
+        </div>
+      </div>
+
+      <div style="flex:1;padding:14px;">
+        <div style="font-size:13px;font-weight:700;color:#f1f5f9;margin-bottom:2px;">Command</div>
+        <div style="font-size:10px;color:#475569;margin-bottom:10px;">Home base — Tony's state at a glance</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
+          <div style="background:#1e293b;border-radius:6px;padding:8px 10px;border:1px solid #1f2937;">
+            <div style="font-size:15px;font-weight:700;color:#60a5fa;">7</div>
+            <div style="font-size:9px;color:#64748b;">Watching</div>
+          </div>
+          <div style="background:#1e293b;border-radius:6px;padding:8px 10px;border:1px solid #1f2937;">
+            <div style="font-size:15px;font-weight:700;color:#34d399;">3</div>
+            <div style="font-size:9px;color:#64748b;">Triggered</div>
+          </div>
+          <div style="background:#1e293b;border-radius:6px;padding:8px 10px;border:1px solid #1f2937;">
+            <div style="font-size:15px;font-weight:700;color:#fbbf24;">2</div>
+            <div style="font-size:9px;color:#64748b;">Alerts</div>
+          </div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:10px;color:#94a3b8;line-height:1.5;font-style:italic;">
+          Momentum conditions improving. PLTR and HOOD both near breakout levels.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Top 3 Picks</div>
+            <div style="background:#1e293b;border-left:3px solid #3b82f6;border-radius:6px;padding:6px 8px;margin-bottom:3px;display:flex;justify-content:space-between;">
+              <span style="font-size:11px;font-weight:700;color:#f1f5f9;">PLTR</span>
+              <span style="font-size:9px;color:#34d399;">+14.1%</span>
+            </div>
+            <div style="background:#1e293b;border-left:3px solid #8b5cf6;border-radius:6px;padding:6px 8px;margin-bottom:3px;display:flex;justify-content:space-between;">
+              <span style="font-size:11px;font-weight:700;color:#f1f5f9;">HOOD</span>
+              <span style="font-size:9px;color:#a5b4fc;">Active</span>
+            </div>
+            <div style="background:#1e293b;border-left:3px solid #3b82f6;border-radius:6px;padding:6px 8px;display:flex;justify-content:space-between;">
+              <span style="font-size:11px;font-weight:700;color:#f1f5f9;">NVDA</span>
+              <span style="font-size:9px;color:#64748b;">Watching</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Review Today</div>
+            <div style="font-size:10px;color:#94a3b8;line-height:1.9;">
+              • 2 pending entry alerts<br>
+              • 1 stale setup needs review<br>
+              • PLTR target approaching
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:10px 12px;background:#0f172a;border-top:1px solid #1f2937;">
+      <div style="font-size:10px;color:#475569;margin-bottom:4px;font-weight:600;">Content mapping:</div>
+      <div style="font-size:10px;color:#64748b;line-height:1.7;">
+        <b style="color:#93c5fd;">Command</b> = Richer home (KPIs + briefing + top 3 + review list)<br>
+        <b style="color:#93c5fd;">Plays</b> = Watchlist with richer lifecycle view + entry triggers<br>
+        <b style="color:#93c5fd;">Performance</b> = Results + outcome analytics charts side by side<br>
+        <b style="color:#93c5fd;">Lab</b> = Backtest + Intelligence + Agent Insights + Learning
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">A organizes by time (now → past → deep). B organizes by role (operate → track → review → analyze). Health/scan status lives in the sidebar footer on both — not a dedicated page.</p>

@@ -53,6 +53,7 @@ class ScannerSettings:
     intraday: dict[str, Any] | None = None
     symbol_quarantine: dict[str, Any] | None = None
     pre_screener: dict[str, Any] | None = None
+    vault: dict[str, Any] | None = None
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

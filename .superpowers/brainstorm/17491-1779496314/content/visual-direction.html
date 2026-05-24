@@ -1,0 +1,184 @@
+<h2>Dashboard Visual Direction</h2>
+<p class="subtitle">Two completely different design languages. Same data, very different feel. Click to select.</p>
+
+<div class="split" style="gap:20px;align-items:flex-start;">
+
+  <!-- OPTION A: Midnight Terminal -->
+  <div class="mockup" data-choice="midnight" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;background:#0a0a0f;border-bottom:1px solid #1a1a2e;">
+      <span style="color:#a78bfa;">Option A — Midnight Terminal</span>
+      <span style="font-size:11px;color:#6366f1;">click to select</span>
+    </div>
+    <div class="mockup-body" style="padding:0;background:#06060f;display:flex;min-height:340px;">
+
+      <!-- Sidebar -->
+      <div style="width:160px;background:#09090f;border-right:1px solid #1a1a2e;padding:16px 0;flex-shrink:0;">
+        <div style="padding:0 14px 14px;border-bottom:1px solid #1a1a2e;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0;letter-spacing:.04em;">TONY</div>
+          <div style="font-size:9px;color:#4c4c6b;letter-spacing:.1em;text-transform:uppercase;">Research Terminal</div>
+        </div>
+        <div style="padding:7px 14px;background:#1a1a2e;border-left:2px solid #7c3aed;margin-bottom:1px;">
+          <div style="font-size:11px;color:#a78bfa;font-weight:600;">⬡ Home</div>
+        </div>
+        <div style="padding:7px 14px;margin-bottom:1px;">
+          <div style="font-size:11px;color:#4c4c6b;">◈ Watchlist</div>
+        </div>
+        <div style="padding:7px 14px;margin-bottom:1px;">
+          <div style="font-size:11px;color:#4c4c6b;">◎ Results</div>
+        </div>
+        <div style="padding:7px 14px;margin-bottom:1px;">
+          <div style="font-size:11px;color:#4c4c6b;">⌥ Backtest</div>
+        </div>
+        <div style="padding:7px 14px;">
+          <div style="font-size:11px;color:#4c4c6b;">⟡ Intelligence</div>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid #1a1a2e;margin-top:8px;">
+          <div style="font-size:9px;color:#2a2a3e;letter-spacing:.08em;">SCAN: 2m AGO ●</div>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div style="flex:1;padding:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid #1a1a2e;">
+          <span style="background:#4c1d95;color:#c4b5fd;font-size:9px;padding:2px 8px;border-radius:2px;letter-spacing:.06em;font-weight:700;">READY</span>
+          <span style="font-size:10px;color:#4c4c6b;font-family:monospace;">Tony watching 7 setups · last scan 2m ago</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#1a1a2e;border:1px solid #1a1a2e;border-radius:4px;margin-bottom:14px;overflow:hidden;">
+          <div style="background:#09090f;padding:9px 10px;">
+            <div style="font-size:16px;font-weight:700;color:#a78bfa;font-family:monospace;">7</div>
+            <div style="font-size:9px;color:#4c4c6b;text-transform:uppercase;letter-spacing:.06em;">Watching</div>
+          </div>
+          <div style="background:#09090f;padding:9px 10px;">
+            <div style="font-size:16px;font-weight:700;color:#34d399;font-family:monospace;">3</div>
+            <div style="font-size:9px;color:#4c4c6b;text-transform:uppercase;letter-spacing:.06em;">Triggered</div>
+          </div>
+          <div style="background:#09090f;padding:9px 10px;">
+            <div style="font-size:16px;font-weight:700;color:#f59e0b;font-family:monospace;">2</div>
+            <div style="font-size:9px;color:#4c4c6b;text-transform:uppercase;letter-spacing:.06em;">Alerts</div>
+          </div>
+          <div style="background:#09090f;padding:9px 10px;">
+            <div style="font-size:16px;font-weight:700;color:#e2e8f0;font-family:monospace;">67%</div>
+            <div style="font-size:9px;color:#4c4c6b;text-transform:uppercase;letter-spacing:.06em;">Win Rate</div>
+          </div>
+        </div>
+        <div style="font-size:9px;color:#4c4c6b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Top Picks</div>
+        <div style="border:1px solid #1a1a2e;border-left:2px solid #7c3aed;border-radius:3px;padding:8px 10px;background:#0d0d1a;margin-bottom:5px;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:12px;font-weight:700;color:#e2e8f0;font-family:monospace;">PLTR</span>
+            <span style="font-size:11px;color:#34d399;font-family:monospace;">+14.1%</span>
+          </div>
+          <div style="font-size:9px;color:#4c4c6b;margin-top:2px;">Breakout · Entry $18.40 · T $21.00 · S $17.00</div>
+        </div>
+        <div style="border:1px solid #1a1a2e;border-left:2px solid #6366f1;border-radius:3px;padding:8px 10px;background:#0d0d1a;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-size:12px;font-weight:700;color:#e2e8f0;font-family:monospace;">HOOD</span>
+            <span style="font-size:11px;color:#a78bfa;font-family:monospace;">Active</span>
+          </div>
+          <div style="font-size:9px;color:#4c4c6b;margin-top:2px;">Consolidation · Entry $22.10 · T $25.00 · S $20.50</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0;height:6px;">
+      <div style="flex:1;background:#06060f;"></div>
+      <div style="flex:1;background:#09090f;"></div>
+      <div style="flex:1;background:#7c3aed;"></div>
+      <div style="flex:1;background:#6366f1;"></div>
+      <div style="flex:1;background:#34d399;"></div>
+      <div style="flex:1;background:#f59e0b;"></div>
+    </div>
+    <div style="padding:8px 12px;background:#09090f;font-size:10px;color:#4c4c6b;">
+      Deep black · violet/indigo accents · monospace numerics · dense terminal layout · green/amber signals
+    </div>
+  </div>
+
+  <!-- OPTION B: Professional Slate -->
+  <div class="mockup" data-choice="slate" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;background:#111827;border-bottom:1px solid #1f2937;">
+      <span style="color:#60a5fa;">Option B — Professional Slate</span>
+      <span style="font-size:11px;color:#3b82f6;">click to select</span>
+    </div>
+    <div class="mockup-body" style="padding:0;background:#0f172a;display:flex;min-height:340px;">
+
+      <!-- Sidebar -->
+      <div style="width:160px;background:#111827;border-right:1px solid #1f2937;padding:16px 0;flex-shrink:0;">
+        <div style="padding:0 14px 14px;border-bottom:1px solid #1f2937;margin-bottom:10px;">
+          <div style="font-size:13px;font-weight:700;color:#f1f5f9;">Tony Stocks</div>
+          <div style="font-size:9px;color:#475569;letter-spacing:.06em;text-transform:uppercase;">Research</div>
+        </div>
+        <div style="padding:8px 14px;background:#1e293b;border-radius:0 6px 6px 0;margin:0 8px 2px 0;border-left:3px solid #3b82f6;">
+          <div style="font-size:11px;color:#93c5fd;font-weight:600;">🏠 Home</div>
+        </div>
+        <div style="padding:8px 14px;margin:0 8px 2px 0;">
+          <div style="font-size:11px;color:#64748b;">📋 Watchlist</div>
+        </div>
+        <div style="padding:8px 14px;margin:0 8px 2px 0;">
+          <div style="font-size:11px;color:#64748b;">📊 Results</div>
+        </div>
+        <div style="padding:8px 14px;margin:0 8px 2px 0;">
+          <div style="font-size:11px;color:#64748b;">🔬 Backtest</div>
+        </div>
+        <div style="padding:8px 14px;margin:0 8px 2px 0;">
+          <div style="font-size:11px;color:#64748b;">🧠 Intelligence</div>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid #1f2937;margin-top:8px;">
+          <div style="font-size:9px;color:#1e3a5f;">● SCAN OK · 2m ago</div>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div style="flex:1;padding:18px;">
+        <div style="margin-bottom:14px;">
+          <div style="font-size:16px;font-weight:700;color:#f1f5f9;">Home</div>
+          <div style="font-size:11px;color:#475569;">Tony's research summary for today</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;">
+          <div style="background:#1e293b;border-radius:8px;padding:10px 12px;border:1px solid #1f2937;">
+            <div style="font-size:18px;font-weight:700;color:#60a5fa;">7</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">Watching</div>
+          </div>
+          <div style="background:#1e293b;border-radius:8px;padding:10px 12px;border:1px solid #1f2937;">
+            <div style="font-size:18px;font-weight:700;color:#34d399;">3</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">Triggered</div>
+          </div>
+          <div style="background:#1e293b;border-radius:8px;padding:10px 12px;border:1px solid #1f2937;">
+            <div style="font-size:18px;font-weight:700;color:#fbbf24;">2</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">Alerts</div>
+          </div>
+          <div style="background:#1e293b;border-radius:8px;padding:10px 12px;border:1px solid #1f2937;">
+            <div style="font-size:18px;font-weight:700;color:#f1f5f9;">67%</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">Win Rate</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Top Picks</div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #3b82f6;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;font-weight:700;color:#f1f5f9;">PLTR</span>
+            <span style="background:#064e3b;color:#6ee7b7;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;">+14.1%</span>
+          </div>
+          <div style="font-size:10px;color:#475569;margin-top:4px;">Breakout · Entry $18.40 · Target $21.00 · Stop $17.00</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;border-radius:8px;padding:10px 12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;font-weight:700;color:#f1f5f9;">HOOD</span>
+            <span style="background:#2e1065;color:#c4b5fd;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;">Active</span>
+          </div>
+          <div style="font-size:10px;color:#475569;margin-top:4px;">Consolidation · Entry $22.10 · Target $25.00 · Stop $20.50</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0;height:6px;">
+      <div style="flex:1;background:#0f172a;"></div>
+      <div style="flex:1;background:#111827;"></div>
+      <div style="flex:1;background:#3b82f6;"></div>
+      <div style="flex:1;background:#8b5cf6;"></div>
+      <div style="flex:1;background:#34d399;"></div>
+      <div style="flex:1;background:#fbbf24;"></div>
+    </div>
+    <div style="padding:8px 12px;background:#111827;font-size:10px;color:#475569;">
+      Slate gray · blue/violet accents · rounded cards · generous spacing · professional finance feel
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Option A is denser and more terminal-like. Option B is more modern and app-like. Both are fully dark.</p>

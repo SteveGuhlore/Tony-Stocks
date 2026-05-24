@@ -1,0 +1,69 @@
+<h2>Design — Section 1: Vault 1 Folder Structure</h2>
+<p class="subtitle">Lives at <code>vault/</code> inside TradingBotAgentProject. Obsidian-compatible markdown throughout.</p>
+
+<div style="display:flex;gap:24px;margin-top:20px;align-items:flex-start">
+
+  <!-- Folder tree -->
+  <div style="flex:1;background:#1e293b;border-radius:12px;padding:20px;font-family:monospace;font-size:12px;line-height:2">
+    <div style="color:#64748b;margin-bottom:8px;font-family:sans-serif;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase">Folder Tree</div>
+    <div style="color:#94a3b8">vault/</div>
+    <div style="color:#3b82f6;padding-left:16px">├── index.md</div>
+    <div style="color:#94a3b8;padding-left:16px">├── daily/</div>
+    <div style="color:#34d399;padding-left:32px">│   ├── 2026-05-22.md</div>
+    <div style="color:#34d399;padding-left:32px">│   └── 2026-05-23.md</div>
+    <div style="color:#94a3b8;padding-left:16px">├── signals/</div>
+    <div style="color:#fbbf24;padding-left:32px">│   ├── GTLB.md</div>
+    <div style="color:#fbbf24;padding-left:32px">│   ├── ZETA.md</div>
+    <div style="color:#fbbf24;padding-left:32px">│   └── ...</div>
+    <div style="color:#94a3b8;padding-left:16px">├── outcomes/</div>
+    <div style="color:#ef4444;padding-left:32px">│   ├── 2026-05-22-outcomes.md</div>
+    <div style="color:#ef4444;padding-left:32px">│   └── ...</div>
+    <div style="color:#94a3b8;padding-left:16px">├── strategy/</div>
+    <div style="color:#8b5cf6;padding-left:32px">│   ├── v1.md</div>
+    <div style="color:#8b5cf6;padding-left:32px">│   └── proposals.md</div>
+    <div style="color:#94a3b8;padding-left:16px">└── memory/</div>
+    <div style="color:#64748b;padding-left:32px">    └── agent-context.md</div>
+  </div>
+
+  <!-- What each folder does -->
+  <div style="flex:1.4;display:flex;flex-direction:column;gap:12px">
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #3b82f6">
+      <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:4px">vault/index.md</div>
+      <div style="font-size:12px;color:#94a3b8">Root overview — active positions, current strategy version, links to recent daily notes. The entry point when you open the vault in Obsidian.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #34d399">
+      <div style="font-size:11px;font-weight:700;color:#34d399;margin-bottom:4px">vault/daily/YYYY-MM-DD.md</div>
+      <div style="font-size:12px;color:#94a3b8">One note per trading day. Scan summary, top signals with conviction tier, EOD self-review, strategy notes, links to ticker pages. Auto-written at EOD.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #fbbf24">
+      <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:4px">vault/signals/TICKER.md</div>
+      <div style="font-size:12px;color:#94a3b8">One note per ticker that has ever appeared. Days active, setup type, score history, current status, outcome if closed. Grows over time — permanent signal memory.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #ef4444">
+      <div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">vault/outcomes/YYYY-MM-DD-outcomes.md</div>
+      <div style="font-size:12px;color:#94a3b8">Target hits, stop hits, open positions, P/L summary. Written when outcomes are recorded. The performance ledger.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #8b5cf6">
+      <div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:4px">vault/strategy/</div>
+      <div style="font-size:12px;color:#94a3b8">v1.md, v1.1.md etc — each strategy version as its own note. proposals.md tracks rule suggestions and their approval status.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #64748b">
+      <div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:4px">vault/memory/agent-context.md</div>
+      <div style="font-size:12px;color:#94a3b8">A single file Claude can read to get full project context at the start of a session — a curated summary of vault state, not a raw dump.</div>
+    </div>
+
+  </div>
+</div>
+
+<div style="margin-top:20px;background:#1e293b;border-radius:10px;padding:14px 20px;border-left:3px solid #34d399">
+  <div style="font-size:12px;color:#94a3b8;line-height:1.7">
+    <strong style="color:#f1f5f9">Seeding:</strong> On first setup, a one-time script reads the existing SQLite database and backfills <code>daily/</code>, <code>signals/</code>, and <code>outcomes/</code> from all stored records — so the vault isn't empty on day one.<br>
+    <strong style="color:#f1f5f9">Git:</strong> <code>vault/</code> is tracked in git so history is preserved. Signal pages and daily notes are small markdown files — no bloat.
+  </div>
+</div>

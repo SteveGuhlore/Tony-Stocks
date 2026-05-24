@@ -1,0 +1,129 @@
+<h2>Card Design System</h2>
+<p class="subtitle">Cards appear on every page — picks, tracking, outcomes. Two styles. Same info, different density.</p>
+
+<div class="split" style="gap:24px;align-items:flex-start;">
+
+  <!-- OPTION A: Compact Row Cards -->
+  <div class="mockup" data-choice="compact" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;">
+      <span>Option A — Compact Rows</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="background:#0f172a;padding:14px;display:flex;flex-direction:column;gap:10px;">
+
+      <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Tony Pick — Watching</div>
+      <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #3b82f6;border-radius:6px;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:15px;font-weight:700;color:#f1f5f9;">PLTR</span>
+            <span style="font-size:10px;color:#64748b;">Breakout setup</span>
+            <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:1px 7px;border-radius:3px;">WATCHING</span>
+          </div>
+          <span style="font-size:11px;color:#64748b;">Entry $18.40 · T $21.00 · S $17.00</span>
+        </div>
+        <div style="margin-top:5px;font-size:10px;color:#475569;">Entry trigger: Close above $18.80 with volume</div>
+      </div>
+
+      <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Active Tracking — Triggered</div>
+      <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #34d399;border-radius:6px;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:15px;font-weight:700;color:#f1f5f9;">HOOD</span>
+            <span style="font-size:10px;color:#64748b;">Consolidation breakout</span>
+            <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:1px 7px;border-radius:3px;">ACTIVE</span>
+          </div>
+          <span style="font-size:14px;font-weight:700;color:#34d399;">+8.3%</span>
+        </div>
+        <div style="margin-top:5px;display:flex;gap:16px;font-size:10px;color:#475569;">
+          <span>Entry <span style="color:#94a3b8;">$22.10</span></span>
+          <span>Target <span style="color:#6ee7b7;">$25.00</span></span>
+          <span>Stop <span style="color:#f87171;">$20.50</span></span>
+          <span>Now <span style="color:#f1f5f9;">$23.94</span></span>
+        </div>
+      </div>
+
+      <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Outcome — Closed</div>
+      <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #22c55e;border-radius:6px;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:15px;font-weight:700;color:#f1f5f9;">NVDA</span>
+            <span style="font-size:10px;color:#64748b;">Momentum setup</span>
+            <span style="background:#14532d;color:#4ade80;font-size:9px;padding:1px 7px;border-radius:3px;">TARGET HIT</span>
+          </div>
+          <span style="font-size:14px;font-weight:700;color:#22c55e;">+14.1%</span>
+        </div>
+        <div style="margin-top:5px;display:flex;gap:16px;font-size:10px;color:#475569;">
+          <span>Entry <span style="color:#94a3b8;">$478.00</span></span>
+          <span>Target <span style="color:#6ee7b7;">$520.00</span></span>
+          <span>Closed <span style="color:#94a3b8;">May 20</span></span>
+        </div>
+      </div>
+
+    </div>
+    <div style="padding:8px 12px;background:#111827;font-size:10px;color:#475569;">
+      Dense rows · all key info in one line · fits more cards on screen · best for scanning many setups quickly
+    </div>
+  </div>
+
+  <!-- OPTION B: Rich Block Cards -->
+  <div class="mockup" data-choice="rich" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;">
+      <span>Option B — Rich Blocks</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="background:#0f172a;padding:14px;display:flex;flex-direction:column;gap:12px;">
+
+      <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Tony Pick — Watching</div>
+      <div style="background:#1e293b;border:1px solid #1f2937;border-radius:10px;overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid #1f2937;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+              <span style="font-size:16px;font-weight:700;color:#f1f5f9;">PLTR</span>
+              <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:600;">WATCHING</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;">Breakout setup · Entry trigger pending</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#94a3b8;">Entry $18.40</div>
+            <div style="font-size:10px;color:#475569;margin-top:2px;">R/R 1:1.8</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;padding:8px 16px;gap:8px;">
+          <div style="font-size:10px;color:#64748b;">Target <div style="color:#4ade80;font-weight:600;font-size:12px;">$21.00</div></div>
+          <div style="font-size:10px;color:#64748b;">Stop <div style="color:#f87171;font-weight:600;font-size:12px;">$17.00</div></div>
+          <div style="font-size:10px;color:#64748b;">Trigger <div style="color:#94a3b8;font-size:11px;">Close &gt;$18.80</div></div>
+        </div>
+      </div>
+
+      <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Active Tracking — Triggered</div>
+      <div style="background:#1e293b;border:1px solid #264e36;border-left:4px solid #34d399;border-radius:0 10px 10px 0;">
+        <div style="padding:12px 16px;border-bottom:1px solid #1f2937;display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+              <span style="font-size:16px;font-weight:700;color:#f1f5f9;">HOOD</span>
+              <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:2px 8px;border-radius:4px;font-weight:600;">ACTIVE</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;">Consolidation breakout · Entered May 21</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:18px;font-weight:700;color:#34d399;">+8.3%</div>
+            <div style="font-size:10px;color:#475569;">Research P/L</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;padding:8px 16px;gap:6px;">
+          <div style="font-size:10px;color:#64748b;">Entry <div style="color:#94a3b8;font-weight:600;font-size:12px;">$22.10</div></div>
+          <div style="font-size:10px;color:#64748b;">Target <div style="color:#4ade80;font-weight:600;font-size:12px;">$25.00</div></div>
+          <div style="font-size:10px;color:#64748b;">Stop <div style="color:#f87171;font-weight:600;font-size:12px;">$20.50</div></div>
+          <div style="font-size:10px;color:#64748b;">Now <div style="color:#f1f5f9;font-weight:600;font-size:12px;">$23.94</div></div>
+        </div>
+      </div>
+
+    </div>
+    <div style="padding:8px 12px;background:#111827;font-size:10px;color:#475569;">
+      More breathing room · strong visual hierarchy · P/L prominent · better for reviewing individual setups
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">Both use the same left-border color language: blue = watching, green = active/target hit, red = stop hit, purple = pending. Pick the density that matches how you use the dashboard.</p>

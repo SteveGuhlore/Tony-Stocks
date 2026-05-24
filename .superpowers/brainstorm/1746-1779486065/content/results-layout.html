@@ -1,0 +1,192 @@
+<h2>Results Page — Two Layout Options</h2>
+<p class="subtitle">Both show the same data. Pick the one that feels more like a real trading tool.</p>
+
+<div class="split" style="gap:24px;align-items:flex-start;">
+
+  <!-- OPTION A: TABLE -->
+  <div class="mockup" data-choice="table" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Option A — Clean Data Table</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="padding:0;">
+
+      <!-- KPI bar -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#222;border-bottom:1px solid #333;">
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#fff;">12</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Active</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#fff;">34</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Closed</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#22c55e;">18</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Targets Hit</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#ef4444;">9</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Stops Hit</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#7c6fff;">67%</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Win Rate</div>
+        </div>
+      </div>
+
+      <!-- Tab bar -->
+      <div style="display:flex;gap:0;border-bottom:1px solid #333;background:#0d0d0d;">
+        <div style="padding:8px 16px;font-size:12px;color:#fff;border-bottom:2px solid #7c6fff;background:#111;">All (46)</div>
+        <div style="padding:8px 16px;font-size:12px;color:#555;">Open (12)</div>
+        <div style="padding:8px 16px;font-size:12px;color:#555;">Closed (34)</div>
+        <div style="padding:8px 16px;font-size:12px;color:#555;">Targets (18)</div>
+        <div style="padding:8px 16px;font-size:12px;color:#555;">Stops (9)</div>
+      </div>
+
+      <!-- Table header -->
+      <div style="display:grid;grid-template-columns:70px 65px 75px 75px 75px 90px 90px;gap:0;padding:6px 12px;background:#0a0a0a;border-bottom:1px solid #222;font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.06em;">
+        <div>Symbol</div><div>Entry</div><div>Target</div><div>Stop</div><div>P/L</div><div>Result</div><div>Closed</div>
+      </div>
+
+      <!-- Table rows -->
+      <div style="font-size:12px;">
+        <div style="display:grid;grid-template-columns:70px 65px 75px 75px 75px 90px 90px;gap:0;padding:7px 12px;border-bottom:1px solid #1a1a1a;background:#111;">
+          <div style="font-weight:600;color:#fff;">PLTR</div>
+          <div style="color:#ccc;">$18.40</div>
+          <div style="color:#22c55e;">$21.00</div>
+          <div style="color:#ef4444;">$17.00</div>
+          <div style="color:#22c55e;">+14.1%</div>
+          <div><span style="background:#14532d;color:#4ade80;padding:2px 6px;border-radius:3px;font-size:10px;">Target Hit</span></div>
+          <div style="color:#888;">May 20</div>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 65px 75px 75px 75px 90px 90px;gap:0;padding:7px 12px;border-bottom:1px solid #1a1a1a;">
+          <div style="font-weight:600;color:#fff;">SOFI</div>
+          <div style="color:#ccc;">$9.20</div>
+          <div style="color:#22c55e;">$11.00</div>
+          <div style="color:#ef4444;">$8.50</div>
+          <div style="color:#ef4444;">-8.7%</div>
+          <div><span style="background:#450a0a;color:#f87171;padding:2px 6px;border-radius:3px;font-size:10px;">Stop Hit</span></div>
+          <div style="color:#888;">May 19</div>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 65px 75px 75px 75px 90px 90px;gap:0;padding:7px 12px;border-bottom:1px solid #1a1a1a;background:#111;">
+          <div style="font-weight:600;color:#fff;">HOOD</div>
+          <div style="color:#ccc;">$22.10</div>
+          <div style="color:#22c55e;">$25.00</div>
+          <div style="color:#ef4444;">$20.50</div>
+          <div style="color:#7c6fff;">Active</div>
+          <div><span style="background:#1e1b4b;color:#a5b4fc;padding:2px 6px;border-radius:3px;font-size:10px;">In Play</span></div>
+          <div style="color:#555;">—</div>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 65px 75px 75px 75px 90px 90px;gap:0;padding:7px 12px;border-bottom:1px solid #1a1a1a;">
+          <div style="font-weight:600;color:#fff;">NVDA</div>
+          <div style="color:#ccc;">$478.00</div>
+          <div style="color:#22c55e;">$520.00</div>
+          <div style="color:#ef4444;">$455.00</div>
+          <div style="color:#22c55e;">+8.8%</div>
+          <div><span style="background:#14532d;color:#4ade80;padding:2px 6px;border-radius:3px;font-size:10px;">Target Hit</span></div>
+          <div style="color:#888;">May 18</div>
+        </div>
+        <div style="padding:6px 12px;font-size:11px;color:#444;text-align:center;">+ 42 more rows...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B: CARDS -->
+  <div class="mockup" data-choice="cards" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Option B — Enhanced Cards</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="padding:0;">
+
+      <!-- KPI bar (same) -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#222;border-bottom:1px solid #333;">
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#fff;">12</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Active</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#fff;">34</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Closed</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#22c55e;">18</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Targets Hit</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#ef4444;">9</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Stops Hit</div>
+        </div>
+        <div style="padding:10px 12px;background:#111;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:#7c6fff;">67%</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:.05em;">Win Rate</div>
+        </div>
+      </div>
+
+      <!-- Filter chips -->
+      <div style="display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid #222;flex-wrap:wrap;">
+        <span style="background:#7c6fff;color:#fff;padding:3px 10px;border-radius:12px;font-size:11px;">All</span>
+        <span style="background:#1a1a1a;color:#888;padding:3px 10px;border-radius:12px;font-size:11px;border:1px solid #333;">Open</span>
+        <span style="background:#1a1a1a;color:#888;padding:3px 10px;border-radius:12px;font-size:11px;border:1px solid #333;">Closed</span>
+        <span style="background:#1a1a1a;color:#888;padding:3px 10px;border-radius:12px;font-size:11px;border:1px solid #333;">Targets</span>
+        <span style="background:#1a1a1a;color:#888;padding:3px 10px;border-radius:12px;font-size:11px;border:1px solid #333;">Stops</span>
+        <span style="background:#1a1a1a;color:#888;padding:3px 10px;border-radius:12px;font-size:11px;border:1px solid #333;">Expired</span>
+      </div>
+
+      <!-- Cards -->
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+        <div style="border:1px solid #22c55e33;border-left:3px solid #22c55e;border-radius:6px;padding:10px 12px;background:#0d1f11;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+            <div>
+              <span style="font-size:15px;font-weight:700;color:#fff;">PLTR</span>
+              <span style="margin-left:8px;background:#14532d;color:#4ade80;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">TARGET HIT</span>
+            </div>
+            <span style="color:#22c55e;font-size:14px;font-weight:700;">+14.1%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px;color:#888;">
+            <div>Entry <span style="color:#ccc;font-weight:500;">$18.40</span></div>
+            <div>Target <span style="color:#4ade80;font-weight:500;">$21.00</span></div>
+            <div>Stop <span style="color:#f87171;font-weight:500;">$17.00</span></div>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:#555;">Closed May 20 · Breakout setup · Score 78</div>
+        </div>
+
+        <div style="border:1px solid #ef444433;border-left:3px solid #ef4444;border-radius:6px;padding:10px 12px;background:#1a0d0d;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+            <div>
+              <span style="font-size:15px;font-weight:700;color:#fff;">SOFI</span>
+              <span style="margin-left:8px;background:#450a0a;color:#f87171;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">STOP HIT</span>
+            </div>
+            <span style="color:#ef4444;font-size:14px;font-weight:700;">-8.7%</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px;color:#888;">
+            <div>Entry <span style="color:#ccc;font-weight:500;">$9.20</span></div>
+            <div>Target <span style="color:#4ade80;font-weight:500;">$11.00</span></div>
+            <div>Stop <span style="color:#f87171;font-weight:500;">$8.50</span></div>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:#555;">Closed May 19 · Momentum setup · Score 65</div>
+        </div>
+
+        <div style="border:1px solid #7c6fff44;border-left:3px solid #7c6fff;border-radius:6px;padding:10px 12px;background:#13111f;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+            <div>
+              <span style="font-size:15px;font-weight:700;color:#fff;">HOOD</span>
+              <span style="margin-left:8px;background:#1e1b4b;color:#a5b4fc;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:600;">IN PLAY</span>
+            </div>
+            <span style="color:#7c6fff;font-size:14px;font-weight:700;">Active</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px;color:#888;">
+            <div>Entry <span style="color:#ccc;font-weight:500;">$22.10</span></div>
+            <div>Target <span style="color:#4ade80;font-weight:500;">$25.00</span></div>
+            <div>Stop <span style="color:#f87171;font-weight:500;">$20.50</span></div>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:#555;">Entered May 21 · Consolidation breakout · Score 82</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:20px;">Click whichever feels right — or tell me if you want a hybrid (table for closed, cards for active).</p>

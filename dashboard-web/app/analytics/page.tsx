@@ -34,13 +34,37 @@ export default function AnalyticsPage() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: "0.08em", marginBottom: 8 }}>By Setup Category</div>
           <table className="dense-table">
-            <thead><tr><th>Category</th><th>Count</th><th>Win Rate</th></tr></thead>
+            <thead><tr><th>Category</th><th>Snapshots</th><th>Triggered</th><th>Target Hit</th><th>Hit Rate</th></tr></thead>
             <tbody>
               {bt.by_setup_category.map((row: any, i: number) => (
                 <tr key={i}>
-                  <td style={{ color: "var(--text-primary)" }}>{String(row.setup_category ?? row.group ?? "—")}</td>
-                  <td>{String(row.count ?? "—")}</td>
-                  <td>{row.win_rate != null ? `${(Number(row.win_rate) * 100).toFixed(0)}%` : "—"}</td>
+                  <td style={{ color: "var(--text-primary)" }}>{String(row.setup_category ?? "—")}</td>
+                  <td>{row.total_snapshots ?? "—"}</td>
+                  <td>{row.entry_triggered_count ?? "—"}</td>
+                  <td>{row.target_hit_count ?? "—"}</td>
+                  <td style={{ color: row.target_hit_rate > 0.5 ? "var(--green)" : "var(--text-secondary)" }}>
+                    {row.target_hit_rate != null ? `${(row.target_hit_rate * 100).toFixed(0)}%` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {bt.by_universe_role.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: "0.08em", marginBottom: 8 }}>By Universe Role</div>
+          <table className="dense-table">
+            <thead><tr><th>Role</th><th>Snapshots</th><th>Triggered</th><th>Hit Rate</th></tr></thead>
+            <tbody>
+              {bt.by_universe_role.map((row: any, i: number) => (
+                <tr key={i}>
+                  <td style={{ color: "var(--text-primary)" }}>{String(row.universe_role ?? "—")}</td>
+                  <td>{row.total_snapshots ?? "—"}</td>
+                  <td>{row.entry_triggered_count ?? "—"}</td>
+                  <td style={{ color: row.target_hit_rate > 0.5 ? "var(--green)" : "var(--text-secondary)" }}>
+                    {row.target_hit_rate != null ? `${(row.target_hit_rate * 100).toFixed(0)}%` : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>

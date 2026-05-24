@@ -75,6 +75,12 @@ from trading_bot.settings import load_scanner_settings, real_data_only_enabled, 
 from trading_bot.tony import TonyStocksService
 from trading_bot.tony.analysis import TONY_ANALYSIS_VERSION, MarketContext, analyze_candidates
 from trading_bot.utils.time_utils import utc_now_iso
+from trading_bot.vault import (
+    update_vault_index,
+    upsert_ticker_page,
+    write_bridge_export,
+    write_daily_note,
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -239,6 +245,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     record_decision.add_argument("--note", default="", help="Optional human note about this decision.")
     record_decision.add_argument("--output-dir", default="reports", help="Base directory where reports are saved (default: reports/).")
+
+    export_vault = subparsers.add_parser(
+        "export-to-vault",
+        help="Export latest EOD data to Obsidian vault and bridge. Research only.",
+    )
+    export_vault.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    export_vault.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
 
     return parser
 
@@ -2523,6 +2536,16 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
         str(proposal_json_path), str(proposal_md_path),
         str(replay_json_path), str(replay_md_path),
     ]
+
+    # 8. Vault export (Obsidian memory layer)
+    print("\n--- Vault Export ---")
+    vault_result = _run_vault_export(report_date, eod_result, args.config)
+    if vault_result.get("skipped"):
+        print(f"Vault export skipped: {vault_result.get('reason')}")
+    else:
+        print(f"Vault snapshots: {vault_result['snapshots_processed']} | Files: {len(vault_result['files_written'])}")
+        created.extend(vault_result["files_written"])
+
     print("\nAfter-market review complete.")
     print(f"Report date: {report_date} {MARKET_TIMEZONE_LABEL}")
     print("Reports saved:")
@@ -2989,6 +3012,91 @@ def _snapshot_data_source_fields(provider_name: str, real_only: bool) -> dict[st
     }
 
 
+def _run_vault_export(
+    date: str,
+    eod_result: dict[str, Any],
+    config_path: str,
+) -> dict[str, Any]:
+    """Load active snapshots from DB, compute days_active, write vault + bridge files."""
+    try:
+        settings = load_scanner_settings(config_path)
+    except (FileNotFoundError, OSError) as exc:
+        return {"skipped": True, "reason": f"config not loadable: {exc}"}
+    vault_cfg = settings.vault or {}
+    if not vault_cfg.get("enabled", False):
+        return {"skipped": True, "reason": "vault.enabled is false in config"}
+
+    vault_dir = vault_cfg.get("vault_dir", "vault")
+    command_center_dir = vault_cfg.get("command_center_dir", "")
+    bridge_enabled = vault_cfg.get("bridge_enabled", False)
+
+    repo = ScannerRepository(settings.database_path)
+    df = repo.list_snapshots_for_analytics(days=60)
+
+    snapshots: list[dict[str, Any]] = []
+    if not df.empty:
+        df["_date"] = pd.to_datetime(df["snapshot_time"], utc=True).dt.date
+        days_active_map: dict[str, int] = df.groupby("symbol")["_date"].nunique().to_dict()
+        latest = df.sort_values("snapshot_time", ascending=False).drop_duplicates(subset=["symbol"])
+        for _, row in latest.iterrows():
+            sym = str(row.get("symbol", ""))
+            snapshots.append({
+                "symbol": sym,
+                "score": row.get("total_score"),
+                "setup_category": row.get("setup_category", ""),
+                "status": row.get("outcome_label", ""),
+                "days_active": days_active_map.get(sym, 1),
+                "latest_close": row.get("close"),
+                "target_price": row.get("target"),
+                "stop_price": row.get("stop"),
+            })
+
+    files_written: list[str] = []
+
+    daily_path = write_daily_note(date, eod_result, vault_dir, snapshots=snapshots)
+    files_written.append(str(daily_path))
+
+    for snap in snapshots:
+        ticker_path = upsert_ticker_page(date, snap, vault_dir)
+        files_written.append(str(ticker_path))
+
+    index_path = update_vault_index(date, snapshots, vault_dir)
+    files_written.append(str(index_path))
+
+    if bridge_enabled and command_center_dir:
+        bridge_path = write_bridge_export(date, eod_result, command_center_dir, snapshots=snapshots)
+        files_written.append(str(bridge_path))
+
+    return {
+        "vault_dir": str(vault_dir),
+        "bridge_enabled": bridge_enabled,
+        "snapshots_processed": len(snapshots),
+        "files_written": files_written,
+    }
+
+
+def run_export_to_vault(args: argparse.Namespace) -> dict[str, Any]:
+    """Export latest EOD data to Obsidian vault and bridge. Research only."""
+    report_date = getattr(args, "date", None) or new_york_market_date()
+    print(f"Vault export — {report_date} {MARKET_TIMEZONE_LABEL}")
+    print("Research only: reads DB, writes markdown. No scoring or trading changes.")
+
+    eod_args = SimpleNamespace(config=args.config, date=report_date)
+    eod_result = run_eod_report(eod_args)
+
+    result = _run_vault_export(report_date, eod_result, args.config)
+    if result.get("skipped"):
+        print(f"Vault export skipped: {result.get('reason')}")
+        return result
+
+    print(f"Vault: {result['vault_dir']}")
+    print(f"Snapshots processed: {result['snapshots_processed']}")
+    print(f"Files written: {len(result['files_written'])}")
+    if result.get("bridge_enabled"):
+        print("Bridge export: enabled")
+    return result
+
+
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
@@ -3021,6 +3129,8 @@ def main() -> None:
         run_data_check(args)
     elif args.command == "provider-health":
         run_provider_health(args)
+    elif args.command == "export-to-vault":
+        run_export_to_vault(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 

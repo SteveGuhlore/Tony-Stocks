@@ -25,7 +25,7 @@ export default function ScanPage() {
         <KPIBar items={[
           { label: "Scanned",    value: overview.scanned },
           { label: "Candidates", value: overview.candidates },
-          { label: "Picks",      value: overview.picks },
+          { label: "Manual Picks", value: overview.picks },
           { label: "Last Scan",  value: overview.last_scan_at?.slice(0, 10) ?? "—" },
         ]} />
       )}
@@ -43,3 +43,4 @@ export default function ScanPage() {
     </div>
   )
 }
+

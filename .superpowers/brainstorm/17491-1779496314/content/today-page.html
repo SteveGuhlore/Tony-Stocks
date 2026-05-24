@@ -1,0 +1,214 @@
+<h2>Today Page Layout</h2>
+<p class="subtitle">Last visual question — how the Today page organises its content. Same data, two spatial arrangements.</p>
+
+<div class="split" style="gap:24px;align-items:flex-start;">
+
+  <!-- OPTION A: Stacked Sections -->
+  <div class="mockup" data-choice="stacked" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Option A — Stacked Sections</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="background:#0f172a;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:480px;">
+
+      <!-- Status pills row -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:3px 10px;border-radius:12px;font-weight:600;">READY</span>
+        <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:3px 10px;border-radius:12px;">Scan 2m ago</span>
+        <span style="background:#1e1b4b;color:#a5b4fc;font-size:9px;padding:3px 10px;border-radius:12px;">7 watching</span>
+        <span style="background:#3f1f04;color:#fbbf24;font-size:9px;padding:3px 10px;border-radius:12px;">2 alerts</span>
+      </div>
+
+      <!-- KPI strip -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">
+          <div style="font-size:16px;font-weight:700;color:#60a5fa;">7</div>
+          <div style="font-size:9px;color:#64748b;">Watching</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">
+          <div style="font-size:16px;font-weight:700;color:#34d399;">3</div>
+          <div style="font-size:9px;color:#64748b;">Triggered</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">
+          <div style="font-size:16px;font-weight:700;color:#fbbf24;">2</div>
+          <div style="font-size:9px;color:#64748b;">Alerts</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 10px;">
+          <div style="font-size:16px;font-weight:700;color:#f1f5f9;">67%</div>
+          <div style="font-size:9px;color:#64748b;">Win Rate</div>
+        </div>
+      </div>
+
+      <!-- Tony briefing -->
+      <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;border-radius:0 6px 6px 0;padding:10px 12px;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+        Momentum conditions improving. PLTR and HOOD both near breakout levels. No macro events scheduled today. Consider tightening stops on open positions.
+      </div>
+
+      <!-- Top active setups -->
+      <div>
+        <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Top Active Setups</div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #3b82f6;border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:13px;font-weight:700;color:#f1f5f9;">PLTR</span>
+              <span style="font-size:9px;color:#64748b;">Breakout</span>
+              <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:1px 6px;border-radius:3px;">WATCHING</span>
+            </div>
+            <span style="font-size:11px;color:#64748b;">$18.40 · T $21.00 · S $17.00</span>
+          </div>
+          <div style="margin-top:3px;font-size:9px;color:#475569;">Trigger: Close above $18.80 on volume</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #34d399;border-radius:6px;padding:8px 12px;margin-bottom:4px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:13px;font-weight:700;color:#f1f5f9;">HOOD</span>
+              <span style="font-size:9px;color:#64748b;">Consolidation</span>
+              <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:1px 6px;border-radius:3px;">ACTIVE</span>
+            </div>
+            <span style="font-size:13px;font-weight:700;color:#34d399;">+8.3%</span>
+          </div>
+          <div style="margin-top:3px;font-size:9px;color:#475569;">Entry $22.10 · Now $23.94 · Target $25.00 · Stop $20.50</div>
+        </div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;border-radius:6px;padding:8px 12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:13px;font-weight:700;color:#f1f5f9;">NVDA</span>
+              <span style="font-size:9px;color:#64748b;">Momentum</span>
+              <span style="background:#1e1b4b;color:#a5b4fc;font-size:9px;padding:1px 6px;border-radius:3px;">PENDING</span>
+            </div>
+            <span style="font-size:11px;color:#64748b;">$478.00 · T $520.00 · S $455.00</span>
+          </div>
+          <div style="margin-top:3px;font-size:9px;color:#475569;">Trigger: Break above $485 confirmed close</div>
+        </div>
+      </div>
+
+      <!-- Review today -->
+      <div>
+        <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Review Today</div>
+        <div style="background:#1e293b;border:1px solid #1f2937;border-radius:6px;padding:8px 12px;font-size:10px;color:#94a3b8;line-height:1.9;">
+          • 2 pending entry alerts need review<br>
+          • 1 stale setup (AMZN) hasn't triggered in 6 days<br>
+          • HOOD approaching target — review stop placement
+        </div>
+      </div>
+
+    </div>
+    <div style="padding:8px 12px;background:#111827;font-size:10px;color:#475569;">
+      Single column scroll · predictable top-to-bottom read · easy to extend · works well at any window height
+    </div>
+  </div>
+
+  <!-- OPTION B: Split Hero -->
+  <div class="mockup" data-choice="split-hero" onclick="toggleSelect(this)" style="cursor:pointer;flex:1;">
+    <div class="mockup-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Option B — Split Hero</span>
+      <span style="font-size:11px;color:#7c6fff;">click to select</span>
+    </div>
+    <div class="mockup-body" style="background:#0f172a;display:flex;flex-direction:column;min-height:480px;">
+
+      <!-- Fixed header band -->
+      <div style="background:#111827;border-bottom:1px solid #1f2937;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="display:flex;gap:6px;">
+            <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:3px 10px;border-radius:12px;font-weight:600;">READY</span>
+            <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:3px 10px;border-radius:12px;">Scan 2m ago</span>
+            <span style="background:#3f1f04;color:#fbbf24;font-size:9px;padding:3px 10px;border-radius:12px;">2 alerts</span>
+          </div>
+          <span style="font-size:10px;color:#475569;">Thu May 22</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+          <div style="background:#0f172a;border:1px solid #1f2937;border-radius:5px;padding:6px 10px;">
+            <div style="font-size:15px;font-weight:700;color:#60a5fa;">7</div>
+            <div style="font-size:9px;color:#64748b;">Watching</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #1f2937;border-radius:5px;padding:6px 10px;">
+            <div style="font-size:15px;font-weight:700;color:#34d399;">3</div>
+            <div style="font-size:9px;color:#64748b;">Triggered</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #1f2937;border-radius:5px;padding:6px 10px;">
+            <div style="font-size:15px;font-weight:700;color:#fbbf24;">2</div>
+            <div style="font-size:9px;color:#64748b;">Alerts</div>
+          </div>
+          <div style="background:#0f172a;border:1px solid #1f2937;border-radius:5px;padding:6px 10px;">
+            <div style="font-size:15px;font-weight:700;color:#f1f5f9;">67%</div>
+            <div style="font-size:9px;color:#64748b;">Win Rate</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two-column body -->
+      <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:0;flex:1;">
+
+        <!-- Left: briefing + review -->
+        <div style="border-right:1px solid #1f2937;padding:12px;display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Tony's Briefing</div>
+            <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;border-radius:0 6px 6px 0;padding:9px 10px;font-size:10px;color:#94a3b8;line-height:1.6;font-style:italic;">
+              Momentum conditions improving. PLTR and HOOD both near breakout levels. Consider tightening stops on open positions.
+            </div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Review Today</div>
+            <div style="font-size:10px;color:#94a3b8;line-height:2.0;">
+              • 2 pending entry alerts<br>
+              • 1 stale setup (AMZN)<br>
+              • HOOD approaching target
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: live setups -->
+        <div style="padding:12px;display:flex;flex-direction:column;gap:6px;">
+          <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Live Setups</div>
+          <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #3b82f6;border-radius:6px;padding:8px 10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="font-size:13px;font-weight:700;color:#f1f5f9;">PLTR</span>
+                <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:1px 6px;border-radius:3px;">WATCHING</span>
+              </div>
+              <span style="font-size:10px;color:#64748b;">$18.40 · T $21.00</span>
+            </div>
+            <div style="margin-top:3px;font-size:9px;color:#475569;">Close above $18.80 on volume</div>
+          </div>
+          <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #34d399;border-radius:6px;padding:8px 10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="font-size:13px;font-weight:700;color:#f1f5f9;">HOOD</span>
+                <span style="background:#064e3b;color:#6ee7b7;font-size:9px;padding:1px 6px;border-radius:3px;">ACTIVE</span>
+              </div>
+              <span style="font-size:13px;font-weight:700;color:#34d399;">+8.3%</span>
+            </div>
+            <div style="margin-top:3px;font-size:9px;color:#475569;">$22.10 → $23.94 · T $25.00 · S $20.50</div>
+          </div>
+          <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #8b5cf6;border-radius:6px;padding:8px 10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="font-size:13px;font-weight:700;color:#f1f5f9;">NVDA</span>
+                <span style="background:#1e1b4b;color:#a5b4fc;font-size:9px;padding:1px 6px;border-radius:3px;">PENDING</span>
+              </div>
+              <span style="font-size:10px;color:#64748b;">$478 · T $520</span>
+            </div>
+            <div style="margin-top:3px;font-size:9px;color:#475569;">Break above $485 confirmed close</div>
+          </div>
+          <div style="background:#1e293b;border:1px solid #1f2937;border-left:3px solid #3b82f6;border-radius:6px;padding:8px 10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="font-size:13px;font-weight:700;color:#f1f5f9;">META</span>
+                <span style="background:#1e3a5f;color:#93c5fd;font-size:9px;padding:1px 6px;border-radius:3px;">WATCHING</span>
+              </div>
+              <span style="font-size:10px;color:#64748b;">$520 · T $570</span>
+            </div>
+            <div style="margin-top:3px;font-size:9px;color:#475569;">Volume confirmation pending</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div style="padding:8px 12px;background:#111827;font-size:10px;color:#475569;">
+      Fixed header always visible · briefing + setups side by side · more setups fit on screen · trades feel "live"
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">A scrolls naturally top-to-bottom — good for reviewing everything in order. B keeps status always in view and shows more setups at once — better if you open the dashboard mid-session to check on positions.</p>

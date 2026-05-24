@@ -1,0 +1,122 @@
+<h2>Design — Section 3: Bridge Export</h2>
+<p class="subtitle">What gets written to the Command Center after every EOD run, and what Tony reads from it.</p>
+
+<div style="display:flex;gap:20px;margin-top:20px;align-items:flex-start">
+
+  <!-- Bridge file -->
+  <div class="mockup" style="flex:1.1">
+    <div class="mockup-header">AI Operations Command Center/bridge/tony-stocks/2026-05-22.md</div>
+    <div class="mockup-body" style="font-family:monospace;font-size:10.5px;line-height:1.75;color:#94a3b8;white-space:pre-wrap;max-height:580px;overflow-y:auto">---
+date: 2026-05-22
+source: TradingBotAgentProject
+strategy_version: v1
+export_type: eod-bridge
+---
+
+# Tony Stocks Bridge — 2026-05-22
+
+## Scanner Summary
+- Universe: 349 | Scored: 175 (50.1%) | Cycles: 12
+- Coverage trending: stable (was 48.3% yesterday)
+
+## Tier 1 — Hand Off for Deep Analysis
+*(persistent signals 3+ days — highest priority)*
+
+### GTLB — GitLab
+- Days active: 4 | Setup: Breakout Watch | Score: 87
+- Status: active | Entry triggered: yes
+- Entry: $58.20 | Target: $63.50 | Stop: $55.80
+- R/R: 2.3:1
+- Bot note: Persistent signal. Score trending up (+3 pts).
+  Recommend: full deep analysis + conviction score update.
+
+### ZETA — Zeta Global
+- Days active: 3 | Setup: Momentum Cont. | Score: 82
+- Status: waiting_alert | Entry triggered: no
+- Entry trigger: breakout above $18.40
+- Bot note: Day 3, not yet triggered. Monitor closely.
+
+## Tier 2 — Monitor
+*(2 days active — building conviction)*
+
+| Ticker | Setup | Score | Days | Status |
+|--------|-------|-------|------|--------|
+| CVS | Breakout Watch | 71 | 2 | waiting |
+| DAL | Breakout Watch | 68 | 2 | waiting |
+| ORCL | Breakout Watch | 65 | 2 | waiting |
+
+## Tier 3 — New Signals (1 day)
+ANET · BKR · CRM · EBAY · KMI · LYFT
+
+## Outcomes Since Last Brief
+- ORCL: target hit +4.2% (terminal outcome)
+- Active positions carrying over: 7
+
+## Signal Scorecard (running totals)
+| Setup | Triggered | Target Rate | Stop Rate |
+|-------|-----------|-------------|-----------|
+| Breakout Watch | 14 | 64% | 21% |
+| Momentum Cont. | 8 | 50% | 25% |
+
+## Rule Suggestions Pending Your Review
+1. [medium] Prioritize Breakout Watch setups
+2. [low] More data needed on Pullback Watch
+
+## For Tony
+This is your daily brief from the scanner.
+Tier 1 signals need deep analysis.
+Update signal-ledger.md and index.md after your review.
+Previous brief: bridge/tony-stocks/2026-05-21.md</div>
+  </div>
+
+  <!-- Flow + Notes -->
+  <div style="flex:1;display:flex;flex-direction:column;gap:14px">
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px">
+      <div style="font-size:11px;font-weight:700;color:#8b5cf6;margin-bottom:8px">How it flows</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#3b82f6;border-radius:4px;padding:4px 8px;font-size:10px;color:white;white-space:nowrap">EOD runs</div>
+          <div style="font-size:11px;color:#64748b">→</div>
+          <div style="font-size:11px;color:#94a3b8">Bot writes full daily note to Vault 1</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#8b5cf6;border-radius:4px;padding:4px 8px;font-size:10px;color:white;white-space:nowrap">Bridge writes</div>
+          <div style="font-size:11px;color:#64748b">→</div>
+          <div style="font-size:11px;color:#94a3b8">Curated markdown drops to Command Center bridge folder</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#34d399;border-radius:4px;padding:4px 8px;font-size:10px;color:#0f172a;white-space:nowrap">Tony reads</div>
+          <div style="font-size:11px;color:#64748b">→</div>
+          <div style="font-size:11px;color:#94a3b8">Opens bridge file directly (no MCP), does deep analysis</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="background:#fbbf24;border-radius:4px;padding:4px 8px;font-size:10px;color:#0f172a;white-space:nowrap">Vault 2 updates</div>
+          <div style="font-size:11px;color:#64748b">→</div>
+          <div style="font-size:11px;color:#94a3b8">Tony updates signal-ledger.md, index.md, ticker notes</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #34d399">
+      <div style="font-size:11px;font-weight:700;color:#34d399;margin-bottom:6px">Why markdown, not JSON</div>
+      <div style="font-size:11px;color:#94a3b8;line-height:1.6">Tony is a Claude agent — he reads markdown naturally. No parsing needed, no character limits from JSON wrapping, and the bridge file is also human-readable in Obsidian. You can open it and see exactly what Tony is working from.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #fbbf24">
+      <div style="font-size:11px;font-weight:700;color:#fbbf24;margin-bottom:6px">One file per day</div>
+      <div style="font-size:11px;color:#94a3b8;line-height:1.6">Named <code>YYYY-MM-DD.md</code> — not overwritten, so Tony can look back at previous briefs. The "Previous brief" link at the bottom lets Tony compare today vs yesterday.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #3b82f6">
+      <div style="font-size:11px;font-weight:700;color:#3b82f6;margin-bottom:6px">What stays in Vault 1 only</div>
+      <div style="font-size:11px;color:#94a3b8;line-height:1.6">Full scored symbol table (175 rows), all skip reasons, raw rotation data. Only curated signals cross the bridge — the Command Center stays clean.</div>
+    </div>
+
+    <div style="background:#1e293b;border-radius:10px;padding:14px 16px;border-left:3px solid #ef4444">
+      <div style="font-size:11px;font-weight:700;color:#ef4444;margin-bottom:6px">No MCP in the write path</div>
+      <div style="font-size:11px;color:#94a3b8;line-height:1.6">Python writes directly to the Command Center folder on disk. No Obsidian plugin, no API call, no 50-char limit. The file appears in Obsidian immediately.</div>
+    </div>
+
+  </div>
+</div>
