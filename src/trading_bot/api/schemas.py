@@ -204,3 +204,30 @@ class VaultBridgeSummary(BaseModel):
     available: bool
     latest_date: str | None
     content: str | None
+
+
+class LiveQuoteSchema(BaseModel):
+    symbol: str
+    price: float
+    bid: float | None
+    ask: float | None
+    prev_close: float
+    change_pct: float
+    day_open: float
+    day_high: float
+    day_low: float
+    day_volume: float
+    asof: str
+    is_live: bool
+
+
+class MarketStatus(BaseModel):
+    open: bool
+    next_open: str | None
+    next_close: str | None
+    timezone: str
+
+
+class PricesResponse(BaseModel):
+    symbols: list[LiveQuoteSchema]
+    market: MarketStatus
