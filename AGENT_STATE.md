@@ -6,6 +6,40 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## Live Market Data handoff — Subsystem A (real-time Alpaca prices + alerts)
+
+Live Market Data is complete. The dashboard now polls Alpaca for live prices, detects near-entry and stop-violation events, and surfaces them via SSE toasts with audio + desktop notifications.
+
+**Backend (`src/trading_bot/api/`)**
+- `market_calendar.py` — `market_status()` / `is_market_open()` via `pandas_market_calendars` NYSE calendar
+- `live_prices.py` — `LiveQuote` dataclass, `PriceCache` (symbol rebuild, Alpaca batch fetch at `/v2/stocks/snapshots`, event detection), `run_price_poll_loop()` background task. Events: `near_entry` (crosses within 0.5% of entry, 5-min cooldown) and `stop_violation` (once per snapshot_id when triggered+open drops below stop).
+- `routes/prices.py` — `GET /api/prices`, `GET /api/prices/{symbol}` (503 without Alpaca keys)
+- `main.py` — lifespan initialises `PriceCache`, wires `asyncio.Queue` as `live_event_queue`, starts poll loop, registers prices router
+- `routes/events.py` — SSE generator drains `live_event_queue` each 5-second cycle
+- `schemas.py` — added `LiveQuoteSchema`, `MarketStatus`, `PricesResponse`
+
+**New tests (22 total, all pass)**
+- `tests/test_market_calendar.py` (6), `tests/test_price_cache.py` (6), `tests/test_event_detection.py` (6), `tests/test_api_prices.py` (4)
+
+**Frontend (`dashboard-web/`)**
+- Types: `SSELiveAlert`, `LiveQuote`, `MarketStatus`, `PricesResponse` added to `lib/types.ts`
+- API: `api.prices()`, `api.priceSymbol(symbol)` added to `lib/api.ts`; `SSELiveAlert` added to `lib/sse.ts` union
+- Hooks: `useLivePrices` (15s/120s poll), `useMarketStatus` (60s poll), `useAlerts` (toast state + beep + Web Notification)
+- Sound: `lib/sound.ts` — 880Hz/200ms for near_entry, 330Hz/400ms for stop_violation
+- Components: `LivePrice`, `DistanceToBar`, `MarketClock` (under `components/market/`); `ToastStack`, `AlertManager`, `PermissionBanner` (under `components/alerts/`)
+- Layout: `PermissionBanner` + `AlertManager` mounted at root; `MarketClock` pinned to Sidebar bottom
+- Existing components updated: `TradeCard` (live price + distance bar), `ScanTable` (LIVE column replaces CLOSE), `SymbolDrawer` (live price in header + distance bar)
+
+**TypeScript build:** clean (`tsc --noEmit` → no errors)
+
+**Dependency added:** `pandas-market-calendars>=4.4`
+
+**Commits:** `b9c060a` (backend), `b6b722c` (frontend)
+
+**Demo mode:** without `ALPACA_API_KEY`/`ALPACA_SECRET_KEY`, prices endpoint returns 503 and poll loop is a no-op — all other dashboard features work normally.
+
+---
+
 ## V38 handoff — Next.js + FastAPI Dashboard
 
 V38 is complete. The Streamlit dashboard has been replaced with a Next.js 15 (App Router) + FastAPI stack with a Bloomberg financial terminal aesthetic.
