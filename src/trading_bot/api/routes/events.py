@@ -74,6 +74,14 @@ async def event_stream(request: Request):
                             }
                             yield "data: " + json.dumps(p) + "\n\n"
                         last_id = nid
+                live_queue = getattr(request.app.state, "live_event_queue", None)
+                if live_queue is not None:
+                    while True:
+                        try:
+                            alert = live_queue.get_nowait()
+                            yield "data: " + json.dumps(alert) + "\n\n"
+                        except asyncio.QueueEmpty:
+                            break
             except Exception as exc:
                 err = {"type": "error", "message": str(exc)}
                 yield "data: " + json.dumps(err) + "\n\n"
