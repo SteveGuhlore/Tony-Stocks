@@ -1,6 +1,7 @@
 ﻿"use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { MarketClock } from "@/components/market/MarketClock"
 
 const NAV = [
   { href: "/today",     icon: "⚡", label: "Today"     },
@@ -35,6 +36,9 @@ export function Sidebar() {
           </Link>
         )
       })}
+      <div style={{ marginTop: "auto", paddingBottom: 12, paddingLeft: 4, paddingRight: 4 }}>
+        <MarketClock />
+      </div>
     </nav>
   )
 }

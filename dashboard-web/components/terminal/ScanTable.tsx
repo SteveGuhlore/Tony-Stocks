@@ -1,5 +1,7 @@
 ﻿"use client"
 import { TickerSymbol } from "./TickerSymbol"
+import { LivePrice } from "@/components/market/LivePrice"
+import { useLivePrices } from "@/lib/hooks/useLivePrices"
 import type { ScanResultRow } from "@/lib/types"
 
 function rr(r: ScanResultRow): string {
@@ -18,13 +20,14 @@ function entryDelta(r: ScanResultRow): string {
 }
 
 export function ScanTable({ results }: { results: ScanResultRow[] }) {
+  const liveQuotes = useLivePrices()
   if (!results.length) return <p style={{ color: "var(--text-secondary)", padding: 16 }}>No results</p>
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="dense-table">
         <thead>
           <tr>
-            {["SYM","SCORE","SETUP","CLOSE","ENTRY","STOP","TARGET","R:R","PLAN"].map(h => <th key={h}>{h}</th>)}
+            {["SYM","SCORE","SETUP","LIVE","ENTRY","STOP","TARGET","R:R","PLAN"].map(h => <th key={h}>{h}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -35,7 +38,7 @@ export function ScanTable({ results }: { results: ScanResultRow[] }) {
                 {r.score.toFixed(1)}
               </td>
               <td style={{ color: "var(--text-secondary)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" }}>{r.setup_category}</td>
-              <td style={{ fontFamily: "JetBrains Mono, monospace" }}>${r.close.toFixed(2)}</td>
+              <td><LivePrice quote={liveQuotes[r.symbol]} /></td>
               <td style={{ fontFamily: "JetBrains Mono, monospace" }}>
                 ${r.entry.toFixed(2)}
                 {entryDelta(r) && (

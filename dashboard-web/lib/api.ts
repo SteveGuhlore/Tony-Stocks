@@ -39,4 +39,6 @@ export const api = {
       `/api/symbols/${symbol}/chart`, { days }),
   vaultBridge: () => get<import("./types").VaultBridgeSummary>("/api/vault/bridge"),
   streamUrl: () => `${BASE}/api/events/stream`,
+  prices: () => get<import("./types").PricesResponse>("/api/prices"),
+  priceSymbol: (symbol: string) => get<import("./types").LiveQuote>(`/api/prices/${symbol}`),
 }

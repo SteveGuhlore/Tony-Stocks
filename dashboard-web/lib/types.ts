@@ -60,3 +60,11 @@ export interface SymbolDetailResponse {
 export interface VaultBridgeSummary { available: boolean; latest_date: string | null; content: string | null }
 export interface SSEHeartbeat { type: "heartbeat"; watch_status: string; last_scan_age_seconds: number | null; last_heartbeat_at: string }
 export interface SSEEvent { type: "event"; event_type: string; severity: string; symbol: string | null; title: string; message: string; created_at: string }
+export interface SSELiveAlert { type: "live_alert"; alert_type: "near_entry" | "stop_violation"; symbol: string; price: number; entry?: number; stop?: number }
+export interface LiveQuote {
+  symbol: string; price: number; bid: number | null; ask: number | null
+  prev_close: number; change_pct: number; day_open: number; day_high: number
+  day_low: number; day_volume: number; asof: string; is_live: boolean
+}
+export interface MarketStatus { open: boolean; next_open: string | null; next_close: string | null; timezone: string }
+export interface PricesResponse { symbols: LiveQuote[]; market: MarketStatus }

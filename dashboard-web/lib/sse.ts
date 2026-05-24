@@ -1,8 +1,8 @@
 ﻿"use client"
 import { useEffect, useRef, useCallback } from "react"
-import type { SSEHeartbeat, SSEEvent } from "./types"
+import type { SSEHeartbeat, SSEEvent, SSELiveAlert } from "./types"
 
-type SSEMessage = SSEHeartbeat | SSEEvent | { type: "error"; message: string }
+type SSEMessage = SSEHeartbeat | SSEEvent | SSELiveAlert | { type: "error"; message: string }
 
 export function useSSE(url: string, onMessage: (msg: SSEMessage) => void) {
   const onMessageRef = useRef(onMessage)

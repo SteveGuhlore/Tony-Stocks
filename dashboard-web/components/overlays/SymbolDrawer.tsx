@@ -6,9 +6,13 @@ import { useDrawer } from "./DrawerContext"
 import { StatusBadge } from "@/components/terminal/StatusBadge"
 import { PriceValue } from "@/components/terminal/PriceValue"
 import { ScoreBreakdown } from "@/components/charts/ScoreBreakdown"
+import { LivePrice } from "@/components/market/LivePrice"
+import { DistanceToBar } from "@/components/market/DistanceToBar"
+import { useLivePrices } from "@/lib/hooks/useLivePrices"
 
 export function SymbolDrawer() {
   const { symbolDrawer, closeSymbol } = useDrawer()
+  const liveQuotes = useLivePrices()
   const { data } = useQuery({
     queryKey: ["symbolDetail", symbolDrawer],
     queryFn: () => api.symbolDetail(symbolDrawer!),
@@ -35,6 +39,7 @@ export function SymbolDrawer() {
                 <button onClick={closeSymbol} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 16 }}>←</button>
                 <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 20, fontWeight: 700, color: "var(--cyan)" }}>{symbolDrawer}</span>
                 {data?.latest_snapshot && <StatusBadge status={data.latest_snapshot.status} />}
+                <LivePrice quote={liveQuotes[symbolDrawer!]} />
               </div>
               {data?.latest_snapshot?.total_score !== null && (
                 <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 18, color: "var(--cyan)" }}>
@@ -67,6 +72,12 @@ export function SymbolDrawer() {
                     <span style={{ color: "var(--text-secondary)" }}>R:R {data.latest_snapshot.risk_reward?.toFixed(1)}:1</span>
                   )}
                 </div>
+                <DistanceToBar
+                  quote={liveQuotes[symbolDrawer!]}
+                  entry={data.latest_snapshot.entry}
+                  stop={data.latest_snapshot.stop}
+                  target={data.latest_snapshot.target}
+                />
               </div>
             )}
 
