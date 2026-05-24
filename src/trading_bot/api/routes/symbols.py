@@ -8,6 +8,9 @@ from trading_bot.storage.repositories import ScannerRepository
 
 router = APIRouter(tags=["symbols"])
 
+def _nan(v):
+    return v if isinstance(v, str) else None
+
 def _jl(v):
     if isinstance(v, str):
         try: return json.loads(v)
@@ -19,11 +22,11 @@ def _snap(r):
         setup_category=r.get("setup_category",""), universe_role=r.get("universe_role",""),
         total_score=r.get("total_score"), close=r.get("close"), entry=r.get("entry"),
         stop=r.get("stop"), target=r.get("target"), risk_reward=r.get("risk_reward"),
-        snapshot_time=r.get("snapshot_time",""), outcome_label=r.get("outcome_label"),
-        notes=r.get("notes"), tony_priority_label=r.get("tony_priority_label"),
-        tony_recommended_action=r.get("tony_recommended_action"),
-        tony_setup_read=r.get("tony_setup_read"), tony_hypothesis=r.get("tony_hypothesis"),
-        entry_triggered=bool(r.get("entry_triggered",0)), entry_triggered_at=r.get("entry_triggered_at"))
+        snapshot_time=r.get("snapshot_time",""), outcome_label=_nan(r.get("outcome_label")),
+        notes=_nan(r.get("notes")), tony_priority_label=_nan(r.get("tony_priority_label")),
+        tony_recommended_action=_nan(r.get("tony_recommended_action")),
+        tony_setup_read=_nan(r.get("tony_setup_read")), tony_hypothesis=_nan(r.get("tony_hypothesis")),
+        entry_triggered=bool(r.get("entry_triggered",0)), entry_triggered_at=_nan(r.get("entry_triggered_at")))
 
 def _scan_result(r):
     return ScanResultRow(symbol=r["symbol"], score=float(r.get("final_score",0)),

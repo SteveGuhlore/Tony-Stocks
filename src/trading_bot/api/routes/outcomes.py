@@ -15,9 +15,21 @@ def _nan(v):
 def _is_null(v):
     if v is None:
         return True
-    if isinstance(v, float) and math.isnan(v):
-        return True
-    return False
+    try:
+        return isinstance(v, float) and math.isnan(v)
+    except Exception:
+        return False
+
+def _dedup_by_symbol(records: list) -> list:
+    """Keep only the latest snapshot per symbol (records already sorted desc)."""
+    seen: set[str] = set()
+    out = []
+    for r in records:
+        sym = r.get("symbol")
+        if sym not in seen:
+            seen.add(sym)
+            out.append(r)
+    return out
 
 def _snap(r):
     return CandidateSnapshotRow(
@@ -34,19 +46,31 @@ def _snap(r):
 @router.get("/outcomes", response_model=OutcomesResponse)
 def get_outcomes(filter: str = Query("all", enum=["all","open","targets","stops"]),
                  repo: ScannerRepository = Depends(get_repo)):
-    df = repo.list_snapshots_for_analytics(limit=500)
-    records = df.to_dict("records") if not df.empty else []
-    if filter == "open":
-        records = [r for r in records if _is_null(r.get("outcome_label"))]
-    elif filter == "targets":
-        records = [r for r in records if r.get("outcome_label") in _TARGET]
-    elif filter == "stops":
-        records = [r for r in records if r.get("outcome_label") in _STOP]
-    hits = sum(1 for r in records if r.get("outcome_label") in _TARGET)
-    stops = sum(1 for r in records if r.get("outcome_label") in _STOP)
+    # Active = currently open watchlist positions
+    active_count = repo.count_open_candidate_snapshots()
+
+    # Resolved outcomes from analytics data (deduped latest per symbol)
+    df = repo.list_snapshots_for_analytics(limit=1000)
+    all_records = df.to_dict("records") if not df.empty else []
+    resolved = [r for r in all_records if not _is_null(r.get("outcome_label"))]
+    resolved = _dedup_by_symbol(resolved)
+
+    hits = sum(1 for r in resolved if r.get("outcome_label") in _TARGET)
+    stops = sum(1 for r in resolved if r.get("outcome_label") in _STOP)
     closed = hits + stops
+
+    # Card display: filter resolved by chip
+    if filter == "open":
+        display = []  # open = watchlist, no resolved cards
+    elif filter == "targets":
+        display = [r for r in resolved if r.get("outcome_label") in _TARGET]
+    elif filter == "stops":
+        display = [r for r in resolved if r.get("outcome_label") in _STOP]
+    else:
+        display = resolved
+
     return OutcomesResponse(
-        kpis=OutcomeKPIs(active=sum(1 for r in records if _is_null(r.get("outcome_label"))),
-                         closed=closed, target_hits=hits, stop_hits=stops,
+        kpis=OutcomeKPIs(active=active_count, closed=closed,
+                         target_hits=hits, stop_hits=stops,
                          win_rate=hits/closed if closed else None),
-        snapshots=[_snap(r) for r in records[:200]])
+        snapshots=[_snap(r) for r in display[:200]])

@@ -8,10 +8,22 @@ async function get<T>(path: string, params?: Record<string, string | number | bo
   return res.json()
 }
 
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`API POST ${path} -> ${res.status}`)
+  return res.json()
+}
+
 export const api = {
   health: () => get<{ status: string; db_path: string }>("/api/health"),
   today: () => get<import("./types").TodayResponse>("/api/today"),
   picks: () => get<import("./types").PicksResponse>("/api/picks"),
+  addPick: (body: { symbol: string; entry?: number; stop?: number; target?: number; notes?: string }) =>
+    post<{ status: string; symbol: string }>("/api/picks", body),
   tracking: () => get<import("./types").TrackingResponse>("/api/tracking"),
   outcomes: (filter?: string) => get<import("./types").OutcomesResponse>("/api/outcomes", { filter }),
   scanLatest: (p?: { min_score?: number; category?: string; role?: string }) =>

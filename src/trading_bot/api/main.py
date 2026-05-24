@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
@@ -25,7 +25,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET","POST"],
     allow_headers=["*"],
 )
 
@@ -42,3 +42,4 @@ for _router in (
     vault.router,
 ):
     app.include_router(_router, prefix="/api")
+
