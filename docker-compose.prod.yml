@@ -1,0 +1,29 @@
+﻿version: "3.9"
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./vault:/app/vault
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app/src
+      - DATABASE_PATH=data/trading_bot.db
+      - VAULT_DIR=vault
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./dashboard-web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api
+    restart: unless-stopped

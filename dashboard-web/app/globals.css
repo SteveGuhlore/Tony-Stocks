@@ -1,0 +1,71 @@
+﻿@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg-base:      #050505;
+  --bg-surface:   #0f0f0f;
+  --bg-elevated:  #161616;
+  --border:       #1f1f1f;
+  --border-focus: #333333;
+  --text-primary:   #f0f0f0;
+  --text-secondary: #666666;
+  --text-muted:     #2a2a2a;
+  --green:   #00e676;
+  --red:     #ff3d3d;
+  --amber:   #ffab00;
+  --blue:    #448aff;
+  --cyan:    #00e5ff;
+  --violet:  #7c4dff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: "Geist", "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  margin: 0;
+  padding: 0;
+}
+
+.mono { font-family: "JetBrains Mono", "Fira Code", monospace; }
+
+.status-green  { color: var(--green); }
+.status-red    { color: var(--red); }
+.status-amber  { color: var(--amber); }
+.status-blue   { color: var(--blue); }
+.status-cyan   { color: var(--cyan); }
+.status-violet { color: var(--violet); }
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.dense-table { width: 100%; border-collapse: collapse; }
+.dense-table th {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.dense-table td {
+  padding: 0 8px;
+  height: 28px;
+  border-bottom: 1px solid var(--border);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.dense-table tr:hover td { background: var(--bg-elevated); cursor: pointer; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-focus); border-radius: 2px; }

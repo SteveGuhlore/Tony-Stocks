@@ -1,8 +1,102 @@
-# Agent State / Handoff Log
+﻿# Agent State / Handoff Log
 
-_Last updated: 2026-05-22_
+_Last updated: 2026-05-24_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## V38 handoff — Next.js + FastAPI Dashboard
+
+V38 is complete. The Streamlit dashboard has been replaced with a Next.js 15 (App Router) + FastAPI stack with a Bloomberg financial terminal aesthetic.
+
+**What was built:**
+
+**FastAPI layer (`src/trading_bot/api/`)**
+- `main.py` — FastAPI app, lifespan sets `db_path`/`vault_dir` from env, CORS for localhost:3000, 10 routers under `/api`
+- `deps.py` — `get_repo()` FastAPI dependency
+- `schemas.py` — all Pydantic v2 response models
+- `routes/health.py` — `GET /api/health`
+- `routes/today.py` — `GET /api/today` (KPIs, watch status, events, snapshots)
+- `routes/picks.py` — `GET /api/picks`, `GET /api/tracking`
+- `routes/outcomes.py` — `GET /api/outcomes?filter=all|open|targets|stops`
+- `routes/scan.py` — `GET /api/scan/latest`, `GET /api/scan/overview`
+- `routes/analytics.py` — `GET /api/analytics/backtest`
+- `routes/events.py` — `GET /api/events`, `GET /api/events/stream` (SSE)
+- `routes/system.py` — `GET /api/system/health`
+- `routes/symbols.py` — `GET /api/symbols/{symbol}/detail`, `/chart`
+- `routes/vault.py` — `GET /api/vault/bridge`, `GET /api/insights`
+
+**Next.js frontend (`dashboard-web/`)**
+- App Router pages: `/today`, `/watchlist`, `/outcomes`, `/scan`, `/analytics`, `/system`
+- Design tokens: `--bg-base:#050505`, `--green:#00e676`, `--amber:#ffab00`, `--cyan:#00e5ff` (JetBrains Mono)
+- Components: `Sidebar`, `KPIBar`, `ScanTable`, `ActivityFeed`, `TradeCard`, `EquityCurve`, `ScoreBreakdown`
+- Overlays: `SymbolDrawer` (slide-in on ticker click), `NotificationDrawer`
+- Data: TanStack Query v5 (30s stale), `useSSE()` hook for live event stream
+- Build: passes `next build` cleanly, all 6 routes as static pages
+
+**Infrastructure**
+- `Dockerfile`, `docker-compose.yml`, `docker-compose.prod.yml`, `Makefile`
+- `requirements.txt` updated: `fastapi`, `uvicorn[standard]`, `sse-starlette`, `httpx`
+
+**Tests:** 9 API smoke tests in `tests/test_api_smoke.py` — all pass. Full suite: 849+ passed.
+
+**To launch (local dev):**
+```powershell
+# Terminal 1 — API
+$env:PYTHONPATH = "src"; .venv\Scripts\uvicorn.exe trading_bot.api.main:app --port 8000 --reload
+
+# Terminal 2 — Web
+cd dashboard-web; npm run dev
+```
+
+**To launch (Docker):**
+```powershell
+docker compose up
+```
+
+**No changes to:** Streamlit dashboard (still present), scoring, CLI, backtest, vault, trading rules.
+
+---
+## B-Phase 1 handoff â€” Obsidian Memory Layer
+
+B-Phase 1 is complete. The trading bot now writes Obsidian-compatible markdown to two vault locations after every EOD run.
+
+**What was built:**
+- `src/trading_bot/vault/sector_map.py` â€” static tickerâ†’`{sector, etf}` lookup (180+ tickers, 11 sector ETFs + benchmarks)
+- `src/trading_bot/vault/writer.py` â€” `write_daily_note()`, `upsert_ticker_page()`, `update_vault_index()`
+- `src/trading_bot/vault/bridge.py` â€” `write_bridge_export()` with cluster detection and ETF snapshot
+- `src/trading_bot/vault/__init__.py` â€” re-exports all four public functions
+- `scripts/seed_vault.py` â€” one-time backfill: `python scripts/seed_vault.py --days-back 60`
+- `src/trading_bot/settings.py` â€” added `vault: dict[str, Any] | None = None` field
+- `config/default_config.yaml` â€” added `vault:` block with `enabled`, `vault_dir`, `command_center_dir`, `bridge_enabled`
+- `src/trading_bot/cli.py` â€” vault import, `_run_vault_export()`, `run_export_to_vault()`, step 8 in `run_after_market_review()`, `export-to-vault` subcommand
+
+**Architecture:**
+- Vault 1 (`vault/` in repo): daily notes, ticker signal pages, index â€” full operational history
+- Bridge: after EOD, writes curated analyst brief to `{command_center_dir}/bridge/tony-stocks/YYYY-MM-DD.md`
+- Vault 2 (AI Operations Command Center): Tony Stocks agent reads bridge files for deep analysis
+- All writes are direct Python disk writes (no MCP in write path)
+
+**Signal tiers in bridge export:**
+- Tier 1: `days_active >= 3` â€” full conviction block with R/R
+- Tier 2: `days_active == 2` â€” monitor table
+- Tier 3: `days_active == 1` â€” new signals table
+- Sector ETF Snapshot + Cluster Risk Flags (3+ signals same sector)
+
+**Tests:** 32 new tests in `tests/test_vault_writer.py` and `tests/test_vault_bridge.py`. Full suite: 849 passed.
+
+**No changes to:** scoring, entry triggers, rotation, trading logic, demo/real data guards.
+
+**To run seed (one-time):**
+```powershell
+$env:PYTHONPATH = "src"; python scripts/seed_vault.py --days-back 60
+```
+
+**To run standalone export:**
+```powershell
+$env:PYTHONPATH = "src"; python -m trading_bot.cli export-to-vault --config config/default_config.yaml
+```
 
 ---
 
@@ -11,9 +105,9 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 V37 is complete. The Streamlit dashboard has been fully redesigned with a uniform Professional Slate visual system across 4 pages.
 
 **What changed:**
-- Navigation: 5 tabs → 4 tabs: **Today / Watchlist / Outcomes / Research**
-- Added `render_compact_card()` to `theme.py` — single unified card renderer used by all pages
-- `render_today()`: Split Hero layout — KPI header band always visible; briefing left, live setups right
+- Navigation: 5 tabs â†’ 4 tabs: **Today / Watchlist / Outcomes / Research**
+- Added `render_compact_card()` to `theme.py` â€” single unified card renderer used by all pages
+- `render_today()`: Split Hero layout â€” KPI header band always visible; briefing left, live setups right
 - `render_watchlist()`: Compact cards with chip filter (All/Watching/Active/Pending)
 - `render_outcomes()`: KPI bar + chip filter (All/Open/Targets/Stops) + compact cards
 - `render_research()`: Discovery funnel strip + signals table + backtest + agent insights + system health expander
@@ -44,7 +138,7 @@ Both used the same label string "Unique symbols scanned today" but measured comp
 ### Changes
 
 - **`src/trading_bot/cli.py`**
-  - `_build_eod_report_markdown()`: Scan coverage line changed from "Unique symbols scanned today" to "Unique symbols with bar data today (all symbols that returned OHLCV bars across all scan cycles)". Scored-symbols line changed from "Unique symbols scored today" to "Unique symbols fully scored today". Added bridging note after the percent-coverage line explaining the two counts differ by design. Rotation diagnostics line changed from "Unique symbols scanned today" to "Unique symbols in rotation tracking (discovery-rotation-selected symbols — subset of total bar-data symbols)".
+  - `_build_eod_report_markdown()`: Scan coverage line changed from "Unique symbols scanned today" to "Unique symbols with bar data today (all symbols that returned OHLCV bars across all scan cycles)". Scored-symbols line changed from "Unique symbols scored today" to "Unique symbols fully scored today". Added bridging note after the percent-coverage line explaining the two counts differ by design. Rotation diagnostics line changed from "Unique symbols scanned today" to "Unique symbols in rotation tracking (discovery-rotation-selected symbols â€” subset of total bar-data symbols)".
   - `_print_scan_coverage_summary()`: Same label changes for stdout output. Added bridging note after percent coverage print.
   - `_print_rotation_diagnostics()`: Same rotation label change for stdout output.
 
@@ -59,13 +153,13 @@ Both used the same label string "Unique symbols scanned today" but measured comp
 
 ### Tests/checks run
 
-- `pytest tests/test_outcome_analytics.py -x -q` → **123 passed**
-- `pytest tests/test_v31_rotation_diagnostics.py -x -q` → **17 passed**
-- `powershell -ExecutionPolicy Bypass -File scripts/run_tests.ps1` → **799 passed** (up from 794)
+- `pytest tests/test_outcome_analytics.py -x -q` â†’ **123 passed**
+- `pytest tests/test_v31_rotation_diagnostics.py -x -q` â†’ **17 passed**
+- `powershell -ExecutionPolicy Bypass -File scripts/run_tests.ps1` â†’ **799 passed** (up from 794)
 
 ### Behavior changed
 
-Labels only — no scoring, rotation, trigger, or data-flow changes. The numbers themselves are unchanged; only the text labels and an explanatory note were added.
+Labels only â€” no scoring, rotation, trigger, or data-flow changes. The numbers themselves are unchanged; only the text labels and an explanatory note were added.
 
 ### Safety
 
@@ -86,13 +180,13 @@ EOD reports showed ~88 of ~163 selected symbols failing cheap checks (volume/pri
 ### Changes
 
 - **`src/trading_bot/data/pre_screener.py`** (new file)
-  - `pre_screen_universe(symbols, *, recent_metrics, min_price, max_price, min_avg_volume, min_symbols_after_filter)` — applies price and volume filters using cached data; missing-data symbols pass through unconditionally.
-  - `build_recent_symbol_metrics(scan_result_rows, *, max_cache_age_days)` — builds per-symbol metrics dict from recent scan_results rows; picks most-recent row per symbol within the cache window.
-  - `load_pre_screener_config(settings_dict)` — returns normalized config dict with defaults.
-  - `PreScreenResult` dataclass — carries filtered symbol list and diagnostic counts (original_count, filtered_count, screened_out_count, no_cache_data_count, fallback_used, reasons).
+  - `pre_screen_universe(symbols, *, recent_metrics, min_price, max_price, min_avg_volume, min_symbols_after_filter)` â€” applies price and volume filters using cached data; missing-data symbols pass through unconditionally.
+  - `build_recent_symbol_metrics(scan_result_rows, *, max_cache_age_days)` â€” builds per-symbol metrics dict from recent scan_results rows; picks most-recent row per symbol within the cache window.
+  - `load_pre_screener_config(settings_dict)` â€” returns normalized config dict with defaults.
+  - `PreScreenResult` dataclass â€” carries filtered symbol list and diagnostic counts (original_count, filtered_count, screened_out_count, no_cache_data_count, fallback_used, reasons).
 
 - **`src/trading_bot/storage/repositories.py`**
-  - Added `get_recent_scan_result_metrics(max_age_days, limit)` — lightweight query fetching only `symbol`, `latest_close`, `avg_volume_20`, `created_at` from scan_results within the age window.
+  - Added `get_recent_scan_result_metrics(max_age_days, limit)` â€” lightweight query fetching only `symbol`, `latest_close`, `avg_volume_20`, `created_at` from scan_results within the age window.
 
 - **`src/trading_bot/settings.py`**
   - Added `pre_screener: dict[str, Any] | None = None` field to `ScannerSettings` so YAML config is loaded without being ignored.
@@ -100,17 +194,17 @@ EOD reports showed ~88 of ~163 selected symbols failing cheap checks (volume/pri
 - **`src/trading_bot/cli.py`**
   - Added import of `PreScreenResult`, `build_recent_symbol_metrics`, `load_pre_screener_config`, `pre_screen_universe` from `trading_bot.data.pre_screener`.
   - `run_watch()`: after quarantine, before `WatchUniverseRotator.__init__()`, runs the pre-screener to filter `universe_symbols`. Pre-screener failure is caught and logged; the full list is used as fallback.
-  - Added `_log_pre_screen_result(result)` helper — prints one-line summary with screened-out reasons to stdout.
+  - Added `_log_pre_screen_result(result)` helper â€” prints one-line summary with screened-out reasons to stdout.
 
 - **`config/default_config.yaml`**
   - Added `pre_screener:` block with `enabled: true`, `min_symbols_after_filter: 50`, `use_snapshot_cache: true`, `max_cache_age_days: 7`.
 
 - **`tests/test_pre_screener.py`** (new file, 38 tests)
-  - `TestPreScreenUniverse` — price below/above bounds excluded, volume below excluded, exact boundary passes, no-cache-data passes, partial cache passes, fallback trigger, no-fallback, immutability, count consistency, to_dict keys.
-  - `TestBuildRecentSymbolMetrics` — empty input, newest row wins, age cutoff, within cutoff, missing close/volume handled, missing symbol/created_at skipped, uppercase normalization, multiple symbols.
-  - `TestLoadPreScreenerConfig` — defaults when None/empty, overrides, partial overrides keep defaults.
-  - `TestRepositoryGetRecentScanResultMetrics` — empty DB, within window, outside window, correct fields, multiple symbols (real in-memory SQLite).
-  - `TestPreScreenerEndToEnd` — full pipeline filters bad symbols, no-data pass-through, stale data excluded from metrics.
+  - `TestPreScreenUniverse` â€” price below/above bounds excluded, volume below excluded, exact boundary passes, no-cache-data passes, partial cache passes, fallback trigger, no-fallback, immutability, count consistency, to_dict keys.
+  - `TestBuildRecentSymbolMetrics` â€” empty input, newest row wins, age cutoff, within cutoff, missing close/volume handled, missing symbol/created_at skipped, uppercase normalization, multiple symbols.
+  - `TestLoadPreScreenerConfig` â€” defaults when None/empty, overrides, partial overrides keep defaults.
+  - `TestRepositoryGetRecentScanResultMetrics` â€” empty DB, within window, outside window, correct fields, multiple symbols (real in-memory SQLite).
+  - `TestPreScreenerEndToEnd` â€” full pipeline filters bad symbols, no-data pass-through, stale data excluded from metrics.
 
 ### Files changed
 
@@ -124,26 +218,26 @@ EOD reports showed ~88 of ~163 selected symbols failing cheap checks (volume/pri
 
 ### Tests/checks run
 
-- `.venv/Scripts/python.exe -m pytest tests/test_pre_screener.py -v` → **38 passed**
-- `.venv/Scripts/python.exe -m pytest --tb=short -q` → **794 passed** (up from 756)
+- `.venv/Scripts/python.exe -m pytest tests/test_pre_screener.py -v` â†’ **38 passed**
+- `.venv/Scripts/python.exe -m pytest --tb=short -q` â†’ **794 passed** (up from 756)
 
 ### How the pre-screener integrates
 
 ```
 run_watch() startup (once, before cycle loop):
-  1. load_universe() → 349 symbols
-  2. apply_symbol_quarantine() → ~344 symbols
-  3. [NEW] pre_screen_universe() → ~200 quality-eligible symbols
-     (uses get_recent_scan_result_metrics → build_recent_symbol_metrics)
+  1. load_universe() â†’ 349 symbols
+  2. apply_symbol_quarantine() â†’ ~344 symbols
+  3. [NEW] pre_screen_universe() â†’ ~200 quality-eligible symbols
+     (uses get_recent_scan_result_metrics â†’ build_recent_symbol_metrics)
   4. WatchUniverseRotator(universe_symbols=filtered_pool, ...)
-     → discovery rotation now draws from ~200 symbols instead of 344
+     â†’ discovery rotation now draws from ~200 symbols instead of 344
 ```
 
-First run after a cold start: no scan_results data yet → all 344 symbols have no cached metrics → all pass through (no_cache_data_count=344). After the first scan cycle, future restarts of watch will have metrics and start filtering.
+First run after a cold start: no scan_results data yet â†’ all 344 symbols have no cached metrics â†’ all pass through (no_cache_data_count=344). After the first scan cycle, future restarts of watch will have metrics and start filtering.
 
 ### Safety
 
-No scoring changes. No trigger-rule changes. No trading/paper/broker/orders. No demo data inclusion. No data deletion. Pre-screener is read-only — it only filters which symbols enter the rotation discovery pool. Worst-case failure mode is catching the exception and using the full list (existing behavior).
+No scoring changes. No trigger-rule changes. No trading/paper/broker/orders. No demo data inclusion. No data deletion. Pre-screener is read-only â€” it only filters which symbols enter the rotation discovery pool. Worst-case failure mode is catching the exception and using the full list (existing behavior).
 
 ### Next recommended step
 
@@ -169,7 +263,7 @@ V35 is complete. The `backtest` command now supports multi-ticker runs, date ran
   - Fixed `run_scan`: `no_eligible_setup` removed from `skip_reason_counts`, tracked separately as `no_eligible_setup_count`.
 
 - **`src/trading_bot/data/__init__.py`**
-  - Added `load_yfinance_range(ticker, start, end)` — fetches bars for a specific date range.
+  - Added `load_yfinance_range(ticker, start, end)` â€” fetches bars for a specific date range.
 
 - **`src/trading_bot/config.py`**
   - Added `default_ticker` and `default_period` fields to `BacktestConfig`.
@@ -193,7 +287,7 @@ V35 is complete. The `backtest` command now supports multi-ticker runs, date ran
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **756 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **756 passed**
 
 ### Safety
 
@@ -225,7 +319,7 @@ Task 3 complete: Added CLI args for multi-ticker, date range, and strategy param
       - `--output-dir` (str, default "reports"): Base directory for saved reports.
 
 - **`tests/test_backtest_cli.py`**
-  - Added `test_backtest_parser_accepts_start_end_args()` — verifies parser accepts all new args and parses types correctly (int for fast/slow window, float for starting-cash).
+  - Added `test_backtest_parser_accepts_start_end_args()` â€” verifies parser accepts all new args and parses types correctly (int for fast/slow window, float for starting-cash).
 
 ### Files changed
 
@@ -234,8 +328,8 @@ Task 3 complete: Added CLI args for multi-ticker, date range, and strategy param
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **753 passed** (new test included)
-- Specific test `test_backtest_parser_accepts_start_end_args` → **passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **753 passed** (new test included)
+- Specific test `test_backtest_parser_accepts_start_end_args` â†’ **passed**
 
 ### Commit
 
@@ -261,7 +355,7 @@ V34B is complete. Three correctness bugs found by code review were fixed. No beh
 
 - **`src/trading_bot/cli.py`**
   - `_build_scan_coverage_summary()`: backward-compat fold of `not_enough_data` into `not_enough_bars` now only applies when the payload does NOT already have `not_enough_bars` set. Previously the fold ran unconditionally, causing double-counting for any payload that carried both keys (e.g. during a mixed deploy window).
-  - `run_scan()`: removed `skip_reason_counts["no_eligible_setup"] += no_eligible_setup_count`. Scored symbols with weak/invalid setup categories are not pre-scoring skips — adding them to `skip_reason_counts` inflated skip totals and broke funnel math. The count is now stored separately as `summary["no_eligible_setup_count"]`.
+  - `run_scan()`: removed `skip_reason_counts["no_eligible_setup"] += no_eligible_setup_count`. Scored symbols with weak/invalid setup categories are not pre-scoring skips â€” adding them to `skip_reason_counts` inflated skip totals and broke funnel math. The count is now stored separately as `summary["no_eligible_setup_count"]`.
 
 - **`src/trading_bot/dashboard/app.py`**
   - `render_system_health()`: wrapped the `render_agent_insights()` call in `try/except Exception` with `st.warning()` fallback. A missing or broken `agent_bridge` module previously crashed the entire Settings tab.
@@ -274,7 +368,7 @@ V34B is complete. Three correctness bugs found by code review were fixed. No beh
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **717 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **717 passed**
 
 ### Safety
 
@@ -296,8 +390,8 @@ V33 is complete. Scan coverage reporting now uses more granular skip/not-scored 
   - `run_scan()` loop:
     - Bar-count skip (`len(data) < 60`) now uses `not_enough_bars` instead of `not_enough_data`.
     - Liquidity check split: `avg_volume_below_minimum` when avg share volume fails; `liquidity_below_minimums` when dollar volume fails.
-    - After scoring loop: counts symbols with weak/invalid setup_category (`Weak / Avoid`, `Overextended / Wait`, `Invalid Trade Plan`, `Insufficient Data`) → `no_eligible_setup`.
-    - After Alpaca provider block: counts `provider.stale_symbols` → `stale_data` in skip_reason_counts and scan summary.
+    - After scoring loop: counts symbols with weak/invalid setup_category (`Weak / Avoid`, `Overextended / Wait`, `Invalid Trade Plan`, `Insufficient Data`) â†’ `no_eligible_setup`.
+    - After Alpaca provider block: counts `provider.stale_symbols` â†’ `stale_data` in skip_reason_counts and scan summary.
   - `_build_scan_coverage_summary()`: aggregates new keys; backward compat folds old `not_enough_data` payloads into `not_enough_bars`.
   - `_print_scan_coverage_summary()`: uses `_SKIP_REASON_LABELS` for human-readable output; omits zero-value backward-compat keys unless non-zero.
   - `_build_eod_report_markdown()`: uses `_SKIP_REASON_LABELS` for labeled markdown skip-reason list.
@@ -314,12 +408,12 @@ V33 is complete. Scan coverage reporting now uses more granular skip/not-scored 
 
 ### Tests/checks run
 
-- `pytest -x -q -k "scan_coverage or skip_reason or v33"` → **12 passed**
-- `pytest -x -q` → running
+- `pytest -x -q -k "scan_coverage or skip_reason or v33"` â†’ **12 passed**
+- `pytest -x -q` â†’ running
 
 ### Safety
 
-No scoring changes. No trigger-rule changes. No rotation changes. No trading/paper/broker/orders. No demo data. No data deletion. No dashboard visual changes. The scan loop changes only affect which skip-reason bucket a symbol lands in — which symbols are scored is unchanged.
+No scoring changes. No trigger-rule changes. No rotation changes. No trading/paper/broker/orders. No demo data. No data deletion. No dashboard visual changes. The scan loop changes only affect which skip-reason bucket a symbol lands in â€” which symbols are scored is unchanged.
 
 ---
 
@@ -332,19 +426,19 @@ V34A is complete. Backend/model helpers for terminal exit price and final resear
 ### Changes
 
 - **`src/trading_bot/snapshots/active_tracking.py`**
-  - Added `compute_terminal_outcome_fields(snapshot: dict) -> dict` — pure helper that computes terminal outcome fields from any snapshot dict.
+  - Added `compute_terminal_outcome_fields(snapshot: dict) -> dict` â€” pure helper that computes terminal outcome fields from any snapshot dict.
   - Returns: `is_terminal_outcome`, `terminal_exit_price`, `terminal_exit_reason`, `terminal_research_pl_pct`, `terminal_exit_price_note`.
-  - `stop_hit` (tracking_status or outcome_label): exit price from `current_stop_price` → `original_stop_price` → `stop`.
-  - `target_hit` (tracking_status or outcome_label): exit price from `current_target_price` → `original_target_price` → `target`.
-  - Other closed states: exit price from `current_price` → `intraday_close` → `close` with inferred note.
-  - Active positions and `insufficient_future_data` → `is_terminal_outcome=False`.
+  - `stop_hit` (tracking_status or outcome_label): exit price from `current_stop_price` â†’ `original_stop_price` â†’ `stop`.
+  - `target_hit` (tracking_status or outcome_label): exit price from `current_target_price` â†’ `original_target_price` â†’ `target`.
+  - Other closed states: exit price from `current_price` â†’ `intraday_close` â†’ `close` with inferred note.
+  - Active positions and `insufficient_future_data` â†’ `is_terminal_outcome=False`.
   - P/L = `(exit_price - original_entry_price) / original_entry_price * 100` (None when exit price unavailable).
 
 - **`src/trading_bot/snapshots/__init__.py`**
   - Exported `compute_terminal_outcome_fields`.
 
 - **`src/trading_bot/analytics/outcomes.py`**
-  - Added `build_terminal_outcome_summary(rows: pd.DataFrame) -> dict` — aggregates per-row terminal fields into a summary with stop_hit, target_hit, other_closed groups, avg P/L, positive/negative counts, inferred_exit_price_count.
+  - Added `build_terminal_outcome_summary(rows: pd.DataFrame) -> dict` â€” aggregates per-row terminal fields into a summary with stop_hit, target_hit, other_closed groups, avg P/L, positive/negative counts, inferred_exit_price_count.
   - Added `OutcomeAnalytics.terminal_outcome_summary()` delegation method.
 
 - **`src/trading_bot/analytics/__init__.py`**
@@ -374,8 +468,8 @@ V34A is complete. Backend/model helpers for terminal exit price and final resear
 
 ### Tests/checks run
 
-- `pytest tests/test_v15_8_active_tracking.py tests/test_outcome_analytics.py -x -q` → **147 passed**
-- `pytest -x -q` → running
+- `pytest tests/test_v15_8_active_tracking.py tests/test_outcome_analytics.py -x -q` â†’ **147 passed**
+- `pytest -x -q` â†’ running
 
 ### Safety
 
@@ -422,8 +516,8 @@ V31 is complete. `eod-report` and after-market review now include a research-onl
 
 ### Tests/checks run
 
-- `pytest tests/test_v31_rotation_diagnostics.py -x -q` → **17 passed**
-- `pytest -x -q` → **691 passed**
+- `pytest tests/test_v31_rotation_diagnostics.py -x -q` â†’ **17 passed**
+- `pytest -x -q` â†’ **691 passed**
 
 ### Safety
 
@@ -502,7 +596,7 @@ V29 is complete. `eod-report` and after-market review output now include a resea
   - After-market markdown output now includes a `Scan Coverage And Funnel` section when coverage data is present.
 
 - **`src/trading_bot/storage/repositories.py`**
-  - Added recent scan-run listing and scan-results-by-run-id helpers so EOD reporting can aggregate today’s scan coverage without changing scan logic.
+  - Added recent scan-run listing and scan-results-by-run-id helpers so EOD reporting can aggregate todayâ€™s scan coverage without changing scan logic.
 
 - **`tests/test_outcome_analytics.py`**
   - Added V29 coverage for coverage summary counts, not-scored count, missing/quarantine counts, percent-coverage fallback, skip-reason fallback, and markdown/EOD output presence.
@@ -579,16 +673,16 @@ The V27 commit (`7a785fc`) was authored against the pre-V26A state of `helpers.p
 **`helpers.py`**
 - `_BAD_DQ_VALUES` frozenset: `{"missing_real_data", "fallback_data", "intraday_fallback_demo", "demo_data"}` (re-added)
 - `_product_rows_only`: restored `used_demo_data`, `tony_data_quality_read`, `snapshot_provider` filters (HCP/SMAR/CYBR/SQ/TRUE fix)
-- `_closed_results_pool`: re-added — wider pool allowing `missing_real_data` for prior-active rows
-- `_is_stale_tracked_position`: re-added — detects PATH-style triggered+lost-real-data rows
-- `build_stale_tracking_rows`: re-added — one stale row per prior-active symbol
+- `_closed_results_pool`: re-added â€” wider pool allowing `missing_real_data` for prior-active rows
+- `_is_stale_tracked_position`: re-added â€” detects PATH-style triggered+lost-real-data rows
+- `build_stale_tracking_rows`: re-added â€” one stale row per prior-active symbol
 - `WATCHLIST_LIFECYCLE_STATES`: re-added `stale_tracking_needs_review`
-- `_LIFECYCLE_SORT_PRIORITY`: re-added — `active=0, weakening=1, stale=2, waiting=3, watching=4`
+- `_LIFECYCLE_SORT_PRIORITY`: re-added â€” `active=0, weakening=1, stale=2, waiting=3, watching=4`
 - `build_tony_watchlist_rows`: restored `quarantine_symbols` param, stale rows, lifecycle priority sort
 - `_is_valid_tony_pick_row`: restored tony_analysis_version guard for priority_label
-- `build_results_product_rows`: restored — active first, closed without pick_rows exclusion (PATH fix), only waiting_alert picks (no watching-only in Results)
+- `build_results_product_rows`: restored â€” active first, closed without pick_rows exclusion (PATH fix), only waiting_alert picks (no watching-only in Results)
 - `collect_health_issues`: restored `stale_symbols` and `missing_tracked_symbols` params
-- `find_unreconciled_tracked_symbols`: re-added — ledger gap diagnostic
+- `find_unreconciled_tracked_symbols`: re-added â€” ledger gap diagnostic
 - `build_pick_card_model`: restored watching-only N/A target/stop, `needed_before_entry`, updated status label
 
 **`app.py`**
@@ -609,12 +703,12 @@ The V27 commit (`7a785fc`) was authored against the pre-V26A state of `helpers.p
 
 ### What happened to PATH
 
-PATH had `entry_triggered=1`, `tracking_status=missing_real_data`, `data_source=missing_real_data`. In V27 baseline, `_product_rows_only` excluded `data_source=missing_real_data` rows and there was no stale path — so PATH disappeared entirely. After V27A: `_closed_results_pool` allows these rows; `build_stale_tracking_rows` picks PATH up; `build_tony_watchlist_rows` includes it as `stale_tracking_needs_review`. If no stored row exists at all, `find_unreconciled_tracked_symbols` produces a Settings/System Health error.
+PATH had `entry_triggered=1`, `tracking_status=missing_real_data`, `data_source=missing_real_data`. In V27 baseline, `_product_rows_only` excluded `data_source=missing_real_data` rows and there was no stale path â€” so PATH disappeared entirely. After V27A: `_closed_results_pool` allows these rows; `build_stale_tracking_rows` picks PATH up; `build_tony_watchlist_rows` includes it as `stale_tracking_needs_review`. If no stored row exists at all, `find_unreconciled_tracked_symbols` produces a Settings/System Health error.
 
 ### Tests/checks run
 
-- `pytest tests/test_v27a_regression.py tests/test_dashboard_helpers.py tests/test_dashboard_theme.py -x -q` → **212 passed**
-- `pytest -x -q` → **662 passed**
+- `pytest tests/test_v27a_regression.py tests/test_dashboard_helpers.py tests/test_dashboard_theme.py -x -q` â†’ **212 passed**
+- `pytest -x -q` â†’ **662 passed**
 
 ### Safety
 
@@ -630,11 +724,11 @@ V26D is complete. Results tab now uses the same tracked-position ledger as Watch
 
 ### Changes
 
-- **`find_unreconciled_tracked_symbols(snapshots, *, active_symbols, stale_symbols) -> list[str]`** — new public helper in `helpers.py`. Finds `entry_triggered=1` symbols not in active or stale sets and with no terminal outcome/tracking_status. Returns sorted list of gap symbols.
-- **`collect_health_issues`** — added `missing_tracked_symbols: list[str] | None = None` parameter; appends an `st.error`-level warning when any unreconciled symbols are found.
-- **`app.py: _dashboard_context`** — computes `missing_tracked` via `find_unreconciled_tracked_symbols(research_snaps, active_symbols=..., stale_symbols=...)` after building stale_df; appends missing_tracked warning to health_issues; returns `missing_tracked` in context dict.
-- **`app.py: render_results`** — now loads `research_snaps = _load_research_snapshots(repo)` separately from `prepared`; uses `research_snaps` for `build_active_tracking_product_rows` and `build_results_product_rows` (product cards); `prepared` used for period-filtered stats text only. Fixes Results showing 0 cards when active positions exist.
-- **`app.py: render_system_health`** — added "Tracked position ledger gaps" section: `st.warning` for stale symbols, `st.error` for missing_tracked symbols.
+- **`find_unreconciled_tracked_symbols(snapshots, *, active_symbols, stale_symbols) -> list[str]`** â€” new public helper in `helpers.py`. Finds `entry_triggered=1` symbols not in active or stale sets and with no terminal outcome/tracking_status. Returns sorted list of gap symbols.
+- **`collect_health_issues`** â€” added `missing_tracked_symbols: list[str] | None = None` parameter; appends an `st.error`-level warning when any unreconciled symbols are found.
+- **`app.py: _dashboard_context`** â€” computes `missing_tracked` via `find_unreconciled_tracked_symbols(research_snaps, active_symbols=..., stale_symbols=...)` after building stale_df; appends missing_tracked warning to health_issues; returns `missing_tracked` in context dict.
+- **`app.py: render_results`** â€” now loads `research_snaps = _load_research_snapshots(repo)` separately from `prepared`; uses `research_snaps` for `build_active_tracking_product_rows` and `build_results_product_rows` (product cards); `prepared` used for period-filtered stats text only. Fixes Results showing 0 cards when active positions exist.
+- **`app.py: render_system_health`** â€” added "Tracked position ledger gaps" section: `st.warning` for stale symbols, `st.error` for missing_tracked symbols.
 
 ### Tests changed/added
 
@@ -649,8 +743,8 @@ V26D is complete. Results tab now uses the same tracked-position ledger as Watch
 
 ### Tests/checks run
 
-- `.venv/Scripts/python -m pytest tests/test_dashboard_helpers.py -x -q` → **205 passed**
-- `.venv/Scripts/python -m pytest -x -q` → **667 passed**
+- `.venv/Scripts/python -m pytest tests/test_dashboard_helpers.py -x -q` â†’ **205 passed**
+- `.venv/Scripts/python -m pytest -x -q` â†’ **667 passed**
 
 ### Safety
 
@@ -666,20 +760,20 @@ V26C is complete. Stale tracking lifecycle added, watching-only cards cleaned up
 
 ### Changes
 
-- **`WATCHLIST_LIFECYCLE_STATES`** — added `"stale_tracking_needs_review"`.
-- **`derive_pick_phase`** — reverted V26A change: `tracking_status=missing_real_data` stays `"tracking"` (not `"closed"`). Stale symbols now appear in Watchlist, not pushed to Results.
-- **`_is_stale_tracked_position`** — new private helper: True when `entry_triggered=1`, `tracking_status=missing_real_data`, and an original entry price exists.
-- **`build_stale_tracking_rows`** — new public function: uses `_closed_results_pool`; returns one row per prior-active symbol with `lifecycle_state=stale_tracking_needs_review`.
-- **`_LIFECYCLE_SORT_PRIORITY`** — updated: `stale_tracking_needs_review=2`, `waiting_for_trigger=3`, `watching=4`.
-- **`build_tony_watchlist_rows`** — now includes stale rows (at priority 2); stale symbols excluded from the pick frame.
-- **`build_pick_card_model`** — for watching-only rows (no `has_planned_entry`): `target="N/A"`, `stop="N/A"`, `risk_reward="N/A"`, `needed_before_entry="Tony has not created an actionable trigger yet."`.
-- **`collect_health_issues`** — added `stale_symbols: list[str] | None = None` parameter; appends a plain-English warning listing stale symbols when present.
-- **`app.py: _dashboard_context`** — builds `stale_df` and `stale_symbols_list` before `collect_health_issues`; passes `stale_symbols` to it; returns `stale_df` and `stale_symbols` in context dict.
-- **`app.py: render_tony_watchlist`** — added "Stale / Needs review" to lifecycle filter dropdown; handles `stale_tracking_needs_review` using `build_tracked_setup_card_model`.
+- **`WATCHLIST_LIFECYCLE_STATES`** â€” added `"stale_tracking_needs_review"`.
+- **`derive_pick_phase`** â€” reverted V26A change: `tracking_status=missing_real_data` stays `"tracking"` (not `"closed"`). Stale symbols now appear in Watchlist, not pushed to Results.
+- **`_is_stale_tracked_position`** â€” new private helper: True when `entry_triggered=1`, `tracking_status=missing_real_data`, and an original entry price exists.
+- **`build_stale_tracking_rows`** â€” new public function: uses `_closed_results_pool`; returns one row per prior-active symbol with `lifecycle_state=stale_tracking_needs_review`.
+- **`_LIFECYCLE_SORT_PRIORITY`** â€” updated: `stale_tracking_needs_review=2`, `waiting_for_trigger=3`, `watching=4`.
+- **`build_tony_watchlist_rows`** â€” now includes stale rows (at priority 2); stale symbols excluded from the pick frame.
+- **`build_pick_card_model`** â€” for watching-only rows (no `has_planned_entry`): `target="N/A"`, `stop="N/A"`, `risk_reward="N/A"`, `needed_before_entry="Tony has not created an actionable trigger yet."`.
+- **`collect_health_issues`** â€” added `stale_symbols: list[str] | None = None` parameter; appends a plain-English warning listing stale symbols when present.
+- **`app.py: _dashboard_context`** â€” builds `stale_df` and `stale_symbols_list` before `collect_health_issues`; passes `stale_symbols` to it; returns `stale_df` and `stale_symbols` in context dict.
+- **`app.py: render_tony_watchlist`** â€” added "Stale / Needs review" to lifecycle filter dropdown; handles `stale_tracking_needs_review` using `build_tracked_setup_card_model`.
 
 ### Tests changed/added
 
-- 6 V26A/V26B tests updated to reflect V26C contract (PATH → Watchlist stale, not Results closed).
+- 6 V26A/V26B tests updated to reflect V26C contract (PATH â†’ Watchlist stale, not Results closed).
 - New `TestV26CPositionLedger` class with 16 tests.
 
 ### Files changed
@@ -690,7 +784,7 @@ V26C is complete. Stale tracking lifecycle added, watching-only cards cleaned up
 
 ### Tests/checks run
 
-- `.venv/Scripts/python -m pytest -x -q` → **656 passed**
+- `.venv/Scripts/python -m pytest -x -q` â†’ **656 passed**
 
 ### Safety
 
@@ -706,21 +800,21 @@ V26B is complete. Watchlist ordering, Results cleanup, PATH fix, and quarantine 
 
 ### Changes
 
-- **`_LIFECYCLE_SORT_PRIORITY`** — new module-level dict: `{active: 0, weakening: 1, waiting_for_trigger: 2, watching: 3}`.
-- **`build_tony_watchlist_rows`** — added `quarantine_symbols: set[str] | None = None` parameter; sorts by lifecycle priority first (active → weakening → waiting_for_trigger → watching), then by time descending; filters quarantined symbols from output.
-- **`_is_valid_tony_pick_row`** — when `tony_analysis_version` is present in the row, also requires a non-null `tony_priority_label`. Pre-Tony rows (no `tony_analysis_version`) pass through unchanged.
-- **`build_results_product_rows`** — restructured: builds closed without excluding pick_rows (fixes PATH being blocked by old pick row); only includes `waiting_alert` phase picks (with a real planned entry trigger) in Results — plain watching-only rows are excluded.
-- **`app.py: render_tony_watchlist`** — now passes `quarantine_symbols` from `_dashboard_context` into `build_tony_watchlist_rows`.
+- **`_LIFECYCLE_SORT_PRIORITY`** â€” new module-level dict: `{active: 0, weakening: 1, waiting_for_trigger: 2, watching: 3}`.
+- **`build_tony_watchlist_rows`** â€” added `quarantine_symbols: set[str] | None = None` parameter; sorts by lifecycle priority first (active â†’ weakening â†’ waiting_for_trigger â†’ watching), then by time descending; filters quarantined symbols from output.
+- **`_is_valid_tony_pick_row`** â€” when `tony_analysis_version` is present in the row, also requires a non-null `tony_priority_label`. Pre-Tony rows (no `tony_analysis_version`) pass through unchanged.
+- **`build_results_product_rows`** â€” restructured: builds closed without excluding pick_rows (fixes PATH being blocked by old pick row); only includes `waiting_alert` phase picks (with a real planned entry trigger) in Results â€” plain watching-only rows are excluded.
+- **`app.py: render_tony_watchlist`** â€” now passes `quarantine_symbols` from `_dashboard_context` into `build_tony_watchlist_rows`.
 
 ### Files changed
 
-- `src/trading_bot/dashboard/helpers.py` — `_LIFECYCLE_SORT_PRIORITY`, `build_tony_watchlist_rows` (sort + quarantine), `_is_valid_tony_pick_row` (tony_analysis_version guard), `build_results_product_rows` (PATH fix + watching-only exclusion).
-- `src/trading_bot/dashboard/app.py` — quarantine_symbols passed to `build_tony_watchlist_rows`.
-- `tests/test_dashboard_helpers.py` — new `TestV26BWatchlistOrderingAndResultsCleanup` class with 14 tests.
+- `src/trading_bot/dashboard/helpers.py` â€” `_LIFECYCLE_SORT_PRIORITY`, `build_tony_watchlist_rows` (sort + quarantine), `_is_valid_tony_pick_row` (tony_analysis_version guard), `build_results_product_rows` (PATH fix + watching-only exclusion).
+- `src/trading_bot/dashboard/app.py` â€” quarantine_symbols passed to `build_tony_watchlist_rows`.
+- `tests/test_dashboard_helpers.py` â€” new `TestV26BWatchlistOrderingAndResultsCleanup` class with 14 tests.
 
 ### Tests/checks run
 
-- `.venv/Scripts/python -m pytest -x -q` → **640 passed**
+- `.venv/Scripts/python -m pytest -x -q` â†’ **640 passed**
 
 ### Safety
 
@@ -735,26 +829,26 @@ No scoring changes, no trigger rule changes, no config changes, no broker/paper/
 V26A is complete. Three gaps from V26 are closed:
 1. HCP/SMAR/CYBR/SQ/TRUE-style symbols with demo, fallback, or bad-DQ data are now excluded from Tony Watchlist.
 2. PATH-style prior-active symbols (tracking_status=missing_real_data + entry_triggered=1) now appear in Results as closed rather than vanishing silently.
-3. Watching-only cards (no entry trigger) now read "Watching only — no actionable trigger yet" instead of "Watching only".
+3. Watching-only cards (no entry trigger) now read "Watching only â€” no actionable trigger yet" instead of "Watching only".
 
 ### Changes
 
-- **`_BAD_DQ_VALUES`** — new module-level frozenset: `{"missing_real_data", "fallback_data", "intraday_fallback_demo", "demo_data"}`.
-- **`_product_rows_only`** — strengthened: also filters `used_demo_data=1`, bad `tony_data_quality_read`, and snapshot_provider containing "demo" or "fallback".
-- **`_closed_results_pool`** — new function: wider pool for closed results; allows prior-active rows (entry_triggered=1) even if missing_real_data, but always excludes demo_generated / legacy_unknown / used_demo_data.
-- **`derive_pick_phase`** — now returns `"closed"` when `tracking_status == "missing_real_data"` (in addition to the existing `"invalidated"` check), preventing data-lost active symbols from staying in tracking.
-- **`_is_valid_closed_result_row`** — now uses `_effective_tracking_target()` and `_effective_tracking_stop()` instead of `row.get("target")` / `row.get("stop")`, so prior-active rows with only `original_target_price` / `original_stop_price` are accepted as valid closed results.
-- **`build_closed_results_product_rows`** — now uses `_closed_results_pool` instead of `_product_rows_only` as its data pool.
-- **`build_pick_card_model`** — `status` for no-trigger rows changed from `"Watching only"` to `"Watching only — no actionable trigger yet"`.
+- **`_BAD_DQ_VALUES`** â€” new module-level frozenset: `{"missing_real_data", "fallback_data", "intraday_fallback_demo", "demo_data"}`.
+- **`_product_rows_only`** â€” strengthened: also filters `used_demo_data=1`, bad `tony_data_quality_read`, and snapshot_provider containing "demo" or "fallback".
+- **`_closed_results_pool`** â€” new function: wider pool for closed results; allows prior-active rows (entry_triggered=1) even if missing_real_data, but always excludes demo_generated / legacy_unknown / used_demo_data.
+- **`derive_pick_phase`** â€” now returns `"closed"` when `tracking_status == "missing_real_data"` (in addition to the existing `"invalidated"` check), preventing data-lost active symbols from staying in tracking.
+- **`_is_valid_closed_result_row`** â€” now uses `_effective_tracking_target()` and `_effective_tracking_stop()` instead of `row.get("target")` / `row.get("stop")`, so prior-active rows with only `original_target_price` / `original_stop_price` are accepted as valid closed results.
+- **`build_closed_results_product_rows`** â€” now uses `_closed_results_pool` instead of `_product_rows_only` as its data pool.
+- **`build_pick_card_model`** â€” `status` for no-trigger rows changed from `"Watching only"` to `"Watching only â€” no actionable trigger yet"`.
 
 ### Files changed
 
-- `src/trading_bot/dashboard/helpers.py` — all 7 changes above.
-- `tests/test_dashboard_helpers.py` — new `TestV26ADataQualityAndLifecycle` class with 16 tests.
+- `src/trading_bot/dashboard/helpers.py` â€” all 7 changes above.
+- `tests/test_dashboard_helpers.py` â€” new `TestV26ADataQualityAndLifecycle` class with 16 tests.
 
 ### Tests/checks run
 
-- `.venv/Scripts/python -m pytest -x -q` → **626 passed**
+- `.venv/Scripts/python -m pytest -x -q` â†’ **626 passed**
 
 ### Safety
 
@@ -770,23 +864,23 @@ V26 is complete. Tony Picks and Active Tracking are merged into one "Tony Watchl
 
 ### Changes
 
-- **`WATCHLIST_LIFECYCLE_STATES`** — new tuple constant in `helpers.py`: `watching`, `waiting_for_trigger`, `active`, `weakening`, `invalidated`, `closed`, `expired`.
-- **`derive_pick_phase`** — now returns `"closed"` when `tracking_status == "invalidated"` or `reassessment_label == "invalidated"`, preventing active symbols from vanishing silently.
-- **`_watchlist_lifecycle_state`** — new private helper mapping a row to its lifecycle state string.
-- **`build_tony_watchlist_rows`** — new public function that combines pick rows + active tracking rows into one deduped list with a `lifecycle_state` column. Active tracking wins over pick when a symbol appears in both.
-- **`app.py: render_tony_watchlist`** — new render function; shows pick cards for watching/waiting rows, tracking cards for active/weakening rows; lifecycle filter dropdown.
-- **`app.py: main()`** — tabs changed from 5 ("Home", "Tony Picks", "Active Tracking", "Results", "Settings") to 4 ("Home", "Tony Watchlist", "Results", "Settings / System Health").
-- **`app.py: render_home`** — Home stat grid now shows "Tony Watchlist" (combined count) instead of separate "Tony Picks".
+- **`WATCHLIST_LIFECYCLE_STATES`** â€” new tuple constant in `helpers.py`: `watching`, `waiting_for_trigger`, `active`, `weakening`, `invalidated`, `closed`, `expired`.
+- **`derive_pick_phase`** â€” now returns `"closed"` when `tracking_status == "invalidated"` or `reassessment_label == "invalidated"`, preventing active symbols from vanishing silently.
+- **`_watchlist_lifecycle_state`** â€” new private helper mapping a row to its lifecycle state string.
+- **`build_tony_watchlist_rows`** â€” new public function that combines pick rows + active tracking rows into one deduped list with a `lifecycle_state` column. Active tracking wins over pick when a symbol appears in both.
+- **`app.py: render_tony_watchlist`** â€” new render function; shows pick cards for watching/waiting rows, tracking cards for active/weakening rows; lifecycle filter dropdown.
+- **`app.py: main()`** â€” tabs changed from 5 ("Home", "Tony Picks", "Active Tracking", "Results", "Settings") to 4 ("Home", "Tony Watchlist", "Results", "Settings / System Health").
+- **`app.py: render_home`** â€” Home stat grid now shows "Tony Watchlist" (combined count) instead of separate "Tony Picks".
 
 ### Files changed
 
-- `src/trading_bot/dashboard/helpers.py` — `WATCHLIST_LIFECYCLE_STATES`, `derive_pick_phase` fix, `_watchlist_lifecycle_state`, `build_tony_watchlist_rows`.
-- `src/trading_bot/dashboard/app.py` — `render_tony_watchlist`, merged tab list, Home stat grid, import added.
-- `tests/test_dashboard_helpers.py` — 21 new V26 tests; `build_tony_watchlist_rows` imported.
+- `src/trading_bot/dashboard/helpers.py` â€” `WATCHLIST_LIFECYCLE_STATES`, `derive_pick_phase` fix, `_watchlist_lifecycle_state`, `build_tony_watchlist_rows`.
+- `src/trading_bot/dashboard/app.py` â€” `render_tony_watchlist`, merged tab list, Home stat grid, import added.
+- `tests/test_dashboard_helpers.py` â€” 21 new V26 tests; `build_tony_watchlist_rows` imported.
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **611 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **611 passed**
 
 ### Safety
 
@@ -802,22 +896,22 @@ V25 is complete. `after-market-review` now builds and saves a research-only prop
 
 ### Changes
 
-- **`_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION = 3`** — local threshold constant in `cli.py`.
-- **`_build_proposal_replay(report_date, proposal, baseline_replay)`** — three paths:
-  - `no_approved_suggestions`: no approved decisions exist → replay skipped.
-  - `insufficient_data`: approved decisions exist but `total_conclusive == 0` → "proposal cannot be validated yet."
+- **`_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION = 3`** â€” local threshold constant in `cli.py`.
+- **`_build_proposal_replay(report_date, proposal, baseline_replay)`** â€” three paths:
+  - `no_approved_suggestions`: no approved decisions exist â†’ replay skipped.
+  - `insufficient_data`: approved decisions exist but `total_conclusive == 0` â†’ "proposal cannot be validated yet."
   - `validated` / `preliminary`: has conclusive data; attaches each approved suggestion with baseline setup rates as context. `validated=True` when `total_conclusive >= 3`.
-- **`_build_proposal_replay_markdown(replay)`** — markdown with header, validation status, baseline stats + setup rates table, approved suggestions list.
-- **`run_after_market_review`** — step 7: builds replay from `analytics_result["replay_summary"]` (already computed) and `proposal`; saves `proposal_replay.json` + `proposal_replay.md`; prints validation status; adds to `files_created` (now 9 total); adds `proposal_replay` to return dict.
+- **`_build_proposal_replay_markdown(replay)`** â€” markdown with header, validation status, baseline stats + setup rates table, approved suggestions list.
+- **`run_after_market_review`** â€” step 7: builds replay from `analytics_result["replay_summary"]` (already computed) and `proposal`; saves `proposal_replay.json` + `proposal_replay.md`; prints validation status; adds to `files_created` (now 9 total); adds `proposal_replay` to return dict.
 
 ### Files changed
 
-- `src/trading_bot/cli.py` — `_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION`, `_build_proposal_replay`, `_build_proposal_replay_markdown`, updated `run_after_market_review`.
-- `tests/test_outcome_analytics.py` — 7 new V25 tests + `_amr_args_v25` / `_baseline_replay_with_conclusive` helpers; 3 existing file-count assertions updated (7→9).
+- `src/trading_bot/cli.py` â€” `_MIN_CONCLUSIVE_FOR_PROPOSAL_VALIDATION`, `_build_proposal_replay`, `_build_proposal_replay_markdown`, updated `run_after_market_review`.
+- `tests/test_outcome_analytics.py` â€” 7 new V25 tests + `_amr_args_v25` / `_baseline_replay_with_conclusive` helpers; 3 existing file-count assertions updated (7â†’9).
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **590 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **590 passed**
 
 ### Safety
 
@@ -833,19 +927,19 @@ V24 is complete. `after-market-review` now builds and saves a research-only stra
 
 ### Changes
 
-- **`_next_proposed_version(current)`** — simple version bumper: "v1"→"v1.1", "v1.1"→"v1.2", "v2"→"v2.1".
-- **`_build_strategy_proposal(report_date, decisions, current_version)`** — filters decisions to `status=="approved"`, computes `proposed_version` (bumped only when approved suggestions exist), returns `{current_version, proposed_version, approved_count, approved_suggestions, not_applied_note, research_only}`.
-- **`_build_strategy_proposal_markdown(proposal)`** — markdown with "Strategy Proposal — YYYY-MM-DD" header, approved suggestions list, or "No strategy proposal today." when empty.
-- **`run_after_market_review`** — step 6: builds proposal from loaded decisions, saves `strategy_proposal.json` + `strategy_proposal.md`, prints summary, adds to `files_created` (now 7 total), adds `strategy_proposal` to return dict.
+- **`_next_proposed_version(current)`** â€” simple version bumper: "v1"â†’"v1.1", "v1.1"â†’"v1.2", "v2"â†’"v2.1".
+- **`_build_strategy_proposal(report_date, decisions, current_version)`** â€” filters decisions to `status=="approved"`, computes `proposed_version` (bumped only when approved suggestions exist), returns `{current_version, proposed_version, approved_count, approved_suggestions, not_applied_note, research_only}`.
+- **`_build_strategy_proposal_markdown(proposal)`** â€” markdown with "Strategy Proposal â€” YYYY-MM-DD" header, approved suggestions list, or "No strategy proposal today." when empty.
+- **`run_after_market_review`** â€” step 6: builds proposal from loaded decisions, saves `strategy_proposal.json` + `strategy_proposal.md`, prints summary, adds to `files_created` (now 7 total), adds `strategy_proposal` to return dict.
 
 ### Files changed
 
-- `src/trading_bot/cli.py` — `_next_proposed_version`, `_build_strategy_proposal`, `_build_strategy_proposal_markdown`, updated `run_after_market_review`.
-- `tests/test_outcome_analytics.py` — 6 new V24 tests + `_approved_decisions` helper; 3 existing V21/V22 file-count tests updated (5→7).
+- `src/trading_bot/cli.py` â€” `_next_proposed_version`, `_build_strategy_proposal`, `_build_strategy_proposal_markdown`, updated `run_after_market_review`.
+- `tests/test_outcome_analytics.py` â€” 6 new V24 tests + `_approved_decisions` helper; 3 existing V21/V22 file-count tests updated (5â†’7).
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **583 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **583 passed**
 
 ### Safety
 
@@ -861,22 +955,22 @@ V23 is complete. Rule suggestions can now be marked approved, rejected, applied_
 
 ### Changes
 
-- **`_suggestion_key(suggestion, strategy_version)`** — 12-char sha256 key for stable suggestion identification across dates.
-- **`_load_suggestion_decisions(output_dir)`** — reads `reports/suggestion_decisions.json`, returns dict keyed by suggestion_key.
-- **`_save_suggestion_decision(output_dir, record)`** — upserts a decision record by suggestion_key.
-- **`run_record_suggestion_decision(args)`** — reads the date's `approval_package.json`, looks up suggestion at `--index` (1-based), writes decision record with `{status, decided_at, note, not_applied: True}` to `suggestion_decisions.json`. Prints "Approved does not mean applied."
-- **`_build_approval_package`** — now accepts optional `decisions` dict; enriches each suggestion with `status`, `decided_at`, `decision_note`, `not_applied` from prior decisions; returns `pending_count` (needs_review only) and new `decided_count`.
-- **`run_after_market_review`** — loads decisions before building the approval package so prior decisions appear in the next day's package.
-- **`record-suggestion-decision` CLI command** — `--date`, `--index` (required), `--status` (required, choices: approved/rejected/needs_review/applied_later), `--note`, `--output-dir`.
+- **`_suggestion_key(suggestion, strategy_version)`** â€” 12-char sha256 key for stable suggestion identification across dates.
+- **`_load_suggestion_decisions(output_dir)`** â€” reads `reports/suggestion_decisions.json`, returns dict keyed by suggestion_key.
+- **`_save_suggestion_decision(output_dir, record)`** â€” upserts a decision record by suggestion_key.
+- **`run_record_suggestion_decision(args)`** â€” reads the date's `approval_package.json`, looks up suggestion at `--index` (1-based), writes decision record with `{status, decided_at, note, not_applied: True}` to `suggestion_decisions.json`. Prints "Approved does not mean applied."
+- **`_build_approval_package`** â€” now accepts optional `decisions` dict; enriches each suggestion with `status`, `decided_at`, `decision_note`, `not_applied` from prior decisions; returns `pending_count` (needs_review only) and new `decided_count`.
+- **`run_after_market_review`** â€” loads decisions before building the approval package so prior decisions appear in the next day's package.
+- **`record-suggestion-decision` CLI command** â€” `--date`, `--index` (required), `--status` (required, choices: approved/rejected/needs_review/applied_later), `--note`, `--output-dir`.
 
 ### Files changed
 
-- `src/trading_bot/cli.py` — `hashlib` import; parser entry; `_suggestion_key`, `_load_suggestion_decisions`, `_save_suggestion_decision`, `run_record_suggestion_decision`; updated `_build_approval_package`; updated `run_after_market_review`; `main()` wire-up.
-- `tests/test_outcome_analytics.py` — 8 new V23 tests + `_write_approval_package` helper.
+- `src/trading_bot/cli.py` â€” `hashlib` import; parser entry; `_suggestion_key`, `_load_suggestion_decisions`, `_save_suggestion_decision`, `run_record_suggestion_decision`; updated `_build_approval_package`; updated `run_after_market_review`; `main()` wire-up.
+- `tests/test_outcome_analytics.py` â€” 8 new V23 tests + `_write_approval_package` helper.
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **577 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **577 passed**
 
 ### Safety
 
@@ -892,19 +986,19 @@ V22 is complete. `after-market-review` now builds and saves a research-only appr
 
 ### Changes
 
-- **`_build_approval_package(report_date, suggestions, strategy_version)`** — assembles the approval dict: filters to `needs_review` suggestions, includes `pending_count`, `not_applied_note`, `research_only: True`.
-- **`_build_approval_package_markdown(report_date, package)`** — builds readable markdown with numbered suggestion entries (confidence, reason, status, version) or "No approval items today." when empty.
-- **`run_after_market_review`** — extracts suggestions from `eod_result["tony_self_review"]["rule_suggestions"]`, builds package, saves `approval_package.json` + `approval_package.md`, prints summary, adds both to `files_created` (now 5 total), adds `"approval_package"` to return dict.
+- **`_build_approval_package(report_date, suggestions, strategy_version)`** â€” assembles the approval dict: filters to `needs_review` suggestions, includes `pending_count`, `not_applied_note`, `research_only: True`.
+- **`_build_approval_package_markdown(report_date, package)`** â€” builds readable markdown with numbered suggestion entries (confidence, reason, status, version) or "No approval items today." when empty.
+- **`run_after_market_review`** â€” extracts suggestions from `eod_result["tony_self_review"]["rule_suggestions"]`, builds package, saves `approval_package.json` + `approval_package.md`, prints summary, adds both to `files_created` (now 5 total), adds `"approval_package"` to return dict.
 - No suggestions auto-applied; all remain `status: needs_review`.
 
 ### Files changed
 
-- `src/trading_bot/cli.py` — `_build_approval_package`, `_build_approval_package_markdown`, updated `run_after_market_review`.
-- `tests/test_outcome_analytics.py` — 6 new V22 tests + `_sample_eod_with_suggestions` helper; updated 2 V21 tests (file count 3→5, added approval file assertions).
+- `src/trading_bot/cli.py` â€” `_build_approval_package`, `_build_approval_package_markdown`, updated `run_after_market_review`.
+- `tests/test_outcome_analytics.py` â€” 6 new V22 tests + `_sample_eod_with_suggestions` helper; updated 2 V21 tests (file count 3â†’5, added approval file assertions).
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **570 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **570 passed**
 
 ### Safety
 
@@ -921,11 +1015,11 @@ V21B is complete. EOD/report wording now clearly separates raw rows, deduped pos
 ### Changes
 
 - **`outcomes.py: build_tony_self_review`**
-  - `conclusive = max(0, triggered - insufficient)` — prevents a negative count when insufficient > triggered due to data anomalies.
-  - "conclusive row(s)" in needs_more_data → "rows with a finalized outcome" (clearer: this is triggered-minus-insufficient, not the rate-eligible conclusive set).
-  - `{insufficient_count} triggered row(s) labeled insufficient_future_data` → `{insufficient_count} row(s) labeled insufficient_future_data` (not all of these are triggered; the label applies to the outcome window, not the trigger state).
+  - `conclusive = max(0, triggered - insufficient)` â€” prevents a negative count when insufficient > triggered due to data anomalies.
+  - "conclusive row(s)" in needs_more_data â†’ "rows with a finalized outcome" (clearer: this is triggered-minus-insufficient, not the rate-eligible conclusive set).
+  - `{insufficient_count} triggered row(s) labeled insufficient_future_data` â†’ `{insufficient_count} row(s) labeled insufficient_future_data` (not all of these are triggered; the label applies to the outcome window, not the trigger state).
 
-- **`cli.py: _print_dataframe`** — `data.fillna("N/A").to_string()` replaces NaN with N/A in all report tables.
+- **`cli.py: _print_dataframe`** â€” `data.fillna("N/A").to_string()` replaces NaN with N/A in all report tables.
 
 - **`cli.py: run_eod_report`**
   - Added `"Raw rows = full stored history; product rows = deduped, current-state-only view."` to the reconciliation section header.
@@ -937,13 +1031,13 @@ V21B is complete. EOD/report wording now clearly separates raw rows, deduped pos
 
 ### Files changed
 
-- `src/trading_bot/analytics/outcomes.py` — `build_tony_self_review`: `max(0, ...)` guard, wording fixes.
-- `src/trading_bot/cli.py` — `_print_dataframe` NaN fix; EOD reconciliation note; data-quality row-type guide.
-- `tests/test_outcome_analytics.py` — 5 new V21B tests.
+- `src/trading_bot/analytics/outcomes.py` â€” `build_tony_self_review`: `max(0, ...)` guard, wording fixes.
+- `src/trading_bot/cli.py` â€” `_print_dataframe` NaN fix; EOD reconciliation note; data-quality row-type guide.
+- `tests/test_outcome_analytics.py` â€” 5 new V21B tests.
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **564 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **564 passed**
 
 ### Safety
 
@@ -955,28 +1049,28 @@ No scoring changes, no trigger rule changes, no broker/paper/live execution chan
 
 ### Current active task
 
-V21A is complete. `after-market-review` now detects whether the current ET time is within regular market hours (9:30–16:00 weekdays) and skips live snapshot refresh by default when outside, preventing stale intraday loops.
+V21A is complete. `after-market-review` now detects whether the current ET time is within regular market hours (9:30â€“16:00 weekdays) and skips live snapshot refresh by default when outside, preventing stale intraday loops.
 
 ### Changes
 
-- **`_is_within_regular_market_hours(now=None)`** — new helper in `cli.py`. Returns True only for weekday 9:30–16:00 ET. No holiday calendar; weekends always treated as outside.
+- **`_is_within_regular_market_hours(now=None)`** â€” new helper in `cli.py`. Returns True only for weekday 9:30â€“16:00 ET. No holiday calendar; weekends always treated as outside.
 - **`after-market-review`** guard logic (priority order):
-  1. `--skip-update-snapshots` → always skip (unchanged)
-  2. `--force-update-snapshots` → always run, even outside hours
-  3. Outside market hours → skip + print `"Outside market hours; skipping live snapshot refresh. Using stored close/tracking data."`
-  4. Inside market hours → run normally
+  1. `--skip-update-snapshots` â†’ always skip (unchanged)
+  2. `--force-update-snapshots` â†’ always run, even outside hours
+  3. Outside market hours â†’ skip + print `"Outside market hours; skipping live snapshot refresh. Using stored close/tracking data."`
+  4. Inside market hours â†’ run normally
 - Return dict gains `market_hours_active` and `snapshot_refresh_ran` for testability.
 - `--force-update-snapshots` flag added to `after-market-review` parser.
 - `update-snapshots` command behavior is **unchanged**.
 
 ### Files changed
 
-- `src/trading_bot/cli.py` — `after-market-review` parser (`--force-update-snapshots`); `_is_within_regular_market_hours`; updated guard in `run_after_market_review`.
-- `tests/test_outcome_analytics.py` — 10 new V21A tests (outside-hours skip, force override, inside-hours normal, skip-flag priority, report files still created, helper unit tests).
+- `src/trading_bot/cli.py` â€” `after-market-review` parser (`--force-update-snapshots`); `_is_within_regular_market_hours`; updated guard in `run_after_market_review`.
+- `tests/test_outcome_analytics.py` â€” 10 new V21A tests (outside-hours skip, force override, inside-hours normal, skip-flag priority, report files still created, helper unit tests).
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **559 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **559 passed**
 
 ### Safety
 
@@ -988,29 +1082,29 @@ No scoring changes, no trigger rule changes, no broker/paper/live execution chan
 
 ### Current active task
 
-V21 is complete. A single `after-market-review` CLI command now runs the full post-session review in one step: update-snapshots → EOD report → real-only outcome analytics → save reports to `reports/YYYY-MM-DD/`.
+V21 is complete. A single `after-market-review` CLI command now runs the full post-session review in one step: update-snapshots â†’ EOD report â†’ real-only outcome analytics â†’ save reports to `reports/YYYY-MM-DD/`.
 
 ### Changes
 
 - **`after-market-review` CLI command** added to `build_parser()` with `--config`, `--date`, `--skip-update-snapshots`, `--output-dir` flags.
-- **`run_after_market_review(args)`** — calls `run_update_snapshots`, `run_eod_report`, and `run_outcome_analytics` in sequence; saves three files:
-  - `eod_report.json` — full EOD report return dict (includes memory, self-review, suggestions, strategy version, replay, reconciliation)
-  - `eod_report.md` — formatted markdown built from the return dict
-  - `outcome_analytics.json` — slim outcome analytics return dict
+- **`run_after_market_review(args)`** â€” calls `run_update_snapshots`, `run_eod_report`, and `run_outcome_analytics` in sequence; saves three files:
+  - `eod_report.json` â€” full EOD report return dict (includes memory, self-review, suggestions, strategy version, replay, reconciliation)
+  - `eod_report.md` â€” formatted markdown built from the return dict
+  - `outcome_analytics.json` â€” slim outcome analytics return dict
   - Prints file paths to stdout.
-- **`_build_eod_report_markdown(report_date, eod)`** — builds human-readable markdown from the eod-report dict; sections: Operational Summary, EOD Reconciliation, Tony Self-Review, Rule Suggestions, Strategy Version, Replay Summary.
+- **`_build_eod_report_markdown(report_date, eod)`** â€” builds human-readable markdown from the eod-report dict; sections: Operational Summary, EOD Reconciliation, Tony Self-Review, Rule Suggestions, Strategy Version, Replay Summary.
 - Uses America/New_York market date by default; `--date` overrides.
 - Real-only filtering is always enforced for `outcome-analytics` step.
-- Suggestions remain `status: needs_review` — nothing is auto-applied.
+- Suggestions remain `status: needs_review` â€” nothing is auto-applied.
 
 ### Files changed
 
-- `src/trading_bot/cli.py` — `after-market-review` parser; `run_after_market_review`; `_build_eod_report_markdown`; `main()` wire-up.
-- `tests/test_outcome_analytics.py` — 8 new V21 tests + `_sample_eod_result()` helper.
+- `src/trading_bot/cli.py` â€” `after-market-review` parser; `run_after_market_review`; `_build_eod_report_markdown`; `main()` wire-up.
+- `tests/test_outcome_analytics.py` â€” 8 new V21 tests + `_sample_eod_result()` helper.
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **549 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **549 passed**
 
 ### Safety
 
@@ -1026,21 +1120,21 @@ V20 is complete. `eod-report` now prints a research-only replay summary that gro
 
 ### Changes
 
-- **`build_replay_summary(rows, strategy_version)`** — new standalone function in `outcomes.py`. Groups by `setup_category`, computes per-setup counts and rates (target_rate, stop_rate on conclusive rows only). Flags `insufficient_future_data` rows in notes without treating them as failures. Returns `strategy_version`, `total_rows`, `total_triggered`, `total_conclusive`, `total_insufficient_future_data`, `setups` list, `notes` list.
-- **`_empty_replay_summary(strategy_version)`** — zero-value fallback for empty input.
-- **`OutcomeAnalytics.replay_summary(strategy_version)`** — convenience method on the dataclass.
+- **`build_replay_summary(rows, strategy_version)`** â€” new standalone function in `outcomes.py`. Groups by `setup_category`, computes per-setup counts and rates (target_rate, stop_rate on conclusive rows only). Flags `insufficient_future_data` rows in notes without treating them as failures. Returns `strategy_version`, `total_rows`, `total_triggered`, `total_conclusive`, `total_insufficient_future_data`, `setups` list, `notes` list.
+- **`_empty_replay_summary(strategy_version)`** â€” zero-value fallback for empty input.
+- **`OutcomeAnalytics.replay_summary(strategy_version)`** â€” convenience method on the dataclass.
 - **`eod-report`** prints a "Replay summary" section and includes `replay_summary` in the return dict.
 
 ### Files changed
 
-- `src/trading_bot/analytics/outcomes.py` — `build_replay_summary`, `_empty_replay_summary`, `replay_summary()` method.
-- `src/trading_bot/analytics/__init__.py` — exported `build_replay_summary`.
-- `src/trading_bot/cli.py` — imported `build_replay_summary`; replay print section in `run_eod_report`; added `"replay_summary": replay` to return dict.
-- `tests/test_outcome_analytics.py` — imported `build_replay_summary`; 6 new V20 tests.
+- `src/trading_bot/analytics/outcomes.py` â€” `build_replay_summary`, `_empty_replay_summary`, `replay_summary()` method.
+- `src/trading_bot/analytics/__init__.py` â€” exported `build_replay_summary`.
+- `src/trading_bot/cli.py` â€” imported `build_replay_summary`; replay print section in `run_eod_report`; added `"replay_summary": replay` to return dict.
+- `tests/test_outcome_analytics.py` â€” imported `build_replay_summary`; 6 new V20 tests.
 
 ### Tests/checks run
 
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **541 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **541 passed**
 
 ### Safety
 
@@ -1058,20 +1152,20 @@ V19 is complete. Rule suggestions now carry a strategy version label and a full 
 
 - **`CURRENT_STRATEGY_VERSION = "v1"`** and **`SUGGESTION_STATUSES`** constants added to `outcomes.py`.
 - **`generate_tony_rule_suggestions()`** now accepts an optional `strategy_version` parameter (defaults to `CURRENT_STRATEGY_VERSION`). Every suggestion dict includes `"strategy_version"`.
-- **`build_strategy_version_report(suggestions, version)`** — new function that returns `current_version`, `pending_suggestions`, `status_counts`, the full suggestions list, and a plain-English note. Never auto-applies anything.
+- **`build_strategy_version_report(suggestions, version)`** â€” new function that returns `current_version`, `pending_suggestions`, `status_counts`, the full suggestions list, and a plain-English note. Never auto-applies anything.
 - **`eod-report`** prints a "Strategy version" section (version, pending suggestion count, status breakdown, note) and includes `strategy_version_report` in the return dict.
 
 ### Files changed
 
-- `src/trading_bot/analytics/outcomes.py` — constants, `generate_tony_rule_suggestions` signature, `build_strategy_version_report`, `_no_data_suggestion` updated.
-- `src/trading_bot/analytics/__init__.py` — exported `CURRENT_STRATEGY_VERSION`, `SUGGESTION_STATUSES`, `build_strategy_version_report`.
-- `src/trading_bot/cli.py` — imported new symbols; strategy version print + return in `run_eod_report`.
-- `tests/test_outcome_analytics.py` — imported new symbols; 6 new V19 tests.
+- `src/trading_bot/analytics/outcomes.py` â€” constants, `generate_tony_rule_suggestions` signature, `build_strategy_version_report`, `_no_data_suggestion` updated.
+- `src/trading_bot/analytics/__init__.py` â€” exported `CURRENT_STRATEGY_VERSION`, `SUGGESTION_STATUSES`, `build_strategy_version_report`.
+- `src/trading_bot/cli.py` â€” imported new symbols; strategy version print + return in `run_eod_report`.
+- `tests/test_outcome_analytics.py` â€” imported new symbols; 6 new V19 tests.
 
 ### Tests/checks run
 
-- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **39 passed**
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **535 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` â†’ **39 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **535 passed**
 
 ### Safety
 
@@ -1092,14 +1186,14 @@ V18A is complete. Tony self-review and EOD report now correctly distinguish same
 
 ### Files changed
 
-- `src/trading_bot/analytics/outcomes.py` — `build_tony_self_review`, `generate_tony_rule_suggestions`, `_empty_self_review`.
-- `src/trading_bot/cli.py` — self-review print section in `run_eod_report`.
-- `tests/test_outcome_analytics.py` — 4 new V18A tests.
+- `src/trading_bot/analytics/outcomes.py` â€” `build_tony_self_review`, `generate_tony_rule_suggestions`, `_empty_self_review`.
+- `src/trading_bot/cli.py` â€” self-review print section in `run_eod_report`.
+- `tests/test_outcome_analytics.py` â€” 4 new V18A tests.
 
 ### Tests/checks run
 
-- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **33 passed**
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **529 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` â†’ **33 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **529 passed**
 
 ### Safety
 
@@ -1117,14 +1211,14 @@ V16B is complete. `eod-report` and `outcome-analytics` now use the same America/
 
 ### Files changed
 
-- `src/trading_bot/storage/repositories.py` — added `recent_watch_runs(limit=100)`.
-- `src/trading_bot/cli.py` — added `--date` to `outcome-analytics` argparser; updated `run_outcome_analytics` to handle `--date`, apply the ET mask post-`prepared()`, print date header, return result dict; added `_watch_run_summary_for_date()` helper; replaced `repo.latest_watch_run()` in `run_eod_report` with the date-scoped helper.
-- `tests/test_outcome_analytics.py` — added `_make_dummy_tony()` helper and 4 new V16B tests.
+- `src/trading_bot/storage/repositories.py` â€” added `recent_watch_runs(limit=100)`.
+- `src/trading_bot/cli.py` â€” added `--date` to `outcome-analytics` argparser; updated `run_outcome_analytics` to handle `--date`, apply the ET mask post-`prepared()`, print date header, return result dict; added `_watch_run_summary_for_date()` helper; replaced `repo.latest_watch_run()` in `run_eod_report` with the date-scoped helper.
+- `tests/test_outcome_analytics.py` â€” added `_make_dummy_tony()` helper and 4 new V16B tests.
 
 ### Tests/checks run
 
-- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **29 passed**
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **525 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` â†’ **29 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **525 passed**
 
 ### Safety
 
@@ -1134,27 +1228,27 @@ No scoring changes, no trigger rule changes, no broker/paper/live execution chan
 
 ### Current active task
 
-V18 is complete. Tony self-review now includes `rule_suggestions` — plain-English research-only scoring/filter ideas derived from real-only outcome rows. Suggestions are never applied automatically; each carries a confidence level (`low`/`medium`/`high`) and `status: needs_review`. A no-data fallback is returned when fewer than 3 triggered rows exist. The `eod-report` prints suggestions under "Rule suggestions (research-only, not applied automatically)". Suggestions are stored inside the Tony learning event payload alongside the memory summary.
+V18 is complete. Tony self-review now includes `rule_suggestions` â€” plain-English research-only scoring/filter ideas derived from real-only outcome rows. Suggestions are never applied automatically; each carries a confidence level (`low`/`medium`/`high`) and `status: needs_review`. A no-data fallback is returned when fewer than 3 triggered rows exist. The `eod-report` prints suggestions under "Rule suggestions (research-only, not applied automatically)". Suggestions are stored inside the Tony learning event payload alongside the memory summary.
 
 ### Files changed
 
-- `src/trading_bot/analytics/outcomes.py` — added `generate_tony_rule_suggestions()`, `_no_data_suggestion()`, `_MIN_TRIGGERED_FOR_SUGGESTION`; added `rule_suggestions` field to `build_tony_self_review()` return and `_empty_self_review()`.
-- `src/trading_bot/analytics/__init__.py` — exported `generate_tony_rule_suggestions`.
-- `src/trading_bot/cli.py` — `eod-report` prints rule suggestions with confidence label and reason.
-- `tests/test_outcome_analytics.py` — imported `generate_tony_rule_suggestions`; added 5 new tests.
+- `src/trading_bot/analytics/outcomes.py` â€” added `generate_tony_rule_suggestions()`, `_no_data_suggestion()`, `_MIN_TRIGGERED_FOR_SUGGESTION`; added `rule_suggestions` field to `build_tony_self_review()` return and `_empty_self_review()`.
+- `src/trading_bot/analytics/__init__.py` â€” exported `generate_tony_rule_suggestions`.
+- `src/trading_bot/cli.py` â€” `eod-report` prints rule suggestions with confidence label and reason.
+- `tests/test_outcome_analytics.py` â€” imported `generate_tony_rule_suggestions`; added 5 new tests.
 
 ### Tests/checks run
 
-- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **25 passed**
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **521 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` â†’ **25 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **521 passed**
 
 ### Suggestion logic
 
 | Condition | Suggestion | Confidence |
 |-----------|-----------|------------|
 | Triggered < 3 (total) | No rule changes suggested yet | low |
-| Setup target_rate ≥ 67%, triggered ≥ 2 | Consider prioritizing that setup | medium (high if ≥ 5 rows and ≥ 80%) |
-| Setup stop_rate ≥ 67%, triggered ≥ 2 | Consider raising score threshold / reducing frequency | medium (high if ≥ 5 rows and ≥ 80%) |
+| Setup target_rate â‰¥ 67%, triggered â‰¥ 2 | Consider prioritizing that setup | medium (high if â‰¥ 5 rows and â‰¥ 80%) |
+| Setup stop_rate â‰¥ 67%, triggered â‰¥ 2 | Consider raising score threshold / reducing frequency | medium (high if â‰¥ 5 rows and â‰¥ 80%) |
 | No setup meets threshold | Patterns not consistent enough | low |
 
 ### Safety
@@ -1169,15 +1263,15 @@ V17 is complete. `eod-report` now prints a plain-English Tony self-review sectio
 
 ### Files changed
 
-- `src/trading_bot/analytics/outcomes.py` — added `build_tony_self_review()` standalone function and `_empty_self_review()` helper; added `tony_self_review()` method on `OutcomeAnalytics`.
-- `src/trading_bot/analytics/__init__.py` — exported `build_tony_self_review`.
-- `src/trading_bot/cli.py` — imported `build_tony_self_review`; `eod-report` now computes and prints the self-review section; includes `tony_self_review` in the return payload; stores self-review inside the Tony learning event `memory_summary` payload.
-- `tests/test_outcome_analytics.py` — imported `build_tony_self_review`; added four new tests: `test_tony_self_review_from_sample_rows`, `test_tony_self_review_empty_day_fallback`, `test_tony_self_review_real_only_filtering`, `test_eod_report_includes_self_review`.
+- `src/trading_bot/analytics/outcomes.py` â€” added `build_tony_self_review()` standalone function and `_empty_self_review()` helper; added `tony_self_review()` method on `OutcomeAnalytics`.
+- `src/trading_bot/analytics/__init__.py` â€” exported `build_tony_self_review`.
+- `src/trading_bot/cli.py` â€” imported `build_tony_self_review`; `eod-report` now computes and prints the self-review section; includes `tony_self_review` in the return payload; stores self-review inside the Tony learning event `memory_summary` payload.
+- `tests/test_outcome_analytics.py` â€” imported `build_tony_self_review`; added four new tests: `test_tony_self_review_from_sample_rows`, `test_tony_self_review_empty_day_fallback`, `test_tony_self_review_real_only_filtering`, `test_eod_report_includes_self_review`.
 
 ### Tests/checks run
 
-- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` → **20 passed**
-- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` → **516 passed**
+- `$env:PYTHONPATH='src'; .\.venv\Scripts\python.exe -m pytest tests/test_outcome_analytics.py -q` â†’ **20 passed**
+- `powershell -ExecutionPolicy Bypass -File .\scripts\run_tests.ps1` â†’ **516 passed**
 
 ### Self-review output structure
 
@@ -1191,12 +1285,12 @@ Tony self-review:
   What failed:
     - <setup>: N stop or failure outcome(s) out of N triggered row(s).
   What needs more data:
-    - <setup>: only N row(s) today — not enough context to read direction.
-    - <setup>: reassessment flagged as needs_review — check current conditions.
+    - <setup>: only N row(s) today â€” not enough context to read direction.
+    - <setup>: reassessment flagged as needs_review â€” check current conditions.
   Tomorrow watch:
-    - N active position(s) carry over — check reassessment labels at next open.
-    - N pending trigger(s) still waiting — watch for intraday trigger levels.
-    - N setup(s) flagged weakening — monitor for further deterioration.
+    - N active position(s) carry over â€” check reassessment labels at next open.
+    - N pending trigger(s) still waiting â€” watch for intraday trigger levels.
+    - N setup(s) flagged weakening â€” monitor for further deterioration.
 ```
 
 ### Known limitations
@@ -1216,7 +1310,7 @@ V16A is complete. `eod-report`, `outcome-analytics --today`, and the daily Tony 
 
 ### Root cause
 
-Daily reporting code was mixing UTC-date string slicing with local-market expectations. That caused after-hours or near-midnight UTC rows to fall onto the wrong “today” bucket for `eod-report`, `outcome-analytics --today`, and the Tony memory summary.
+Daily reporting code was mixing UTC-date string slicing with local-market expectations. That caused after-hours or near-midnight UTC rows to fall onto the wrong â€œtodayâ€ bucket for `eod-report`, `outcome-analytics --today`, and the Tony memory summary.
 
 ### Files changed
 
@@ -1270,7 +1364,7 @@ Tony already stored raw outcome rows and could print grouped analytics, but ther
 
 ### Known limitations
 
-- Best/worst setup notes are intentionally labeled preliminary and are only as useful as the current day’s real-only sample size.
+- Best/worst setup notes are intentionally labeled preliminary and are only as useful as the current dayâ€™s real-only sample size.
 - The memory summary is stored in the existing Tony event/reporting path, not in a new dedicated memory table.
 
 ### Safety
@@ -1422,16 +1516,16 @@ V15.8 complete. Frozen original plan on trigger; live research tracking fields r
 
 ### Files changed
 
-- `src/trading_bot/storage/database.py` — V15.8 migrations
-- `src/trading_bot/storage/repositories.py` — allow tracking field updates
-- `src/trading_bot/snapshots/active_tracking.py` — **NEW** freeze/refresh/status logic
-- `src/trading_bot/snapshots/__init__.py` — exports
-- `src/trading_bot/cli.py` — freeze + refresh in `update-snapshots`
-- `src/trading_bot/tony/events.py` — `tracked_setup_updated` event
-- `src/trading_bot/dashboard/helpers.py` — card model uses frozen/current fields
-- `src/trading_bot/dashboard/theme.py` — reassessment note on full tracking card
-- `tests/test_v15_8_active_tracking.py` — **NEW**
-- `tests/test_database.py`, `tests/test_dashboard_helpers.py` — updated
+- `src/trading_bot/storage/database.py` â€” V15.8 migrations
+- `src/trading_bot/storage/repositories.py` â€” allow tracking field updates
+- `src/trading_bot/snapshots/active_tracking.py` â€” **NEW** freeze/refresh/status logic
+- `src/trading_bot/snapshots/__init__.py` â€” exports
+- `src/trading_bot/cli.py` â€” freeze + refresh in `update-snapshots`
+- `src/trading_bot/tony/events.py` â€” `tracked_setup_updated` event
+- `src/trading_bot/dashboard/helpers.py` â€” card model uses frozen/current fields
+- `src/trading_bot/dashboard/theme.py` â€” reassessment note on full tracking card
+- `tests/test_v15_8_active_tracking.py` â€” **NEW**
+- `tests/test_database.py`, `tests/test_dashboard_helpers.py` â€” updated
 - Docs updated
 
 ### Safety
@@ -1452,14 +1546,14 @@ V15.7E complete. Home Top 3 pick/tracking preview cards enriched (pills + compac
 
 ### Files changed
 
-- `src/trading_bot/dashboard/theme.py` — `build_pick_preview_card_html`, `build_tracking_preview_card_html`, preview CSS.
-- `src/trading_bot/dashboard/helpers.py` — `tony_status_home_message`, `format_home_missing_data_summary`, preview field constants.
-- `tests/test_dashboard_helpers.py`, `tests/test_dashboard_theme.py` — V15.7E coverage.
+- `src/trading_bot/dashboard/theme.py` â€” `build_pick_preview_card_html`, `build_tracking_preview_card_html`, preview CSS.
+- `src/trading_bot/dashboard/helpers.py` â€” `tony_status_home_message`, `format_home_missing_data_summary`, preview field constants.
+- `tests/test_dashboard_helpers.py`, `tests/test_dashboard_theme.py` â€” V15.7E coverage.
 - Docs updated.
 
 ### Manual verify
 
-`scripts\run_dashboard.ps1` → Home cards show entry/target/stop and tracking levels; Tony Picks / Active Tracking still full detail.
+`scripts\run_dashboard.ps1` â†’ Home cards show entry/target/stop and tracking levels; Tony Picks / Active Tracking still full detail.
 
 ### Safety
 
@@ -1483,15 +1577,15 @@ V15.7C refactored theme imports in `app.py` and dropped `render_tracking_positio
 
 ### Files changed
 
-- `src/trading_bot/dashboard/app.py` — re-import `render_tracking_position_card`; pass `watch_error_message` to Home status.
-- `src/trading_bot/dashboard/helpers.py` — calmer `tony_status_home_message()`; `format_home_missing_data_summary()`.
-- `tests/test_dashboard_theme.py` — import protection tests.
-- `tests/test_dashboard_helpers.py` — status + missing-data tests.
+- `src/trading_bot/dashboard/app.py` â€” re-import `render_tracking_position_card`; pass `watch_error_message` to Home status.
+- `src/trading_bot/dashboard/helpers.py` â€” calmer `tony_status_home_message()`; `format_home_missing_data_summary()`.
+- `tests/test_dashboard_theme.py` â€” import protection tests.
+- `tests/test_dashboard_helpers.py` â€” status + missing-data tests.
 - Docs updated.
 
 ### Manual verify
 
-Streamlit started at http://localhost:8501 (WSL agent smoke: import + `streamlit run` OK). On Windows, run `scripts\run_dashboard.ps1` and click all five tabs — especially Active Tracking.
+Streamlit started at http://localhost:8501 (WSL agent smoke: import + `streamlit run` OK). On Windows, run `scripts\run_dashboard.ps1` and click all five tabs â€” especially Active Tracking.
 
 ### Safety
 
@@ -1515,15 +1609,15 @@ Block-level theme HTML was emitted without consistent `st.markdown(..., unsafe_a
 
 ### Files changed
 
-- `src/trading_bot/dashboard/theme.py` — `render_html()`, clean `build_stat_grid_html()`, preview card renderers, balanced div helpers.
-- `src/trading_bot/dashboard/app.py` — Home briefing layout; Tony Picks full picker copy; `waiting_for_market` in context.
-- `tests/test_dashboard_theme.py` — stat grid HTML + `render_html` tests.
-- `tests/test_dashboard_helpers.py` — home preview cap, status messages, briefing items.
+- `src/trading_bot/dashboard/theme.py` â€” `render_html()`, clean `build_stat_grid_html()`, preview card renderers, balanced div helpers.
+- `src/trading_bot/dashboard/app.py` â€” Home briefing layout; Tony Picks full picker copy; `waiting_for_market` in context.
+- `tests/test_dashboard_theme.py` â€” stat grid HTML + `render_html` tests.
+- `tests/test_dashboard_helpers.py` â€” home preview cap, status messages, briefing items.
 - `CURRENT_STATUS.md`, `KNOWN_BACKLOG.md`, `TESTING_CHECKLIST.md`, `AGENT_STATE.md`.
 
 ### Manual verify
 
-`powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1` → http://localhost:8501 — Home short briefing, Tony Picks full cards, Results stat tiles styled.
+`powershell -ExecutionPolicy Bypass -File .\scripts\run_dashboard.ps1` â†’ http://localhost:8501 â€” Home short briefing, Tony Picks full cards, Results stat tiles styled.
 
 ### Safety
 
@@ -1756,7 +1850,7 @@ These are research triggers, not buy/sell recommendations.
 - Fetches real Alpaca 5Min bars (skipped when `real_data_only` and provider is not `alpaca_iex`).
 - Uses only bars strictly after `snapshot_bar_time` or `snapshot_time`.
 - Trigger when `bar.high >= planned_entry_price`; `actual_entry_time` = first qualifying bar; `actual_entry_price` = planned price (configurable).
-- Same day without trigger → `pending`; after window → `expired` or `not_triggered`.
+- Same day without trigger â†’ `pending`; after window â†’ `expired` or `not_triggered`.
 - Does not use end-of-day close as entry.
 
 ### No-lookahead protection
@@ -1872,3 +1966,4 @@ Run one supervised market-hours watch cycle with the hardened config. If `HCP`, 
 ## V14.7 handoff - Real Market-Day Review Cleanup
 
 _(Prior handoffs retained below for history.)_
+
