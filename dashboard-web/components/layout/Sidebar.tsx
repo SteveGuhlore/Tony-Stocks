@@ -6,6 +6,7 @@ import { MarketClock } from "@/components/market/MarketClock"
 const NAV = [
   { href: "/today",     icon: "⚡", label: "Today"     },
   { href: "/watchlist", icon: "👁", label: "Watchlist" },
+  { href: "/picks",     icon: "💼", label: "Picks"     },
   { href: "/outcomes",  icon: "📊", label: "Outcomes"  },
   { href: "/scan",      icon: "🔍", label: "Scan"      },
   { href: "/analytics", icon: "📈", label: "Analytics" },
