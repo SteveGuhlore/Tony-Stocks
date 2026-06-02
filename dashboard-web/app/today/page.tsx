@@ -12,7 +12,7 @@ import type { CandidateSnapshot, LiveQuote } from "@/lib/types"
 
 function PLText({ entry, price }: { entry: number | null; price: number | undefined }) {
   if (!entry || !price) {
-    return <span style={{ color: "var(--text-secondary)", fontFamily: "JetBrains Mono, monospace" }}>—</span>
+    return <span style={{ color: "var(--text-secondary)", fontFamily: "JetBrains Mono, monospace" }}>·</span>
   }
   const pct = ((price - entry) / entry) * 100
   const positive = pct >= 0
@@ -73,13 +73,13 @@ export default function TodayPage() {
       <KPIBar items={[
         { label: "Watching",  value: data.kpis.watching },
         { label: "Triggered", value: data.kpis.triggered },
-        { label: "Win Rate",  value: wr !== null ? `${(wr * 100).toFixed(0)}%` : "—" },
-        { label: "Watch",     value: data.watch.status ?? "—" },
+        { label: "Win Rate",  value: wr !== null ? `${(wr * 100).toFixed(0)}%` : "no data" },
+        { label: "Watch",     value: data.watch.status ?? "idle" },
         { label: "Last Scan", value: data.watch.last_scan_age_seconds !== null
-            ? `${Math.round(data.watch.last_scan_age_seconds / 60)}m ago` : "—" },
+            ? `${Math.round(data.watch.last_scan_age_seconds / 60)}m ago` : "no scan yet" },
       ]} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "38% 1fr", gap: 16 }}>
+      <div className="today-grid" style={{ display: "grid", gridTemplateColumns: "38% 1fr", gap: 16 }}>
         <div>
           <div style={{
             fontSize: 10, textTransform: "uppercase",

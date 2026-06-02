@@ -15,6 +15,8 @@ days_active: 1
 | Date | Setup | Score | Status |
 |------|-------|-------|--------|
 | [[2026-05-18]] | Momentum Continuation | 67.98 | partial_move |
+| [[2026-05-26]] | Momentum Continuation | 67.98 | partial_move |
+| [[2026-05-29]] | Momentum Continuation | 67.98 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

@@ -3,6 +3,7 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,12 +13,23 @@ from trading_bot.api.routes import (
     health, today, picks, outcomes, scan, analytics, events, system, symbols, vault
 )
 from trading_bot.api.routes import prices as prices_router
+from trading_bot.settings import load_dotenv_if_present
+
+
+# Project root resolved from this file's location, so defaults work regardless of cwd.
+# SQLite silently creates an empty DB when a relative path resolves to a missing file,
+# which previously caused empty API responses when uvicorn launched outside the project root.
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.db_path = os.environ.get("DATABASE_PATH", "data/trading_bot.db")
-    app.state.vault_dir = os.environ.get("VAULT_DIR", "vault")
+    # Load .env so Alpaca keys are present for live prices regardless of how
+    # uvicorn was launched. setdefault means real OS env vars still win.
+    load_dotenv_if_present(_PROJECT_ROOT / ".env")
+
+    app.state.db_path = os.environ.get("DATABASE_PATH", str(_PROJECT_ROOT / "data" / "trading_bot.db"))
+    app.state.vault_dir = os.environ.get("VAULT_DIR", str(_PROJECT_ROOT / "vault"))
 
     live_queue: asyncio.Queue = asyncio.Queue()
     app.state.live_event_queue = live_queue

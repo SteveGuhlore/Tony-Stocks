@@ -21,12 +21,23 @@ export function DistanceToBar({ quote, entry, stop, target }: Props) {
   const nearEntry = Math.abs(price - entry) / entry < 0.005
 
   return (
-    <div className="flex gap-3 text-xs font-mono tabular-nums text-zinc-400 mt-1">
-      <span className={nearEntry ? "text-amber-400 font-semibold" : ""}>
+    <div
+      className="flex gap-3 text-xs font-mono mt-1"
+      style={{
+        color: "var(--text-secondary)",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span
+        className={nearEntry ? "font-semibold" : ""}
+        style={nearEntry ? { color: "var(--amber)" } : undefined}
+      >
         Entry {distToEntry}
       </span>
-      <span className="text-red-400/70">Stop {distToStop}</span>
-      {distToTarget && <span className="text-emerald-400/70">Target {distToTarget}</span>}
+      <span style={{ color: "rgba(255,61,61,0.7)" }}>Stop {distToStop}</span>
+      {distToTarget && (
+        <span style={{ color: "rgba(0,230,118,0.7)" }}>Target {distToTarget}</span>
+      )}
     </div>
   )
 }

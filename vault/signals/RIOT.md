@@ -15,6 +15,8 @@ days_active: 1
 | Date | Setup | Score | Status |
 |------|-------|-------|--------|
 | [[2026-05-19]] | Speculative Watchlist | 70.4 | partial_move |
+| [[2026-05-26]] | Speculative Watchlist | 70.4 | partial_move |
+| [[2026-05-29]] | Speculative Watchlist | 70.4 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

@@ -16,6 +16,8 @@ days_active: 2
 |------|-------|-------|--------|
 | [[2026-05-18]] | Breakout Watch | 68.65 | entry_not_triggered |
 | [[2026-05-22]] | Momentum Continuation | 62.07 | insufficient_future_data |
+| [[2026-05-26]] | Momentum Continuation | 62.07 | insufficient_future_data |
+| [[2026-05-29]] | Momentum Continuation | 62.07 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

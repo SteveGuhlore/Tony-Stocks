@@ -4,7 +4,7 @@ import { useDrawer } from "@/components/overlays/DrawerContext"
 export function TickerSymbol({ symbol }: { symbol: string }) {
   const { openSymbol } = useDrawer()
   return (
-    <button onClick={() => openSymbol(symbol)} style={{
+    <button className="ticker-button" onClick={() => openSymbol(symbol)} style={{
       background: "none", border: "none", cursor: "pointer", padding: "1px 4px",
       color: "var(--cyan)", fontFamily: "JetBrains Mono, monospace",
       fontSize: "inherit", fontWeight: 600, borderRadius: 2,

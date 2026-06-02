@@ -15,6 +15,8 @@ days_active: 1
 | Date | Setup | Score | Status |
 |------|-------|-------|--------|
 | [[2026-05-18]] | Pullback Watch | 76.46 | partial_move |
+| [[2026-05-26]] | Pullback Watch | 76.46 | partial_move |
+| [[2026-05-29]] | Pullback Watch | 76.46 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

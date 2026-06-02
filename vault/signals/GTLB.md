@@ -19,6 +19,8 @@ days_active: 5
 | [[2026-05-19]] | Breakout Watch | 74.89 | partial_move |
 | [[2026-05-20]] | Breakout Watch | 74.89 | partial_move |
 | [[2026-05-21]] | Breakout Watch | 75.01 | insufficient_future_data |
+| [[2026-05-26]] | Breakout Watch | 75.01 | insufficient_future_data |
+| [[2026-05-29]] | Breakout Watch | 75.01 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

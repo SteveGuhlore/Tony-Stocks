@@ -7,17 +7,28 @@ interface Props {
 }
 
 export function LivePrice({ quote, className = "" }: Props) {
-  if (!quote) return <span className={`font-mono text-zinc-500 ${className}`}>—</span>
+  if (!quote)
+    return (
+      <span
+        className={`font-mono ${className}`}
+        style={{ color: "var(--text-tertiary)" }}
+      >
+        ·
+      </span>
+    )
 
   const pct = quote.change_pct * 100
   const sign = pct >= 0 ? "+" : ""
-  const color = pct >= 0 ? "text-emerald-400" : "text-red-400"
+  const color = pct >= 0 ? "var(--green)" : "var(--red)"
 
   return (
-    <span className={`font-mono tabular-nums ${className}`}>
-      <span className="text-zinc-100">${quote.price.toFixed(2)}</span>
+    <span
+      className={`font-mono ${className}`}
+      style={{ fontVariantNumeric: "tabular-nums" }}
+    >
+      <span style={{ color: "var(--text-primary)" }}>${quote.price.toFixed(2)}</span>
       {" "}
-      <span className={`text-xs ${color}`}>
+      <span className="text-xs" style={{ color }}>
         {sign}{pct.toFixed(2)}%
       </span>
     </span>

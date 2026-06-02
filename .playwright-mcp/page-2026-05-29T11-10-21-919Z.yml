@@ -1,0 +1,30 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]: T
+    - link "Today" [ref=e4] [cursor=pointer]:
+      - /url: /today
+      - generic [ref=e5]: ⚡
+    - link "Watchlist" [ref=e6] [cursor=pointer]:
+      - /url: /watchlist
+      - generic [ref=e7]: 👁
+    - link "Picks" [ref=e8] [cursor=pointer]:
+      - /url: /picks
+      - generic [ref=e9]: 💼
+    - link "Outcomes" [ref=e10] [cursor=pointer]:
+      - /url: /outcomes
+      - generic [ref=e11]: 📊
+    - link "Scan" [ref=e12] [cursor=pointer]:
+      - /url: /scan
+      - generic [ref=e13]: 🔍
+    - link "Analytics" [ref=e14] [cursor=pointer]:
+      - /url: /analytics
+      - generic [ref=e15]: 📈
+    - link "System" [ref=e16] [cursor=pointer]:
+      - /url: /system
+      - generic [ref=e17]: ⚙
+    - generic [ref=e19]: Market
+  - main [ref=e21]:
+    - generic [ref=e22]: Loading...
+  - button "Open Next.js Dev Tools" [ref=e28] [cursor=pointer]:
+    - img [ref=e29]
+  - alert [ref=e32]

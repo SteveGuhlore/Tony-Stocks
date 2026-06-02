@@ -16,6 +16,8 @@ days_active: 2
 |------|-------|-------|--------|
 | [[2026-05-17]] | Breakout Watch | 100.0 | entry_not_triggered |
 | [[2026-05-18]] | Breakout Watch | 100.0 | entry_not_triggered |
+| [[2026-05-26]] | Breakout Watch | 100.0 | entry_not_triggered |
+| [[2026-05-29]] | Breakout Watch | 100.0 | entry_not_triggered |
 
 ## Entry Plan
 *Populated when entry triggered.*

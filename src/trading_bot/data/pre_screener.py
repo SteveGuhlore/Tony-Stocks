@@ -153,7 +153,7 @@ def pre_screen_universe(
         fallback_used = True
 
     LOGGER.info(
-        "Pre-screener: %d → %d symbols (screened_out=%d no_data=%d fallback=%s)",
+        "Pre-screener: %d -> %d symbols (screened_out=%d no_data=%d fallback=%s)",
         len(symbols),
         len(final_symbols),
         screened_out,

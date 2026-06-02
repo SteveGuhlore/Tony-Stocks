@@ -7,7 +7,6 @@ import { useLivePrices } from "@/lib/hooks/useLivePrices"
 import { FilterChips } from "@/components/terminal/FilterChips"
 import { TickerSymbol } from "@/components/terminal/TickerSymbol"
 import { StatusBadge } from "@/components/terminal/StatusBadge"
-import { useDrawer } from "@/components/overlays/DrawerContext"
 import type { CandidateSnapshot, ManualPick, LiveQuote } from "@/lib/types"
 
 const FILTERS = ["ALL", "ACTIVE", "WATCHING", "PENDING"]
@@ -52,7 +51,6 @@ function DistCell({ entry, quote, triggered }: {
 
 function SnapshotTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
   const liveQuotes = useLivePrices()
-  const { openSymbol } = useDrawer()
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="dense-table">
@@ -70,10 +68,9 @@ function SnapshotTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
             return (
               <tr
                 key={s.id}
-                onClick={() => openSymbol(s.symbol)}
-                style={{ cursor: "pointer", ...(triggered ? { borderLeft: "2px solid var(--green)" } : {}) }}
+                style={triggered ? { background: "rgba(0,230,118,0.04)" } : undefined}
               >
-                <td><TickerSymbol symbol={s.symbol} /></td>
+                <td><span style={triggered ? { fontWeight: 700 } : undefined}><TickerSymbol symbol={s.symbol} /></span></td>
                 <td><StatusBadge status={s.status} /></td>
                 <td style={{
                   color: "var(--text-secondary)",
@@ -109,7 +106,6 @@ function SnapshotTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
 
 function ManualTable({ picks }: { picks: ManualPick[] }) {
   const liveQuotes = useLivePrices()
-  const { openSymbol } = useDrawer()
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="dense-table">
@@ -125,7 +121,7 @@ function ManualTable({ picks }: { picks: ManualPick[] }) {
             const quote = liveQuotes[p.symbol]
             const triggered = p.status === "active" || p.status === "triggered"
             return (
-              <tr key={p.id} onClick={() => openSymbol(p.symbol)} style={{ cursor: "pointer" }}>
+              <tr key={p.id}>
                 <td><TickerSymbol symbol={p.symbol} /></td>
                 <td><StatusBadge status={p.status} /></td>
                 <td style={{ fontFamily: "JetBrains Mono, monospace" }}>
@@ -173,34 +169,34 @@ function AddPickForm({ onDone }: { onDone: () => void }) {
       <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--cyan)", letterSpacing: "0.08em", marginBottom: 10 }}>
         Add Manual Pick
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+      <div className="form-grid-4" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
         <div>
-          <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Symbol *</div>
-          <input style={inp} placeholder="AAPL" value={sym} onChange={e => setSym(e.target.value.toUpperCase())} />
+          <label htmlFor="pick-symbol" style={{ display: "block", fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Symbol *</label>
+          <input id="pick-symbol" aria-required="true" style={inp} placeholder="AAPL" value={sym} onChange={e => setSym(e.target.value.toUpperCase())} />
         </div>
         <div>
-          <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Entry</div>
-          <input style={inp} placeholder="0.00" type="number" step="0.01" value={entry} onChange={e => setEntry(e.target.value)} />
+          <label htmlFor="pick-entry" style={{ display: "block", fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Entry</label>
+          <input id="pick-entry" style={inp} placeholder="0.00" type="number" step="0.01" value={entry} onChange={e => setEntry(e.target.value)} />
         </div>
         <div>
-          <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Stop</div>
-          <input style={inp} placeholder="0.00" type="number" step="0.01" value={stop} onChange={e => setStop(e.target.value)} />
+          <label htmlFor="pick-stop" style={{ display: "block", fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Stop</label>
+          <input id="pick-stop" style={inp} placeholder="0.00" type="number" step="0.01" value={stop} onChange={e => setStop(e.target.value)} />
         </div>
         <div>
-          <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Target</div>
-          <input style={inp} placeholder="0.00" type="number" step="0.01" value={target} onChange={e => setTarget(e.target.value)} />
+          <label htmlFor="pick-target" style={{ display: "block", fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Target</label>
+          <input id="pick-target" style={inp} placeholder="0.00" type="number" step="0.01" value={target} onChange={e => setTarget(e.target.value)} />
         </div>
       </div>
       <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Notes</div>
-        <input style={inp} placeholder="Optional notes..." value={notes} onChange={e => setNotes(e.target.value)} />
+        <label htmlFor="pick-notes" style={{ display: "block", fontSize: 10, color: "var(--text-secondary)", marginBottom: 3 }}>Notes</label>
+        <input id="pick-notes" style={inp} placeholder="Optional notes..." value={notes} onChange={e => setNotes(e.target.value)} />
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button
           onClick={() => mut.mutate()}
           disabled={!sym || mut.isPending}
           style={{
-            background: "var(--cyan)", color: "#000", border: "none", borderRadius: 3,
+            background: "var(--cyan)", color: "var(--bg-base)", border: "none", borderRadius: 3,
             padding: "5px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer",
             opacity: (!sym || mut.isPending) ? 0.5 : 1,
           }}
@@ -217,11 +213,9 @@ function AddPickForm({ onDone }: { onDone: () => void }) {
         >
           Cancel
         </button>
-        {mut.isError && (
-          <span style={{ fontSize: 10, color: "var(--red)", alignSelf: "center" }}>
-            Failed — check symbol
-          </span>
-        )}
+        <span aria-live="polite" style={{ fontSize: 10, color: "var(--red)", alignSelf: "center" }}>
+          {mut.isError ? "Failed — check symbol" : ""}
+        </span>
       </div>
     </div>
   )
@@ -250,7 +244,7 @@ export default function WatchlistPage() {
           onClick={() => setShowForm(v => !v)}
           style={{
             background: showForm ? "var(--bg-elevated)" : "var(--cyan)",
-            color: showForm ? "var(--text-secondary)" : "#000",
+            color: showForm ? "var(--text-secondary)" : "var(--bg-base)",
             border: "1px solid var(--border)", borderRadius: 3,
             padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer",
           }}

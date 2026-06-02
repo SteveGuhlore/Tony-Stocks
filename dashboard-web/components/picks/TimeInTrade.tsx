@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useState } from "react"
+
 function formatDuration(ms: number): string {
   const totalMinutes = Math.floor(ms / 60000)
   const totalHours = Math.floor(totalMinutes / 60)
@@ -15,7 +17,15 @@ interface Props {
 }
 
 export function TimeInTrade({ since, label }: Props) {
-  if (!since) return <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>—</span>
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    if (!since) return
+    const id = setInterval(() => setTick((t) => t + 1), 60_000)
+    return () => clearInterval(id)
+  }, [since])
+
+  if (!since) return <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>·</span>
   const ms = Date.now() - new Date(since).getTime()
   if (ms < 0) return null
   const dur = formatDuration(ms)

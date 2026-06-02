@@ -16,7 +16,7 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname()
   return (
-    <nav style={{
+    <nav className="sidebar-nav" style={{
       position: "fixed", left: 0, top: 0, bottom: 0, width: 52,
       background: "var(--bg-surface)", borderRight: "1px solid var(--border)",
       display: "flex", flexDirection: "column", alignItems: "center",
@@ -26,18 +26,17 @@ export function Sidebar() {
       {NAV.map(({ href, icon, label }) => {
         const active = pathname.startsWith(href)
         return (
-          <Link key={href} href={href} title={label} style={{
+          <Link key={href} href={href} title={label} aria-label={label} aria-current={active ? "page" : undefined} style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 40, height: 40, borderRadius: 4, textDecoration: "none", fontSize: 18,
             background: active ? "var(--bg-elevated)" : "transparent",
-            borderLeft: active ? "2px solid var(--cyan)" : "2px solid transparent",
-            transition: "all 0.15s",
+            transition: "background 0.15s",
           }}>
-            {icon}
+            <span style={{ color: active ? "var(--cyan)" : undefined }}>{icon}</span>
           </Link>
         )
       })}
-      <div style={{ marginTop: "auto", paddingBottom: 12, paddingLeft: 4, paddingRight: 4 }}>
+      <div className="sidebar-clock" style={{ marginTop: "auto", paddingBottom: 12, paddingLeft: 4, paddingRight: 4 }}>
         <MarketClock />
       </div>
     </nav>

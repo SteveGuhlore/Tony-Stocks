@@ -26,7 +26,7 @@ export default function ScanPage() {
           { label: "Scanned",    value: overview.scanned },
           { label: "Candidates", value: overview.candidates },
           { label: "Manual Picks", value: overview.picks },
-          { label: "Last Scan",  value: overview.last_scan_at?.slice(0, 10) ?? "—" },
+          { label: "Last Scan",  value: overview.last_scan_at?.slice(0, 10) ?? "no scan yet" },
         ]} />
       )}
       <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>

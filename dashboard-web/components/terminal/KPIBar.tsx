@@ -1,16 +1,24 @@
-﻿export function KPIBar({ items }: { items: { label: string; value: string | number | null }[] }) {
+export function KPIBar({ items }: { items: { label: string; value: string | number | null }[] }) {
   return (
-    <div style={{ display: "flex", gap: 1, marginBottom: 16 }}>
+    <div style={{
+      display: "flex", flexWrap: "wrap", alignItems: "baseline",
+      columnGap: 24, rowGap: 8, marginBottom: 14,
+    }}>
       {items.map(({ label, value }) => (
-        <div key={label} style={{
-          flex: 1, background: "var(--bg-surface)", border: "1px solid var(--border)",
-          padding: "10px 14px",
-        }}>
-          <div style={{ fontSize: 10, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
-          <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 22, fontWeight: 600, marginTop: 4, color: "var(--text-primary)" }}>
-            {value ?? "—"}
-          </div>
-        </div>
+        <span key={label} style={{ display: "inline-flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{
+            fontSize: 10, color: "var(--text-tertiary, var(--text-secondary))",
+            textTransform: "uppercase", letterSpacing: "0.08em",
+          }}>
+            {label}
+          </span>
+          <span style={{
+            fontFamily: "JetBrains Mono, monospace", fontSize: 13,
+            color: "var(--text-primary)",
+          }}>
+            {value ?? "·"}
+          </span>
+        </span>
       ))}
     </div>
   )

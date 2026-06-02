@@ -1,4 +1,5 @@
 "use client"
+import type { CSSProperties } from "react"
 import type { LiveAlertToast } from "@/lib/hooks/useAlerts"
 
 interface Props {
@@ -11,14 +12,25 @@ const LABELS: Record<string, string> = {
   stop_violation: "Stop Violation",
 }
 
-const COLORS: Record<string, string> = {
-  near_entry: "border-amber-500/60 bg-amber-950/80",
-  stop_violation: "border-red-500/60 bg-red-950/80",
+const CONTAINER_STYLES: Record<string, CSSProperties> = {
+  near_entry: {
+    borderColor: "rgba(255,171,0,0.6)",
+    background: "rgba(255,171,0,0.10)",
+  },
+  stop_violation: {
+    borderColor: "rgba(255,61,61,0.6)",
+    background: "rgba(255,61,61,0.10)",
+  },
+}
+
+const DEFAULT_CONTAINER_STYLE: CSSProperties = {
+  borderColor: "var(--border)",
+  background: "rgba(15,15,15,0.85)",
 }
 
 const TEXT_COLORS: Record<string, string> = {
-  near_entry: "text-amber-400",
-  stop_violation: "text-red-400",
+  near_entry: "var(--amber)",
+  stop_violation: "var(--red)",
 }
 
 export function ToastStack({ toasts, onDismiss }: Props) {
@@ -29,24 +41,43 @@ export function ToastStack({ toasts, onDismiss }: Props) {
       {toasts.map((t) => {
         const { alert } = t
         const label = LABELS[alert.alert_type] ?? alert.alert_type
-        const border = COLORS[alert.alert_type] ?? "border-zinc-700 bg-zinc-900/80"
-        const textColor = TEXT_COLORS[alert.alert_type] ?? "text-zinc-300"
+        const containerStyle = CONTAINER_STYLES[alert.alert_type] ?? DEFAULT_CONTAINER_STYLE
+        const textColor = TEXT_COLORS[alert.alert_type] ?? "var(--text-primary)"
         return (
           <div
             key={t.id}
-            className={`flex items-start justify-between gap-2 rounded border px-3 py-2 backdrop-blur text-sm ${border}`}
+            className="flex items-start justify-between gap-2 rounded border px-3 py-2 backdrop-blur text-sm"
+            style={containerStyle}
           >
             <div>
-              <div className={`font-semibold ${textColor}`}>{label}: {alert.symbol}</div>
-              <div className="text-zinc-300 font-mono tabular-nums text-xs mt-0.5">
+              <div className="font-semibold" style={{ color: textColor }}>
+                {label}: {alert.symbol}
+              </div>
+              <div
+                className="font-mono text-xs mt-0.5"
+                style={{
+                  color: "var(--text-primary)",
+                  fontFamily: "JetBrains Mono, monospace",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
                 ${alert.price.toFixed(2)}
-                {alert.entry && <span className="text-zinc-500"> · entry ${alert.entry.toFixed(2)}</span>}
-                {alert.stop && <span className="text-zinc-500"> · stop ${alert.stop.toFixed(2)}</span>}
+                {alert.entry && (
+                  <span style={{ color: "var(--text-tertiary)" }}>
+                    {" "}· entry ${alert.entry.toFixed(2)}
+                  </span>
+                )}
+                {alert.stop && (
+                  <span style={{ color: "var(--text-tertiary)" }}>
+                    {" "}· stop ${alert.stop.toFixed(2)}
+                  </span>
+                )}
               </div>
             </div>
             <button
               onClick={() => onDismiss(t.id)}
-              className="text-zinc-500 hover:text-zinc-200 shrink-0 mt-0.5"
+              className="shrink-0 mt-0.5"
+              style={{ color: "var(--text-tertiary)" }}
               aria-label="Dismiss"
             >
               ✕

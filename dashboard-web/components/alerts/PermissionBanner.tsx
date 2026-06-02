@@ -18,18 +18,27 @@ export function PermissionBanner() {
   }
 
   return (
-    <div className="fixed top-0 inset-x-0 z-50 flex items-center justify-between bg-zinc-800 border-b border-zinc-700 px-4 py-2 text-sm text-zinc-300">
+    <div
+      className="fixed top-0 inset-x-0 z-50 flex items-center justify-between border-b px-4 py-2 text-sm"
+      style={{
+        background: "var(--bg-surface)",
+        borderColor: "var(--border)",
+        color: "var(--text-primary)",
+      }}
+    >
       <span>Enable desktop notifications for trade alerts?</span>
       <div className="flex gap-2">
         <button
           onClick={request}
-          className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold"
+          className="px-3 py-1 rounded text-xs font-semibold"
+          style={{ background: "var(--amber)", color: "var(--bg-base)" }}
         >
           Enable
         </button>
         <button
           onClick={() => setShow(false)}
-          className="px-3 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-xs"
+          className="px-3 py-1 rounded text-xs"
+          style={{ background: "var(--bg-elevated)", color: "var(--text-secondary)" }}
         >
           Dismiss
         </button>

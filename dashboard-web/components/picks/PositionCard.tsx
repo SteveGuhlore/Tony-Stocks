@@ -23,14 +23,15 @@ export interface PositionCardProps {
   thesisLabel: string | null
   thesisAction: string | null
   quote: LiveQuote | undefined
+  closePrice?: number | null
 }
 
 export function PositionCard({
   symbol, status, setupCategory, entry, stop, target, rr, score,
   triggeredAt, watchingSince, triggered,
-  thesis, thesisLabel, thesisAction, quote,
+  thesis, thesisLabel, thesisAction, quote, closePrice,
 }: PositionCardProps) {
-  const price = quote?.price ?? null
+  const price = quote?.price ?? closePrice ?? null
   const hasLevels = entry !== null && stop !== null && target !== null
   const since = triggered ? triggeredAt : watchingSince
 
@@ -39,7 +40,7 @@ export function PositionCard({
     : null
 
   const borderColor = triggered
-    ? (price !== null && entry !== null && price >= entry ? "var(--green)" : "var(--amber)")
+    ? (price !== null && entry !== null && price >= entry ? "rgba(0,230,118,0.4)" : "rgba(255,171,0,0.4)")
     : "var(--border)"
 
   const lbl: React.CSSProperties = {
@@ -53,12 +54,11 @@ export function PositionCard({
   return (
     <div style={{
       background: "var(--bg-surface)",
-      border: "1px solid var(--border)",
-      borderLeft: `3px solid ${borderColor}`,
+      border: `1px solid ${borderColor}`,
       borderRadius: 6,
       padding: "14px 16px",
       marginBottom: 10,
-      transition: "border-left-color 0.6s ease",
+      transition: "border-color 0.6s ease",
     }}>
 
       {/* Header */}
@@ -163,13 +163,11 @@ export function PositionCard({
         <div style={{
           marginTop: 12, padding: "8px 10px",
           background: "var(--bg-elevated)",
-          borderRadius: 4, borderLeft: "2px solid var(--cyan)",
+          borderRadius: 4,
         }}>
-          {(thesisLabel || thesisAction) && (
-            <div style={{ fontSize: 10, color: "var(--amber)", marginBottom: 4, fontWeight: 600 }}>
-              {[thesisLabel, thesisAction].filter(Boolean).join(" — ")}
-            </div>
-          )}
+          <div style={{ fontSize: 10, color: "var(--cyan)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: "JetBrains Mono, monospace" }}>
+            {["TONY", thesisLabel, thesisAction].filter(Boolean).join(" · ")}
+          </div>
           <p style={{
             margin: 0, fontSize: 11,
             color: "var(--text-secondary)",

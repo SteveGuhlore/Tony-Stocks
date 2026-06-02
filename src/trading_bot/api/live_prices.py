@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 from dataclasses import dataclass
@@ -63,7 +64,7 @@ class PriceCache:
             lambda: repo.manual_picks(),
         ):
             try:
-                df = fetcher()
+                df = await asyncio.to_thread(fetcher)
                 if not df.empty and "symbol" in df.columns:
                     symbols.update(str(s).upper() for s in df["symbol"].dropna())
             except Exception as exc:
@@ -136,7 +137,7 @@ class PriceCache:
     async def _detect_events(self, new_quotes: dict[str, LiveQuote]) -> None:
         try:
             repo = ScannerRepository(self._db_path)
-            df = repo.list_candidate_snapshots(limit=500)
+            df = await asyncio.to_thread(functools.partial(repo.list_candidate_snapshots, limit=500))
         except Exception as exc:
             log.debug("Event detection DB read failed: %s", exc)
             return
@@ -229,10 +230,13 @@ async def run_price_poll_loop(app) -> None:  # type: ignore[type-arg]
                 await app.state.price_cache.rebuild_symbol_set()
                 last_rebuild = now
 
-            if is_market_open(now):
+            if await asyncio.to_thread(is_market_open, now):
                 await app.state.price_cache.refresh()
                 await asyncio.sleep(15)
             else:
+                # Fetch last-known prices even when market is closed so the UI
+                # shows the previous close instead of dashes.
+                await app.state.price_cache.refresh()
                 await asyncio.sleep(60)
         except asyncio.CancelledError:
             raise

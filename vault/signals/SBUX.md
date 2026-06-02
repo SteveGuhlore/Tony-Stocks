@@ -16,6 +16,8 @@ days_active: 2
 |------|-------|-------|--------|
 | [[2026-05-21]] | Pullback Watch | 66.25 | still_open |
 | [[2026-05-22]] | Pullback Watch | 62.04 | insufficient_future_data |
+| [[2026-05-26]] | Pullback Watch | 62.04 | insufficient_future_data |
+| [[2026-05-29]] | Pullback Watch | 62.04 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

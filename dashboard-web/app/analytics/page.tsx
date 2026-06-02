@@ -20,8 +20,8 @@ export default function AnalyticsPage() {
       <KPIBar items={[
         { label: "Reviewed",    value: bt.snapshots_reviewed },
         { label: "Conclusive",  value: bt.conclusive_outcomes },
-        { label: "Win Rate",    value: wr !== null ? `${(wr * 100).toFixed(0)}%` : "—" },
-        { label: "Max DD",      value: bt.max_drawdown !== null ? `${(bt.max_drawdown * 100).toFixed(1)}%` : "—" },
+        { label: "Win Rate",    value: wr !== null ? `${(wr * 100).toFixed(0)}%` : "no data" },
+        { label: "Max DD",      value: bt.max_drawdown !== null ? `${(bt.max_drawdown * 100).toFixed(1)}%` : "no data" },
       ]} />
       <div className="card" style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: "0.08em", marginBottom: 8 }}>
@@ -38,12 +38,12 @@ export default function AnalyticsPage() {
             <tbody>
               {bt.by_setup_category.map((row: any, i: number) => (
                 <tr key={i}>
-                  <td style={{ color: "var(--text-primary)" }}>{String(row.setup_category ?? "—")}</td>
-                  <td>{row.total_snapshots ?? "—"}</td>
-                  <td>{row.entry_triggered_count ?? "—"}</td>
-                  <td>{row.target_hit_count ?? "—"}</td>
+                  <td style={{ color: "var(--text-primary)" }}>{String(row.setup_category ?? "n/a")}</td>
+                  <td>{row.total_snapshots ?? "·"}</td>
+                  <td>{row.entry_triggered_count ?? "·"}</td>
+                  <td>{row.target_hit_count ?? "·"}</td>
                   <td style={{ color: row.target_hit_rate > 0.5 ? "var(--green)" : "var(--text-secondary)" }}>
-                    {row.target_hit_rate != null ? `${(row.target_hit_rate * 100).toFixed(0)}%` : "—"}
+                    {row.target_hit_rate != null ? `${(row.target_hit_rate * 100).toFixed(0)}%` : "·"}
                   </td>
                 </tr>
               ))}
@@ -59,11 +59,11 @@ export default function AnalyticsPage() {
             <tbody>
               {bt.by_universe_role.map((row: any, i: number) => (
                 <tr key={i}>
-                  <td style={{ color: "var(--text-primary)" }}>{String(row.universe_role ?? "—")}</td>
-                  <td>{row.total_snapshots ?? "—"}</td>
-                  <td>{row.entry_triggered_count ?? "—"}</td>
+                  <td style={{ color: "var(--text-primary)" }}>{String(row.universe_role ?? "n/a")}</td>
+                  <td>{row.total_snapshots ?? "·"}</td>
+                  <td>{row.entry_triggered_count ?? "·"}</td>
                   <td style={{ color: row.target_hit_rate > 0.5 ? "var(--green)" : "var(--text-secondary)" }}>
-                    {row.target_hit_rate != null ? `${(row.target_hit_rate * 100).toFixed(0)}%` : "—"}
+                    {row.target_hit_rate != null ? `${(row.target_hit_rate * 100).toFixed(0)}%` : "·"}
                   </td>
                 </tr>
               ))}
@@ -74,7 +74,7 @@ export default function AnalyticsPage() {
       {vault?.available && (
         <div className="card">
           <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--cyan)", letterSpacing: "0.08em", marginBottom: 8 }}>
-            Vault Bridge — {vault.latest_date}
+            Vault Bridge · {vault.latest_date}
           </div>
           <pre style={{ fontSize: 10, color: "var(--text-secondary)", whiteSpace: "pre-wrap", maxHeight: 300, overflow: "auto", margin: 0 }}>
             {vault.content}

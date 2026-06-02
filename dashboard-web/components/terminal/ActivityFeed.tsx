@@ -20,13 +20,13 @@ export function ActivityFeed({ events }: { events: TonyEvent[] }) {
         <div key={e.id} style={{
           display: "flex", gap: 10, padding: "6px 10px",
           background: "var(--bg-elevated)", borderRadius: 3,
-          borderLeft: `2px solid ${SEV_COLOR[e.severity] ?? "var(--border)"}`,
         }}>
           <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--text-secondary)", whiteSpace: "nowrap", paddingTop: 1 }}>
             {relativeTime(e.created_at)}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "flex", alignItems: "center" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: SEV_COLOR[e.severity] ?? "var(--text-tertiary)", display: "inline-block", flexShrink: 0, marginRight: 6, alignSelf: "center" }} />
               {e.symbol && <span style={{ color: "var(--cyan)", marginRight: 6 }}>{e.symbol}</span>}
               {e.title}
             </div>

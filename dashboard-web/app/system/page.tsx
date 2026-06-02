@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { KPIBar } from "@/components/terminal/KPIBar"
 
-function Field({ label, value }: { label: string; value: string | number | null }) {
+function Field({ label, value, fallback = "·" }: { label: string; value: string | number | null; fallback?: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border)" }}>
       <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{label}</span>
-      <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}>{value ?? "—"}</span>
+      <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}>{value ?? fallback}</span>
     </div>
   )
 }
@@ -25,7 +25,7 @@ export default function SystemPage() {
         ⚙ System
       </h1>
       <KPIBar items={[
-        { label: "Watch Status",   value: watch.status ?? "—" },
+        { label: "Watch Status",   value: watch.status ?? "idle" },
         { label: "Open Snapshots", value: open_snapshots },
         { label: "Triggered",      value: triggered_snapshots },
         { label: "Tony Events",    value: tony_events_total },
@@ -34,13 +34,13 @@ export default function SystemPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div className="card">
           <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: "0.08em", marginBottom: 8 }}>Watch Run</div>
-          <Field label="Status"         value={watch.status} />
-          <Field label="Started"        value={watch.started_at?.slice(0, 19) ?? null} />
-          <Field label="Last Heartbeat" value={watch.last_heartbeat_at?.slice(0, 19) ?? null} />
+          <Field label="Status"         value={watch.status} fallback="idle" />
+          <Field label="Started"        value={watch.started_at?.slice(0, 19) ?? null} fallback="not started" />
+          <Field label="Last Heartbeat" value={watch.last_heartbeat_at?.slice(0, 19) ?? null} fallback="no heartbeat" />
           <Field label="Cycles"         value={watch.cycles_completed} />
           <Field label="API Requests"   value={watch.api_requests} />
           <Field label="Symbols Scored" value={watch.symbols_scanned} />
-          <Field label="Last Scan Age"  value={ageMin !== null ? `${ageMin}m` : null} />
+          <Field label="Last Scan Age"  value={ageMin !== null ? `${ageMin}m` : null} fallback="no scan yet" />
         </div>
         <div className="card">
           <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--text-secondary)", letterSpacing: "0.08em", marginBottom: 8 }}>Last Scan Run</div>

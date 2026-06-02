@@ -1,4 +1,5 @@
-﻿"use client"
+"use client"
+import { useEffect, useId, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { api } from "@/lib/api"
@@ -13,11 +14,56 @@ import { useLivePrices } from "@/lib/hooks/useLivePrices"
 export function SymbolDrawer() {
   const { symbolDrawer, closeSymbol } = useDrawer()
   const liveQuotes = useLivePrices()
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const headingId = useId()
+  const isOpen = !!symbolDrawer
+
   const { data } = useQuery({
     queryKey: ["symbolDetail", symbolDrawer],
     queryFn: () => api.symbolDetail(symbolDrawer!),
-    enabled: !!symbolDrawer,
+    enabled: isOpen,
   })
+
+  useEffect(() => {
+    if (!isOpen) return
+    const panel = panelRef.current
+    if (!panel) return
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        closeSymbol()
+        return
+      }
+      if (e.key !== "Tab") return
+      const focusables = panel.querySelectorAll<HTMLElement>(
+        '[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement as HTMLElement | null
+      if (e.shiftKey && (active === first || !panel.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    const rafId = requestAnimationFrame(() => closeButtonRef.current?.focus())
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown)
+      document.body.style.overflow = prevOverflow
+      cancelAnimationFrame(rafId)
+    }
+  }, [isOpen, closeSymbol])
 
   return (
     <AnimatePresence>
@@ -25,19 +71,31 @@ export function SymbolDrawer() {
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={closeSymbol}
+            tabIndex={-1}
+            aria-hidden="true"
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200 }} />
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={headingId}
+            className="drawer-panel"
             initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.2 }}
             style={{
-              position: "fixed", top: 0, right: 0, bottom: 0, width: 480,
+              position: "fixed", top: 0, right: 0, bottom: 0, width: "min(480px, 100vw)",
               background: "var(--bg-surface)", borderLeft: "1px solid var(--border)",
               zIndex: 201, overflowY: "auto", padding: 20,
             }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button onClick={closeSymbol} style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 16 }}>←</button>
-                <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 20, fontWeight: 700, color: "var(--cyan)" }}>{symbolDrawer}</span>
+                <button
+                  ref={closeButtonRef}
+                  onClick={closeSymbol}
+                  aria-label="Close symbol details"
+                  style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: 16 }}
+                >←</button>
+                <span id={headingId} style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 20, fontWeight: 700, color: "var(--cyan)" }}>{symbolDrawer}</span>
                 {data?.latest_snapshot && <StatusBadge status={data.latest_snapshot.status} />}
                 <LivePrice quote={liveQuotes[symbolDrawer!]} />
               </div>
@@ -82,11 +140,10 @@ export function SymbolDrawer() {
             )}
 
             {data?.latest_snapshot?.tony_hypothesis && (
-              <div className="card" style={{ marginBottom: 12, borderLeft: "3px solid var(--cyan)" }}>
-                <div style={{ fontSize: 10, textTransform: "uppercase", color: "var(--cyan)", letterSpacing: "0.08em", marginBottom: 6 }}>Tony Hypothesis</div>
-                {data.latest_snapshot.tony_priority_label && (
-                  <div style={{ fontSize: 11, color: "var(--amber)", marginBottom: 4 }}>{data.latest_snapshot.tony_priority_label} — {data.latest_snapshot.tony_recommended_action}</div>
-                )}
+              <div className="card" style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: "var(--cyan)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, fontFamily: "JetBrains Mono, monospace" }}>
+                  {["TONY", data.latest_snapshot.tony_priority_label, data.latest_snapshot.tony_recommended_action].filter(Boolean).join(" · ")}
+                </div>
                 {data.latest_snapshot.tony_setup_read && (
                   <p style={{ fontSize: 11, color: "var(--text-secondary)", margin: "0 0 6px" }}>{data.latest_snapshot.tony_setup_read}</p>
                 )}
@@ -116,4 +173,3 @@ export function SymbolDrawer() {
     </AnimatePresence>
   )
 }
-

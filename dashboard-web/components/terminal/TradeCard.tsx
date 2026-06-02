@@ -7,12 +7,12 @@ import { DistanceToBar } from "@/components/market/DistanceToBar"
 import { useLivePrices } from "@/lib/hooks/useLivePrices"
 import type { CandidateSnapshot, ManualPick } from "@/lib/types"
 
-const LEFT_BORDER: Record<string, string> = {
-  "open/watch": "var(--amber)", watching: "var(--amber)",
-  active: "var(--green)", triggered: "var(--green)",
-  pending: "var(--violet)",
-  target_hit: "var(--green)", target_before_stop: "var(--green)",
-  stop_hit: "var(--red)", stop_before_target: "var(--red)", failed_setup: "var(--red)",
+const STATE_BORDER: Record<string, string> = {
+  "open/watch": "rgba(255,171,0,0.4)", watching: "rgba(255,171,0,0.4)",
+  active: "rgba(0,230,118,0.4)", triggered: "rgba(0,230,118,0.4)",
+  pending: "rgba(124,77,255,0.4)",
+  target_hit: "rgba(0,230,118,0.4)", target_before_stop: "rgba(0,230,118,0.4)",
+  stop_hit: "rgba(255,61,61,0.4)", stop_before_target: "rgba(255,61,61,0.4)", failed_setup: "rgba(255,61,61,0.4)",
 }
 
 type CardData = Pick<CandidateSnapshot, "symbol"|"status"|"setup_category"|"entry"|"stop"|"target"|"risk_reward"|"total_score"> | ManualPick
@@ -21,7 +21,7 @@ export function TradeCard({ data }: { data: CardData }) {
   const liveQuotes = useLivePrices()
   const sym = data.symbol
   const status = data.status
-  const borderColor = LEFT_BORDER[status] ?? "var(--border)"
+  const borderColor = STATE_BORDER[status] ?? "var(--border)"
   const isSnap = "total_score" in data
   const entry = isSnap ? (data as CandidateSnapshot).entry : (data as ManualPick).planned_entry
   const stop  = isSnap ? (data as CandidateSnapshot).stop  : (data as ManualPick).planned_stop
@@ -32,8 +32,8 @@ export function TradeCard({ data }: { data: CardData }) {
 
   return (
     <div style={{
-      background: "var(--bg-surface)", border: "1px solid var(--border)",
-      borderLeft: `3px solid ${borderColor}`, borderRadius: 4,
+      background: "var(--bg-surface)", border: `1px solid ${borderColor}`,
+      borderRadius: 4,
       padding: "10px 14px", marginBottom: 8,
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>

@@ -8,7 +8,11 @@
   --border:       #1f1f1f;
   --border-focus: #333333;
   --text-primary:   #f0f0f0;
-  --text-secondary: #666666;
+  /* body-grade: #8a8a8a on #050505 = 6.13:1 (WCAG AA pass) */
+  --text-secondary: #8a8a8a;
+  /* decoration-only: used for 10px uppercase labels paired with a non-text cue */
+  --text-tertiary:  #5a5a5a;
+  /* decoration-only: borders/dividers, never used for text */
   --text-muted:     #2a2a2a;
   --green:   #00e676;
   --red:     #ff3d3d;
@@ -19,6 +23,13 @@
 }
 
 * { box-sizing: border-box; }
+
+*:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+*:focus:not(:focus-visible) { outline: none; }
 
 html, body {
   background: var(--bg-base);
@@ -38,11 +49,21 @@ html, body {
 .status-cyan   { color: var(--cyan); }
 .status-violet { color: var(--violet); }
 
+/* dense container: settings, tables, supplementary panels */
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 12px;
+}
+
+/* prominent container: trade/position surfaces */
+.card-prominent {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
 }
 
 .dense-table { width: 100%; border-collapse: collapse; }
@@ -69,3 +90,61 @@ html, body {
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-focus); border-radius: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* responsive ============================================== */
+
+/* mobile sidebar collapse: flatten vertical nav into a top bar */
+@media (max-width: 767px) {
+  .sidebar-nav {
+    width: 100% !important;
+    height: 44px !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    bottom: auto !important;
+    padding-top: 0 !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    align-items: center !important;
+    gap: 2px !important;
+    overflow-x: auto;
+  }
+  .sidebar-nav .sidebar-clock { display: none !important; }
+  main.app-main { margin-left: 0 !important; margin-top: 44px; padding-top: 12px; }
+}
+
+/* tablet-and-down drawer width */
+@media (max-width: 1023px) {
+  .drawer-panel { width: min(480px, 90vw) !important; }
+}
+@media (max-width: 640px) {
+  .drawer-panel { width: 100vw !important; }
+}
+
+/* touch-target sizing for any coarse pointer (tablet, touchscreen) */
+@media (pointer: coarse) {
+  .sidebar-nav a { min-height: 44px; min-width: 44px; }
+  .filter-chip   { min-height: 44px; min-width: 44px; }
+  .ticker-button {
+    min-height: 32px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+/* form stacking on phone */
+@media (max-width: 640px) {
+  .form-grid-4 { grid-template-columns: 1fr 1fr !important; }
+  .today-grid  { grid-template-columns: 1fr !important; row-gap: 16px; }
+}

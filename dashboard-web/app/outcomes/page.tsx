@@ -27,7 +27,7 @@ export default function OutcomesPage() {
         { label: "Closed",   value: kpis.closed },
         { label: "Targets",  value: kpis.target_hits },
         { label: "Stops",    value: kpis.stop_hits },
-        { label: "Win Rate", value: wr !== null ? `${(wr * 100).toFixed(0)}%` : "—" },
+        { label: "Win Rate", value: wr !== null ? `${(wr * 100).toFixed(0)}%` : "no data" },
       ]} />
       <FilterChips options={FILTERS} value={filter} onChange={setFilter} />
       {snapshots.length ? snapshots.map(s => <TradeCard key={s.id} data={s} />) : (

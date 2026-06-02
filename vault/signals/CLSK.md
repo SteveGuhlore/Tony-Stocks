@@ -16,6 +16,8 @@ days_active: 2
 |------|-------|-------|--------|
 | [[2026-05-18]] | Speculative Watchlist | 69.45 | target_hit |
 | [[2026-05-19]] | Speculative Watchlist | 80.3 | partial_move |
+| [[2026-05-26]] | Speculative Watchlist | 80.3 | partial_move |
+| [[2026-05-29]] | Speculative Watchlist | 80.3 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

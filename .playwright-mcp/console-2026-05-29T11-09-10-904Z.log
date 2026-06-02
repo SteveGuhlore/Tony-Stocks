@@ -1,0 +1,22 @@
+[     708ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[     887ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    3394ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[    3395ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/today:0
+[    3396ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[    3409ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[    6759ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[    6774ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/today:0
+[    6779ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[   10758ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[   18129ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[   24144ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[   24393ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[   25484ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[   31759ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[   39125ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[   39144ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/today:0
+[   42508ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/today:0
+[   42773ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[   46139ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/prices:0
+[   46404ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0
+[   53750ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://localhost:8001/api/events/stream:0

@@ -3,8 +3,7 @@ import "./globals.css"
 import { Providers } from "@/lib/providers"
 import { DrawerProvider } from "@/components/overlays/DrawerContext"
 import { Sidebar } from "@/components/layout/Sidebar"
-import { SymbolDrawer } from "@/components/overlays/SymbolDrawer"
-import { NotificationDrawer } from "@/components/overlays/NotificationDrawer"
+import { LazyDrawers } from "@/components/overlays/LazyDrawers"
 import { AlertManager } from "@/components/alerts/AlertManager"
 import { PermissionBanner } from "@/components/alerts/PermissionBanner"
 
@@ -18,11 +17,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <DrawerProvider>
             <PermissionBanner />
             <Sidebar />
-            <main style={{ flex: 1, marginLeft: 52, padding: "16px", overflowY: "auto", minHeight: "100vh" }}>
+            <main className="app-main" style={{ flex: 1, marginLeft: 52, padding: "16px", overflowY: "auto", minHeight: "100vh" }}>
               {children}
             </main>
-            <SymbolDrawer />
-            <NotificationDrawer />
+            <LazyDrawers />
             <AlertManager />
           </DrawerProvider>
         </Providers>

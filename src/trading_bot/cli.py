@@ -31,10 +31,6 @@ from trading_bot.analytics import (
 from trading_bot.backtester import Backtester
 from trading_bot.config import load_config
 from trading_bot.data import load_csv, load_yfinance, load_yfinance_range
-from trading_bot.dashboard.helpers import (
-    is_heartbeat_stale,
-    summarize_product_reconciliation,
-)
 from trading_bot.data.market_data import (
     AlpacaIEXProvider,
     ProviderHealth,
@@ -1176,7 +1172,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
         prev_run = repo.latest_watch_run()
         if prev_run and prev_run.get("status") == "running":
             prev_hb = prev_run.get("last_heartbeat_at")
-            if is_heartbeat_stale(prev_hb, stale_heartbeat_minutes):
+            if _is_heartbeat_stale(prev_hb, stale_heartbeat_minutes):
                 LOGGER.warning("Previous watch run (id=%s) heartbeat stale; marking as error.", prev_run["id"])
                 repo.update_watch_run_error(prev_run["id"], "Process exited without clean shutdown (stale heartbeat detected at restart)")
                 tony.record_watch_heartbeat_stale(prev_run["id"], prev_hb or "", stale_heartbeat_minutes)
@@ -1607,7 +1603,7 @@ def run_eod_report(args: argparse.Namespace) -> dict[str, Any]:
     }
     outcome_counts = _outcome_counts(prepared)
     warning_counts = _warning_counts(prepared)
-    reconciliation = summarize_product_reconciliation(prepared)
+    reconciliation = _summarize_product_reconciliation(prepared)
     memory_summary = build_daily_tony_memory_summary(
         prepared,
         report_date=report_date,
@@ -3186,7 +3182,7 @@ def _log_pre_screen_result(result: PreScreenResult) -> None:
         )
     else:
         print(
-            f"Pre-screener: {result.original_count} → {result.symbols.__len__()} symbols "
+            f"Pre-screener: {result.original_count} -> {result.symbols.__len__()} symbols "
             f"(screened_out={result.screened_out_count} no_cache_data={result.no_cache_data_count})"
         )
         if result.screened_out_count > 0:
@@ -3574,6 +3570,92 @@ def _warning_counts(prepared: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(
         [{"warning_type": key, "count": value} for key, value in counts.most_common()]
     )
+
+
+def _is_heartbeat_stale(
+    last_heartbeat_at: str | None,
+    stale_minutes: int = 10,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    if not last_heartbeat_at:
+        return False
+    try:
+        ts = datetime.fromisoformat(str(last_heartbeat_at).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        ref = now if now is not None else datetime.now(timezone.utc)
+        return (ref - ts).total_seconds() / 60 > stale_minutes
+    except Exception:
+        return False
+
+
+_TERMINAL_OUTCOME_LABELS = {"target_hit", "stop_hit", "partial_move", "failed_setup", "expired_no_trigger"}
+
+
+def _summarize_product_reconciliation(snapshots: pd.DataFrame) -> dict[str, int]:
+    """Lightweight raw-vs-product reconciliation used by EOD reporting.
+
+    The Streamlit-era helpers that did per-row hidden/incomplete accounting were
+    removed with the dashboard. This version returns the same 15-key dict shape
+    using only columns directly available on the prepared DataFrame, so callers
+    and markdown output keep working unchanged.
+    """
+    empty = {
+        "raw_snapshot_rows": 0,
+        "raw_triggered_entry_rows": 0,
+        "product_eligible_rows": 0,
+        "product_visible_symbols": 0,
+        "deduped_active_positions": 0,
+        "deduped_waiting_picks": 0,
+        "deduped_closed_results": 0,
+        "target_hits": 0,
+        "stop_hits": 0,
+        "partial_moves": 0,
+        "pending_triggers": 0,
+        "expired_no_trigger": 0,
+        "insufficient_data": 0,
+        "incomplete_rows_hidden_from_product_views": 0,
+        "history_rows_hidden_from_product_views": 0,
+    }
+    if snapshots is None or snapshots.empty:
+        return empty
+
+    df = snapshots
+    out = dict(empty)
+    out["raw_snapshot_rows"] = int(len(df))
+    if "entry_triggered" in df.columns:
+        out["raw_triggered_entry_rows"] = int(
+            df["entry_triggered"].fillna(0).astype(int).sum()
+        )
+    out["product_eligible_rows"] = out["raw_snapshot_rows"]
+
+    symbol_col = "symbol" if "symbol" in df.columns else None
+    if symbol_col:
+        out["product_visible_symbols"] = int(df[symbol_col].dropna().nunique())
+
+    if "tracking_status" in df.columns and symbol_col:
+        active_mask = df["tracking_status"].astype(str).str.lower() == "active"
+        out["deduped_active_positions"] = int(df.loc[active_mask, symbol_col].dropna().nunique())
+
+    if "entry_status" in df.columns:
+        pending_mask = df["entry_status"].astype(str).str.lower() == "pending"
+        out["pending_triggers"] = int(pending_mask.sum())
+        if symbol_col:
+            out["deduped_waiting_picks"] = int(df.loc[pending_mask, symbol_col].dropna().nunique())
+
+    if "outcome_label" in df.columns:
+        labels = df["outcome_label"].astype(str).str.lower()
+        out["target_hits"] = int((labels == "target_hit").sum())
+        out["stop_hits"] = int((labels == "stop_hit").sum())
+        out["partial_moves"] = int((labels == "partial_move").sum())
+        out["expired_no_trigger"] = int((labels == "expired_no_trigger").sum())
+        out["insufficient_data"] = int((labels == "insufficient_future_data").sum())
+        if symbol_col:
+            closed_mask = labels.isin(_TERMINAL_OUTCOME_LABELS)
+            out["deduped_closed_results"] = int(df.loc[closed_mask, symbol_col].dropna().nunique())
+
+    return out
 
 
 def _outcome_counts(prepared: pd.DataFrame) -> pd.DataFrame:
