@@ -3,7 +3,7 @@ ticker: CRM
 tags: [signal]
 status: insufficient_future_data
 first_seen: 2026-05-18
-days_active: 2
+days_active: 3
 ---
 
 # CRM
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-22]] | Momentum Continuation | 62.07 | insufficient_future_data |
 | [[2026-05-26]] | Momentum Continuation | 62.07 | insufficient_future_data |
 | [[2026-05-29]] | Momentum Continuation | 62.07 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 86.88 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

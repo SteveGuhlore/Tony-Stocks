@@ -1,23 +1,20 @@
 ---
-ticker: VRTX
+ticker: DHR
 tags: [signal]
-status: target_hit
-first_seen: 2026-05-18
+status: insufficient_future_data
+first_seen: 2026-06-02
 days_active: 1
 ---
 
-# VRTX
+# DHR
 
-**Status:** target_hit
+**Status:** insufficient_future_data
 **Days Active:** 1
 
 ## Signal History
 | Date | Setup | Score | Status |
 |------|-------|-------|--------|
-| [[2026-05-18]] | Breakout Watch | 97.61 | target_hit |
-| [[2026-05-26]] | Breakout Watch | 97.61 | target_hit |
-| [[2026-05-29]] | Breakout Watch | 97.61 | target_hit |
-| [[2026-06-02]] | Breakout Watch | 97.61 | target_hit |
+| [[2026-06-02]] | Momentum Continuation | 70.24 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

@@ -1,9 +1,9 @@
 ---
 ticker: AVGO
 tags: [signal]
-status: partial_move
+status: insufficient_future_data
 first_seen: 2026-05-18
-days_active: 2
+days_active: 3
 ---
 
 # AVGO
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-19]] | Breakout Watch | 69.71 | partial_move |
 | [[2026-05-26]] | Breakout Watch | 69.71 | partial_move |
 | [[2026-05-29]] | Breakout Watch | 69.71 | partial_move |
+| [[2026-06-02]] | Breakout Watch | 97.53 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

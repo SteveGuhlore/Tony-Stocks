@@ -1,7 +1,7 @@
 ---
 ticker: NOW
 tags: [signal]
-status: insufficient_future_data
+status: target_hit
 first_seen: 2026-05-18
 days_active: 2
 ---
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-21]] | Breakout Watch | 76.32 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 76.32 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 76.32 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 76.32 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

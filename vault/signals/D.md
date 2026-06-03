@@ -3,7 +3,7 @@ ticker: D
 tags: [signal]
 status: insufficient_future_data
 first_seen: 2026-05-21
-days_active: 2
+days_active: 3
 ---
 
 # D
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-22]] | Breakout Watch | 85.24 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 85.24 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 85.24 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 90.35 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

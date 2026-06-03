@@ -1,7 +1,7 @@
 ---
 ticker: VZ
 tags: [signal]
-status: insufficient_future_data
+status: partial_move
 first_seen: 2026-05-21
 days_active: 2
 ---
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-22]] | Breakout Watch | 74.97 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 74.97 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 74.97 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 74.97 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

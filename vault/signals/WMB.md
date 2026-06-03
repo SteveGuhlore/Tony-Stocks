@@ -1,7 +1,7 @@
 ---
 ticker: WMB
 tags: [signal]
-status: insufficient_future_data
+status: entry_not_triggered
 first_seen: 2026-05-21
 days_active: 2
 ---
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-22]] | Breakout Watch | 83.89 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 83.89 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 83.89 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 83.89 | entry_not_triggered |
 
 ## Entry Plan
 *Populated when entry triggered.*

@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-19]] | Momentum Continuation | 67.41 | target_hit |
 | [[2026-05-26]] | Momentum Continuation | 67.41 | target_hit |
 | [[2026-05-29]] | Momentum Continuation | 67.41 | target_hit |
+| [[2026-06-02]] | Momentum Continuation | 67.41 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

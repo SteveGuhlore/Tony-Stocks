@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-18]] | Pullback Watch | 68.99 | entry_not_triggered |
 | [[2026-05-26]] | Pullback Watch | 68.99 | entry_not_triggered |
 | [[2026-05-29]] | Pullback Watch | 68.99 | entry_not_triggered |
+| [[2026-06-02]] | Pullback Watch | 68.99 | entry_not_triggered |
 
 ## Entry Plan
 *Populated when entry triggered.*

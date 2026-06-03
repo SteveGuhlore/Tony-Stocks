@@ -1,7 +1,7 @@
 ---
 ticker: AMD
 tags: [signal]
-status: partial_move
+status: target_hit
 first_seen: 2026-05-18
 days_active: 2
 ---
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-19]] | Pullback Watch | 82.19 | partial_move |
 | [[2026-05-26]] | Pullback Watch | 82.19 | partial_move |
 | [[2026-05-29]] | Pullback Watch | 82.19 | partial_move |
+| [[2026-06-02]] | Pullback Watch | 82.19 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

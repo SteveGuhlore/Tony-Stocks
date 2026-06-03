@@ -1,7 +1,7 @@
 ---
 ticker: U
 tags: [signal]
-status: entry_not_triggered
+status: partial_move
 first_seen: 2026-05-17
 days_active: 3
 ---
@@ -19,6 +19,7 @@ days_active: 3
 | [[2026-05-19]] | Speculative Watchlist | 74.26 | entry_not_triggered |
 | [[2026-05-26]] | Speculative Watchlist | 74.26 | entry_not_triggered |
 | [[2026-05-29]] | Speculative Watchlist | 74.26 | entry_not_triggered |
+| [[2026-06-02]] | Speculative Watchlist | 74.26 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

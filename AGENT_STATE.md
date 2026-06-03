@@ -79,14 +79,22 @@ contract). Until then the CC stays in `awaiting_outcomes` cleanly.
 Suite **766 passed**. Paper trading OFF by default (`paper_trading.enabled: false`).
 
 ### Remaining for the cross-project loop test (bot side)
-- **CC verdicts reader** — bot must read `reports/tony_stocks_verdicts.json` (CC writes) and feed
-  close/sell verdicts into `run_paper_cycle(cc_exits=...)`. The engine hook exists; the feed is the
-  gap. **(Building now.)**
-- **Verify the bot's Alpaca paper account** can place trades and is a SEPARATE account from the CC's
-  Tony account (never shared keys). Use `ALPACA_PAPER_API_KEY`/`ALPACA_PAPER_SECRET_KEY` for a
-  dedicated bot account if `ALPACA_API_KEY` is shared with the CC.
+- **CC verdicts reader** ✅ DONE — bot reads `reports/tony_stocks_verdicts.json` via
+  `load_cc_verdicts`/`cc_exit_symbols`. BUT execution is now **PURE SEPARATION**
+  (`close_on_command_center_exit: false`): the bot does NOT act on Tony's verdicts. They will become a
+  teaching/divergence MEMORY layer (spec `docs/superpowers/specs/2026-06-03-tony-teaching-divergence-design.md`).
+- **Alpaca paper account** ✅ verified — bot account `PA3P0RN75VL1` (label "Trading Bot"), $100k,
+  SEPARATE from the CC's Tony account. Both buy + close flows exercised end-to-end, then all test
+  artifacts wiped (orders cancelled, ledger cleared). `paper_trading.enabled: true`.
+- CLIs: `paper-status`, `paper-flatten` (kill switch), `paper-check [--test-order SYM]`. Kill file:
+  `data/STOP_PAPER_TRADING`. Bot also reads CC verdicts but only records (pure separation).
 - **Dashboard visual** — Board real-P/L cell + StatusBar account chip consuming `/api/paper/positions`
   (API ready; small Next.js follow-up).
+
+### At the open (operator, 2026-06-03)
+Confirm the CC runner is up (`http://127.0.0.1:8765`); let the CC's 9:25 ET purge clear last night's
+TEST bridges/verdicts; then `python -m trading_bot.cli watch --config config/default_config.yaml`
+during market hours. The real scan exercises the full live loop on both (separate) paper books.
 
 ### Next initiative: Research Funnel v2
 Spec: `docs/superpowers/specs/2026-06-03-research-funnel-design.md` — staged funnel (FMP screener +

@@ -1,9 +1,9 @@
 ---
 ticker: S
 tags: [signal]
-status: entry_not_triggered
+status: insufficient_future_data
 first_seen: 2026-05-18
-days_active: 1
+days_active: 2
 ---
 
 # S
@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-18]] | Breakout Watch | 87.08 | entry_not_triggered |
 | [[2026-05-26]] | Breakout Watch | 87.08 | entry_not_triggered |
 | [[2026-05-29]] | Breakout Watch | 87.08 | entry_not_triggered |
+| [[2026-06-02]] | Pullback Watch | 76.97 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

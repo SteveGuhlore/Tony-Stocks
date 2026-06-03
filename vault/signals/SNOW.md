@@ -1,7 +1,7 @@
 ---
 ticker: SNOW
 tags: [signal]
-status: partial_move
+status: target_hit
 first_seen: 2026-05-18
 days_active: 1
 ---
@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-18]] | Momentum Continuation | 67.98 | partial_move |
 | [[2026-05-26]] | Momentum Continuation | 67.98 | partial_move |
 | [[2026-05-29]] | Momentum Continuation | 67.98 | partial_move |
+| [[2026-06-02]] | Momentum Continuation | 67.98 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

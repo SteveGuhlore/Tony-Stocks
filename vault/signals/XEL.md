@@ -1,7 +1,7 @@
 ---
 ticker: XEL
 tags: [signal]
-status: insufficient_future_data
+status: stop_hit
 first_seen: 2026-05-22
 days_active: 1
 ---
@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-22]] | Breakout Watch | 85.62 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 85.62 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 85.62 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 85.62 | stop_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

@@ -1,7 +1,7 @@
 ---
 ticker: RUN
 tags: [signal]
-status: insufficient_future_data
+status: partial_move
 first_seen: 2026-05-18
 days_active: 5
 ---
@@ -21,6 +21,7 @@ days_active: 5
 | [[2026-05-22]] | Speculative Watchlist | 72.82 | insufficient_future_data |
 | [[2026-05-26]] | Speculative Watchlist | 72.82 | insufficient_future_data |
 | [[2026-05-29]] | Speculative Watchlist | 72.82 | insufficient_future_data |
+| [[2026-06-02]] | Speculative Watchlist | 72.82 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

@@ -141,7 +141,7 @@ pre_screener:
 
 watch_universe_rotation:
   enabled: true
-  max_symbols_per_cycle: 175
+  max_symbols_per_cycle: 350
   core_symbols:
     - SPY
     - QQQ

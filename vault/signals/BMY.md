@@ -1,7 +1,7 @@
 ---
 ticker: BMY
 tags: [signal]
-status: insufficient_future_data
+status: stop_hit
 first_seen: 2026-05-21
 days_active: 2
 ---
@@ -18,6 +18,7 @@ days_active: 2
 | [[2026-05-22]] | Breakout Watch | 75.12 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 75.12 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 75.12 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 75.12 | stop_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

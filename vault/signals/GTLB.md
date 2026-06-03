@@ -1,7 +1,7 @@
 ---
 ticker: GTLB
 tags: [signal]
-status: insufficient_future_data
+status: target_hit
 first_seen: 2026-05-17
 days_active: 5
 ---
@@ -21,6 +21,7 @@ days_active: 5
 | [[2026-05-21]] | Breakout Watch | 75.01 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 75.01 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 75.01 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 75.01 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

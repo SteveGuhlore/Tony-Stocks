@@ -1,9 +1,9 @@
 ---
 ticker: FCX
 tags: [signal]
-status: partial_move
+status: insufficient_future_data
 first_seen: 2026-05-18
-days_active: 1
+days_active: 2
 ---
 
 # FCX
@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-18]] | Pullback Watch | 76.46 | partial_move |
 | [[2026-05-26]] | Pullback Watch | 76.46 | partial_move |
 | [[2026-05-29]] | Pullback Watch | 76.46 | partial_move |
+| [[2026-06-02]] | Breakout Watch | 85.38 | insufficient_future_data |
 
 ## Entry Plan
 *Populated when entry triggered.*

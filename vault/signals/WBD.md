@@ -1,7 +1,7 @@
 ---
 ticker: WBD
 tags: [signal]
-status: entry_not_triggered
+status: still_open
 first_seen: 2026-05-21
 days_active: 1
 ---
@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-21]] | Breakout Watch | 69.41 | entry_not_triggered |
 | [[2026-05-26]] | Breakout Watch | 69.41 | entry_not_triggered |
 | [[2026-05-29]] | Breakout Watch | 69.41 | entry_not_triggered |
+| [[2026-06-02]] | Breakout Watch | 69.41 | still_open |
 
 ## Entry Plan
 *Populated when entry triggered.*

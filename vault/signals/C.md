@@ -1,7 +1,7 @@
 ---
 ticker: C
 tags: [signal]
-status: insufficient_future_data
+status: partial_move
 first_seen: 2026-05-22
 days_active: 1
 ---
@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-22]] | Breakout Watch | 64.23 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 64.23 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 64.23 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 64.23 | partial_move |
 
 ## Entry Plan
 *Populated when entry triggered.*

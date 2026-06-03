@@ -1,7 +1,7 @@
 ---
 ticker: ZETA
 tags: [signal]
-status: insufficient_future_data
+status: target_hit
 first_seen: 2026-05-18
 days_active: 5
 ---
@@ -21,6 +21,7 @@ days_active: 5
 | [[2026-05-22]] | Breakout Watch | 88.75 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 88.75 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 88.75 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 88.75 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

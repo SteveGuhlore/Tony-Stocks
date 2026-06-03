@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-18]] | Breakout Watch | 78.25 | target_hit |
 | [[2026-05-26]] | Breakout Watch | 78.25 | target_hit |
 | [[2026-05-29]] | Breakout Watch | 78.25 | target_hit |
+| [[2026-06-02]] | Breakout Watch | 78.25 | target_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*

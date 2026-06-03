@@ -17,6 +17,7 @@ days_active: 1
 | [[2026-05-18]] | Speculative Watchlist | 91.9 | entry_not_triggered |
 | [[2026-05-26]] | Speculative Watchlist | 91.9 | entry_not_triggered |
 | [[2026-05-29]] | Speculative Watchlist | 91.9 | entry_not_triggered |
+| [[2026-06-02]] | Speculative Watchlist | 91.9 | entry_not_triggered |
 
 ## Entry Plan
 *Populated when entry triggered.*

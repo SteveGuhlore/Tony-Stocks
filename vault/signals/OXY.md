@@ -1,7 +1,7 @@
 ---
 ticker: OXY
 tags: [signal]
-status: insufficient_future_data
+status: stop_hit
 first_seen: 2026-05-18
 days_active: 5
 ---
@@ -21,6 +21,7 @@ days_active: 5
 | [[2026-05-22]] | Breakout Watch | 73.32 | insufficient_future_data |
 | [[2026-05-26]] | Breakout Watch | 73.32 | insufficient_future_data |
 | [[2026-05-29]] | Breakout Watch | 73.32 | insufficient_future_data |
+| [[2026-06-02]] | Breakout Watch | 73.32 | stop_hit |
 
 ## Entry Plan
 *Populated when entry triggered.*
