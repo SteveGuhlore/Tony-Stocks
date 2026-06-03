@@ -2,23 +2,23 @@
 import "./globals.css"
 import { Providers } from "@/lib/providers"
 import { DrawerProvider } from "@/components/overlays/DrawerContext"
-import { Sidebar } from "@/components/layout/Sidebar"
+import { StatusBar } from "@/components/layout/StatusBar"
 import { LazyDrawers } from "@/components/overlays/LazyDrawers"
 import { AlertManager } from "@/components/alerts/AlertManager"
 import { PermissionBanner } from "@/components/alerts/PermissionBanner"
 
-export const metadata: Metadata = { title: "Trading Bot", description: "Financial terminal dashboard" }
+export const metadata: Metadata = { title: "Tony", description: "Tony's trading cockpit" }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ display: "flex", minHeight: "100vh", background: "var(--bg-base)" }}>
+      <body style={{ background: "var(--bg-base)", minHeight: "100vh" }}>
         <Providers>
           <DrawerProvider>
             <PermissionBanner />
-            <Sidebar />
-            <main className="app-main" style={{ flex: 1, marginLeft: 52, padding: "16px", overflowY: "auto", minHeight: "100vh" }}>
-              {children}
+            <StatusBar />
+            <main className="app-main" style={{ paddingTop: 48, minHeight: "100vh" }}>
+              <div style={{ padding: 16 }}>{children}</div>
             </main>
             <LazyDrawers />
             <AlertManager />

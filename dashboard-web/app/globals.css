@@ -2,23 +2,24 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base:      #050505;
-  --bg-surface:   #0f0f0f;
-  --bg-elevated:  #161616;
-  --border:       #1f1f1f;
-  --border-focus: #333333;
-  --text-primary:   #f0f0f0;
-  /* body-grade: #8a8a8a on #050505 = 6.13:1 (WCAG AA pass) */
-  --text-secondary: #8a8a8a;
-  /* decoration-only: used for 10px uppercase labels paired with a non-text cue */
-  --text-tertiary:  #5a5a5a;
-  /* decoration-only: borders/dividers, never used for text */
-  --text-muted:     #2a2a2a;
-  --green:   #00e676;
-  --red:     #ff3d3d;
-  --amber:   #ffab00;
-  --blue:    #448aff;
-  --cyan:    #00e5ff;
+  --bg-base:      #0a0c10;
+  --bg-surface:   #0c0f14;
+  --bg-elevated:  #0e1218;
+  --border:       #1a1f27;
+  --border-soft:  #14181f;
+  --border-focus: #2a3340;
+  --text-primary:   #e8ebf0;
+  --text-secondary: #9aa3b2;
+  --text-tertiary:  #5f6776;
+  --text-muted:     #2a313c;
+  --green:   #36d399;
+  --red:     #ff6363;
+  --amber:   #e0a64d;
+  --brass:   #c7ad6a;
+  --accent:  #5b9dff; /* Tony / azure */
+  --azure:   #5b9dff; /* alias of --accent; matches the "azure" Tone in lib/signal.ts */
+  --cyan:    #5b9dff; /* legacy alias → accent (kept so old pages still compile) */
+  --blue:    #5b9dff;
   --violet:  #7c4dff;
 }
 
@@ -48,6 +49,14 @@ html, body {
 .status-blue   { color: var(--blue); }
 .status-cyan   { color: var(--cyan); }
 .status-violet { color: var(--violet); }
+/* Tone utilities matching lib/signal.ts Tone values (azure/brass/muted) */
+.status-azure  { color: var(--azure); }
+.status-brass  { color: var(--brass); }
+.status-muted  { color: var(--text-tertiary); }
+
+.board-row { transition: background 0.12s; }
+.board-row:hover { background: var(--bg-elevated); }
+.board-row:focus-visible { background: var(--bg-elevated); }
 
 /* dense container: settings, tables, supplementary panels */
 .card {
@@ -102,25 +111,10 @@ html, body {
 
 /* responsive ============================================== */
 
-/* mobile sidebar collapse: flatten vertical nav into a top bar */
-@media (max-width: 767px) {
-  .sidebar-nav {
-    width: 100% !important;
-    height: 44px !important;
-    flex-direction: row !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--border) !important;
-    bottom: auto !important;
-    padding-top: 0 !important;
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-    align-items: center !important;
-    gap: 2px !important;
-    overflow-x: auto;
-  }
-  .sidebar-nav .sidebar-clock { display: none !important; }
-  main.app-main { margin-left: 0 !important; margin-top: 44px; padding-top: 12px; }
-}
+/* The dense Board keeps its columns and scrolls horizontally on narrow screens
+   rather than crushing — preserves the "scannable tape" intent on tablet/phone. */
+.board-scroll { overflow-x: auto; }
+.board-scroll > div { min-width: 720px; }
 
 /* tablet-and-down drawer width */
 @media (max-width: 1023px) {

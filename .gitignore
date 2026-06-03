@@ -46,3 +46,6 @@ agent_scratch/
 *_3d.csv
 *.tmp.csv
 
+
+# Superpowers brainstorm scratch
+.superpowers/
