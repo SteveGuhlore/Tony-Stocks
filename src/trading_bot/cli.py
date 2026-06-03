@@ -1267,6 +1267,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     _waiting_logged = False
     bridge_emitted_slots: set[str] = set()
     bridge_date: str | None = None
+    daily_anchor_date: str | None = None
     paper_broker, paper_cfg = _build_paper_broker(settings)
     try:
         while max_cycles is None or cycles_completed < max_cycles:
@@ -1346,11 +1347,25 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
 
             update_summary: dict[str, Any] | None = None
             if run_updates:
-                update_summary = run_update_snapshots(SimpleNamespace(config=args.config, limit=500))
+                # Per-cycle refresh is scoped to recent snapshots so a cycle finishes well
+                # inside the interval (the full 500-row resolution runs at EOD review).
+                update_summary = run_update_snapshots(SimpleNamespace(config=args.config, limit=120))
 
             # Paper trading: submit risk-sized brackets for today's triggers, reconcile
             # fills -> outcomes. No-op unless paper_trading.enabled. Never breaks the loop.
             _run_paper_trading_cycle(repo, paper_broker, paper_cfg, cycle_started, stop_file.parent)
+
+            # Daily deep-dive anchor: once per ET day after the first scan, so the CC has a
+            # full-analysis baseline (a daily YYYY-MM-DD.md) before the intraday light updates.
+            et_today = cycle_started.strftime("%Y-%m-%d")
+            if daily_anchor_date != et_today and scan_summary.get("scan_run_id"):
+                try:
+                    _anchor_eod = run_eod_report(SimpleNamespace(config=args.config, date=et_today))
+                    _run_vault_export(et_today, _anchor_eod, args.config, slot=None)
+                    daily_anchor_date = et_today
+                    print(f"Daily bridge anchor dropped for {et_today}")
+                except Exception as exc:  # never break the loop on anchor failure
+                    LOGGER.warning("Daily anchor emit failed: %s", exc)
 
             cycles_completed += 1
 
@@ -3331,22 +3346,59 @@ def _run_vault_export(
     df = repo.list_snapshots_for_analytics(days=60)
 
     snapshots: list[dict[str, Any]] = []
+    try:
+        open_pos_syms = {str(p["symbol"]).upper() for p in repo.list_open_paper_positions()}
+    except Exception:
+        open_pos_syms = set()
+    active_count = len(open_pos_syms)  # the live paper book = carry-over positions
     if not df.empty:
         df["_date"] = pd.to_datetime(df["snapshot_time"], utc=True).dt.date
         days_active_map: dict[str, int] = df.groupby("symbol")["_date"].nunique().to_dict()
         latest = df.sort_values("snapshot_time", ascending=False).drop_duplicates(subset=["symbol"])
+        try:
+            anchor = pd.to_datetime(date).date()
+        except Exception:
+            anchor = None
+
+        def _live(value: Any) -> Any:
+            return None if value is None or (isinstance(value, float) and pd.isna(value)) else value
+
         for _, row in latest.iterrows():
             sym = str(row.get("symbol", ""))
+            row_date = row.get("_date")
+            # Only hand the CC symbols seen in the last few days, so prices/levels match
+            # the live feed — not 60-day-stale rows that trip Tony's data-integrity check.
+            if anchor is not None and row_date is not None and (anchor - row_date).days > 3:
+                continue
+            entry_status = str(row.get("entry_status") or "").lower()
+            triggered = (
+                sym.upper() in open_pos_syms
+                or entry_status == "triggered"
+                or bool(_live(row.get("entry_triggered")))
+            )
+            # Live price first (intraday-refreshed); daily close only as a last resort.
+            latest_close = (
+                _live(row.get("current_price"))
+                or _live(row.get("intraday_close"))
+                or _live(row.get("close"))
+            )
             snapshots.append({
                 "symbol": sym,
                 "score": row.get("total_score"),
                 "setup_category": row.get("setup_category", ""),
-                "status": row.get("outcome_label", ""),
+                "status": "active" if triggered else (row.get("outcome_label") or ""),
                 "days_active": days_active_map.get(sym, 1),
-                "latest_close": row.get("close"),
+                "latest_close": latest_close,
                 "target_price": row.get("target"),
                 "stop_price": row.get("stop"),
             })
+
+    # Reflect the live book in the bridge's "Active carry-over" line.
+    _tos = eod_result.get("terminal_outcome_summary")
+    if isinstance(_tos, dict):
+        _tos["active_count"] = active_count
+    else:
+        eod_result["terminal_outcome_summary"] = {"active_count": active_count}
 
     files_written: list[str] = []
 

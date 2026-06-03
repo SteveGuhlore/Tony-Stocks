@@ -96,10 +96,19 @@ def write_bridge_export(
     suggestions = sr.get("rule_suggestions") or []
     snaps = snapshots or []
 
-    universe_size = sc.get("universe_size", 0)
-    scored_count = sc.get("scored_count", 0)
-    coverage_pct = sc.get("coverage_pct", 0.0)
-    cycles = sc.get("cycles_completed", 0)
+    # Read the real scan-coverage keys (with legacy fallbacks) — the builder emits
+    # configured_universe_size / symbols_scored / percent_universe_covered_today,
+    # not universe_size / scored_count, which previously made every bridge read 0/0.
+    universe_size = (
+        sc.get("universe_size") or sc.get("configured_universe_size")
+        or sc.get("symbols_selected_loaded") or 0
+    )
+    scored_count = (
+        sc.get("scored_count") or sc.get("symbols_scored")
+        or sc.get("unique_symbols_scored_today") or 0
+    )
+    coverage_pct = sc.get("coverage_pct") or sc.get("percent_universe_covered_today") or 0.0
+    cycles = sc.get("cycles_completed") or eod_result.get("cycles_completed") or 0
     strategy_version = svr.get("current_version") or "v1"
     active_count = tos.get("active_count", 0)
 
