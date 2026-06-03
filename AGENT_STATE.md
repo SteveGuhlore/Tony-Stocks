@@ -70,15 +70,33 @@ contract). Until then the CC stays in `awaiting_outcomes` cleanly.
    (fail-closed gates: enabled, kill switch, market open, dedup one-per-symbol, max_open_positions,
    max_daily_orders, plan validity, size>0; state via `PortfolioState`). 18 tests. Suite **727 passed**.
 
-### Next: paper-trading phases 3–6 (spec: docs/superpowers/specs/2026-06-02-paper-trading-design.md)
-3. **`AlpacaPaperBroker`** over `alpaca-py` (paper=True) + a `FakeBroker` for tests; integration test
-   gated behind keys. Use `assert_paper_base_url` at startup. Design the broker to take an account
-   identity (label + keys) for the future 2nd CC account.
-4. Storage: `paper_orders`/`paper_positions` tables + repo methods + fill journaling.
-5. Watch-loop wiring: call router on `entry_triggered`, submit, persist; reconcile each cycle →
-   outcomes. **Add the CC-verdict exit hook here** (close on sell/get-out). FakeBroker drives a full
-   trigger→fill→target/stop lifecycle test.
-6. API + dashboard: `/api/paper/positions` + account; Board real P/L + StatusBar account chip.
+### Paper trading phases 3–6 COMPLETE this session
+3. `AlpacaPaperBroker` over alpaca-py (paper=True) + FakeBroker (commit `0b389f1`).
+4. `paper_orders`/`paper_positions` tables + repo methods (commit `2a8fc34`).
+5. `paper_engine.run_paper_cycle` (reconcile → CC exits → open) + watch-loop wiring, no-op when
+   disabled, kill switch via `data/STOP_PAPER_TRADING` (commit `e3e57d1`).
+6. `GET /api/paper/positions` + `paper-status` / `paper-flatten` CLIs (commit `4478684`).
+Suite **766 passed**. Paper trading OFF by default (`paper_trading.enabled: false`).
+
+### Remaining for the cross-project loop test (bot side)
+- **CC verdicts reader** — bot must read `reports/tony_stocks_verdicts.json` (CC writes) and feed
+  close/sell verdicts into `run_paper_cycle(cc_exits=...)`. The engine hook exists; the feed is the
+  gap. **(Building now.)**
+- **Verify the bot's Alpaca paper account** can place trades and is a SEPARATE account from the CC's
+  Tony account (never shared keys). Use `ALPACA_PAPER_API_KEY`/`ALPACA_PAPER_SECRET_KEY` for a
+  dedicated bot account if `ALPACA_API_KEY` is shared with the CC.
+- **Dashboard visual** — Board real-P/L cell + StatusBar account chip consuming `/api/paper/positions`
+  (API ready; small Next.js follow-up).
+
+### Next initiative: Research Funnel v2
+Spec: `docs/superpowers/specs/2026-06-03-research-funnel-design.md` — staged funnel (FMP screener +
+earnings, Finnhub news-sentiment, Twelve Data breadth/fallback) feeding the existing scorer, evaluated
+against live paper outcomes. Default-off, TDD, staged universe growth.
+
+### Known bug (low priority)
+Scan-coverage aggregation buckets scan runs by **UTC** date, so scans after ~20:00 ET (past UTC
+midnight) show `Universe:0/Scored:0` for the ET report date. Harmless during market hours; fix = make
+the coverage/`today_events` filter ET-market-date aware.
 
 ### Pre-existing note
 `src/trading_bot/dashboard/` (Streamlit) is gone; the dashboard is Next.js (`dashboard-web/`) +
