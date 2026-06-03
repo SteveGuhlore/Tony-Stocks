@@ -17,6 +17,7 @@
   --amber:   #e0a64d;
   --brass:   #c7ad6a;
   --accent:  #5b9dff; /* Tony / azure */
+  --azure:   #5b9dff; /* alias of --accent; matches the "azure" Tone in lib/signal.ts */
   --cyan:    #5b9dff; /* legacy alias → accent (kept so old pages still compile) */
   --blue:    #5b9dff;
   --violet:  #7c4dff;
@@ -48,6 +49,10 @@ html, body {
 .status-blue   { color: var(--blue); }
 .status-cyan   { color: var(--cyan); }
 .status-violet { color: var(--violet); }
+/* Tone utilities matching lib/signal.ts Tone values (azure/brass/muted) */
+.status-azure  { color: var(--azure); }
+.status-brass  { color: var(--brass); }
+.status-muted  { color: var(--text-tertiary); }
 
 /* dense container: settings, tables, supplementary panels */
 .card {

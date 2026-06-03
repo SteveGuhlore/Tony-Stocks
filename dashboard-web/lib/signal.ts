@@ -1,4 +1,6 @@
 export type Tone = "green" | "red" | "amber" | "azure" | "brass" | "muted"
+// "armed" (near-entry) is reserved for Plan 2, derived from live price vs entry distance.
+// statusKind() below does NOT yet return it — it covers snapshot-only states.
 export type StatusKind = "triggered" | "armed" | "watching" | "closed"
 export type VerdictKind = "reaffirm" | "adjust" | "override" | "close"
 
