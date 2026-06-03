@@ -6,6 +6,12 @@ from trading_bot.execution.paper_config import (
     is_paper_base_url,
     load_paper_trading_config,
 )
+from trading_bot.execution.order_router import (
+    OrderDecision,
+    PortfolioState,
+    should_trade,
+    size_position,
+)
 
 __all__ = [
     "PaperBroker",
@@ -15,4 +21,8 @@ __all__ = [
     "assert_paper_base_url",
     "is_paper_base_url",
     "load_paper_trading_config",
+    "OrderDecision",
+    "PortfolioState",
+    "should_trade",
+    "size_position",
 ]
