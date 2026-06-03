@@ -207,14 +207,18 @@ vault:
 # A misconfigured-but-enabled block fails closed (treated as disabled). See
 # docs/superpowers/specs/2026-06-02-paper-trading-design.md.
 paper_trading:
-  enabled: false
+  enabled: true
   risk_per_trade_pct: 1.0          # % of paper equity risked per trade (entry->stop distance)
-  max_open_positions: 8
+  max_open_positions: 50
   max_notional_per_position: 5000
-  max_daily_orders: 20
+  max_daily_orders: 200
   bracket: true                    # entry + stop + target as one bracket
   time_in_force: day               # entry order expires end of day
   gate_on_command_center: false    # trade on Tony's trigger; do not wait for CC verdict
-  close_on_command_center_exit: true  # flatten a position if the CC verdict says sell/get-out
-  account_label: tony              # account identity (room for a future 2nd CC account)
+  close_on_command_center_exit: false  # PURE SEPARATION: bot trades its own picks/exits only.
+                                       # Tony's verdicts are NOT acted on the bot's book; they are
+                                       # recorded as a teaching/divergence memory layer (graded vs
+                                       # outcomes) so we can see who was right. See research-funnel/
+                                       # tony-teaching spec.
+  account_label: Trading Bot              # account identity (room for a future 2nd CC account)
   base_url: https://paper-api.alpaca.markets
