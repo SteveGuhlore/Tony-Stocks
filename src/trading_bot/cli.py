@@ -267,6 +267,10 @@ def build_parser() -> argparse.ArgumentParser:
     paper_flatten = subparsers.add_parser("paper-flatten", help="Kill switch: close ALL open paper positions.")
     paper_flatten.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
 
+    paper_check = subparsers.add_parser("paper-check", help="Verify the Alpaca paper account connects (optionally send a test trade).")
+    paper_check.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    paper_check.add_argument("--test-order", default=None, metavar="SYMBOL", help="Submit a 1-share test bracket for SYMBOL then flatten it.")
+
     return parser
 
 
@@ -1107,17 +1111,19 @@ def _run_paper_trading_cycle(repo: Any, broker: Any, cfg: Any, now_et: datetime,
     """Submit/reconcile paper trades for one watch cycle. No-op when disabled."""
     if broker is None or not getattr(cfg, "enabled", False):
         return
-    from trading_bot.execution import run_paper_cycle  # noqa: PLC0415
+    from trading_bot.execution import cc_exit_symbols, load_cc_verdicts, run_paper_cycle  # noqa: PLC0415
 
     try:
         day = now_et.strftime("%Y-%m-%d")
         kill_switch = (stop_file_dir / "STOP_PAPER_TRADING").exists()
         market_open = _is_within_regular_market_hours(now_et)
         picks = repo.triggerable_paper_picks(day=day)
+        # CC-verdict exit hook: flatten positions the Command Center says to close/sell.
+        cc_exits = cc_exit_symbols(load_cc_verdicts()) if cfg.close_on_command_center_exit else set()
         summary = run_paper_cycle(
             broker=broker, repo=repo, config=cfg, triggered_picks=picks,
             account_label=cfg.account_label, market_open=market_open, kill_switch=kill_switch,
-            cc_exits=set(), now_iso=utc_now_iso(), day=day,
+            cc_exits=cc_exits, now_iso=utc_now_iso(), day=day,
         )
         if summary["submitted"] or summary["reconciled"] or summary["cc_closed"]:
             print(
@@ -3200,6 +3206,52 @@ def run_paper_flatten(args: argparse.Namespace) -> dict[str, Any]:
     return {"flattened": flattened}
 
 
+def run_paper_check(args: argparse.Namespace) -> dict[str, Any]:
+    """Verify the bot's Alpaca PAPER account connects (and optionally can send a trade).
+
+    Read-only by default (account snapshot). With --test-order SYMBOL it submits a
+    1-share bracket then immediately flattens it, proving trade submission works.
+    """
+    from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_config  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    cfg = load_paper_trading_config(getattr(settings, "paper_trading", None))
+    print(f"Paper base URL: {cfg.base_url} | account label: '{cfg.account_label}'")
+    print("(uses ALPACA_PAPER_API_KEY/SECRET if set, else ALPACA_API_KEY/SECRET)")
+    try:
+        broker = build_alpaca_paper_broker(cfg)
+        account = broker.account()
+    except Exception as exc:
+        print(f"FAILED to connect to Alpaca paper account: {exc}")
+        return {"ok": False, "error": str(exc)}
+    print(
+        f"Account OK — equity ${account.equity:,.2f}, cash ${account.cash:,.2f}, "
+        f"buying power ${account.buying_power:,.2f}"
+    )
+    result: dict[str, Any] = {"ok": True, "equity": account.equity}
+
+    symbol = getattr(args, "test_order", None)
+    if symbol:
+        try:
+            df = load_yfinance(symbol)
+            close_col = "Close" if "Close" in df.columns else "close"
+            price = float(df[close_col].iloc[-1])
+            entry, stop, target = round(price, 2), round(price * 0.95, 2), round(price * 1.05, 2)
+            print(f"Submitting TEST bracket: 1 {symbol.upper()} ~{entry} (stop {stop} / target {target})")
+            order = broker.submit_bracket(
+                symbol=symbol, qty=1, entry=entry, stop=stop, target=target,
+                time_in_force=cfg.time_in_force,
+            )
+            print(f"  submitted: id={order.order_id} status={order.status}")
+            broker.close_position(symbol)
+            print("  test position flattened.")
+            result["test_order_id"] = order.order_id
+        except Exception as exc:
+            print(f"  TEST ORDER failed: {exc}")
+            result["test_order_error"] = str(exc)
+    return result
+
+
 def _emit_due_bridges(
     config_path: str,
     now_et: datetime,
@@ -3386,6 +3438,8 @@ def main() -> None:
         run_paper_status(args)
     elif args.command == "paper-flatten":
         run_paper_flatten(args)
+    elif args.command == "paper-check":
+        run_paper_check(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 
