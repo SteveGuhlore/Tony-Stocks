@@ -20,6 +20,7 @@ entry date (entry can trigger days after the pick first appears).
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 from datetime import datetime, timedelta
@@ -60,9 +61,13 @@ def _to_float(val: Any) -> float | None:
     if val is None:
         return None
     try:
-        return float(val)
+        result = float(val)
     except (TypeError, ValueError):
         return None
+    # NaN/inf are not valid JSON — emit null instead.
+    if math.isnan(result) or math.isinf(result):
+        return None
+    return result
 
 
 def _to_int(val: Any) -> int | None:

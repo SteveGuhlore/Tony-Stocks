@@ -554,6 +554,104 @@ def build_terminal_outcome_summary(rows: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def _iso_date(val: Any) -> str | None:
+    """Return the YYYY-MM-DD (UTC) date for a timestamp-like value, else None."""
+    if val is None:
+        return None
+    ts = pd.to_datetime(val, utc=True, errors="coerce")
+    if ts is None or pd.isna(ts):
+        return None
+    return ts.date().isoformat()
+
+
+def build_resolved_outcome_records(rows: pd.DataFrame) -> list[dict[str, Any]]:
+    """Assemble resolved tracked positions into per-episode outcome records.
+
+    Walks each symbol's snapshot history in time order. An *episode* runs from the
+    first appearance up to and including the first terminal row (target/stop/closed,
+    via tracked stop/target levels). Consecutive terminal echoes of the same
+    resolution are collapsed; a later re-pick of the same symbol forms a new episode
+    with its own ``pick_date``. Returns one raw record per resolved episode, shaped
+    to feed :func:`trading_bot.vault.outcomes_bridge.build_tony_outcomes`.
+
+    ``pick_date`` is the episode's first appearance (day-1) — the Command Center
+    join key. Research only: exit price/PL come from stored stop/target levels, not
+    actual fills. Picks that never entered (empty tracking_status) are non-terminal
+    and excluded. Pure: no I/O.
+    """
+    from trading_bot.snapshots.active_tracking import compute_terminal_outcome_fields  # noqa: PLC0415
+
+    if rows is None or rows.empty or "symbol" not in rows.columns:
+        return []
+
+    df = rows.copy()
+    df["_dt"] = pd.to_datetime(df["snapshot_time"], utc=True, errors="coerce")
+    df = df.sort_values("_dt", kind="stable")
+
+    records: list[dict[str, Any]] = []
+    for symbol, grp in df.groupby("symbol", sort=False):
+        ep_rows = grp.to_dict("records")
+        terminal_flags = [
+            compute_terminal_outcome_fields(r)["is_terminal_outcome"] for r in ep_rows
+        ]
+        n = len(ep_rows)
+        i = 0
+        while i < n:
+            j = i
+            while j < n and not terminal_flags[j]:
+                j += 1
+            if j >= n:
+                break  # remaining rows are still active — no resolved episode
+            episode = ep_rows[i : j + 1]
+            resolved = ep_rows[j]
+            fields = compute_terminal_outcome_fields(resolved)
+
+            entry = resolved.get("original_entry_price")
+            if entry is None or (isinstance(entry, float) and pd.isna(entry)):
+                entry = resolved.get("actual_entry_price")
+
+            days_held: int | None = None
+            tam = resolved.get("time_active_minutes")
+            if tam is not None and not (isinstance(tam, float) and pd.isna(tam)):
+                try:
+                    days_held = max(1, round(float(tam) / 1440.0))
+                except (TypeError, ValueError):
+                    days_held = None
+
+            records.append(
+                {
+                    "symbol": str(symbol),
+                    "pick_date": _iso_date(episode[0].get("snapshot_time")),
+                    "result": fields["terminal_exit_reason"],
+                    "outcome_label": resolved.get("outcome_label"),
+                    "tracking_status": resolved.get("tracking_status"),
+                    "entry": entry,
+                    "exit": fields["terminal_exit_price"],
+                    "return_pct": fields["terminal_research_pl_pct"],
+                    "entry_date": _iso_date(resolved.get("actual_entry_time")),
+                    "days_held": days_held,
+                    "days_active": len(
+                        {
+                            _iso_date(r.get("snapshot_time"))
+                            for r in episode
+                            if _iso_date(r.get("snapshot_time"))
+                        }
+                    ),
+                    "resolved_date": _iso_date(
+                        resolved.get("last_checked_at") or resolved.get("snapshot_time")
+                    ),
+                }
+            )
+
+            # Skip consecutive terminal echoes of the same resolution.
+            k = j + 1
+            while k < n and terminal_flags[k]:
+                k += 1
+            i = k
+
+    return records
+
+
 def _memory_triggered_mask(data: pd.DataFrame) -> pd.Series:
     entry_status = data["entry_status"].str.lower()
     outcome_label = data["outcome_label"].str.lower()

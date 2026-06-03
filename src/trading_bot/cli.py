@@ -20,6 +20,7 @@ from trading_bot.analytics import (
     OutcomeAnalytics,
     build_daily_tony_memory_summary,
     build_replay_summary,
+    build_resolved_outcome_records,
     build_rotation_diagnostics,
     build_signal_scorecard,
     build_strategy_version_report,
@@ -250,6 +251,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_vault.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     export_vault.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
+
+    emit_outcomes = subparsers.add_parser(
+        "emit-outcomes",
+        help="Write reports/tony_stocks_outcomes.json from resolved snapshot history. Research only.",
+    )
+    emit_outcomes.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    emit_outcomes.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
+    emit_outcomes.add_argument("--days", type=int, default=120, help="Lookback window (days) of snapshot history to scan.")
 
     return parser
 
@@ -3010,6 +3019,51 @@ def _snapshot_data_source_fields(provider_name: str, real_only: bool) -> dict[st
     }
 
 
+def _emit_tony_outcomes(
+    repo: "ScannerRepository",
+    eod_date: str,
+    *,
+    days: int = 120,
+) -> tuple[Path, int]:
+    """Assemble real resolved outcomes and write tony_stocks_outcomes.json.
+
+    Reads the real-only resolved snapshot history, builds per-episode outcome
+    records, and writes the Command Center outcomes file. Returns (path, count).
+    Research only: no scoring, trigger, or trading changes.
+    """
+    df = repo.list_snapshots_for_analytics(days=days)
+    if df is None or df.empty:
+        records: list[dict[str, Any]] = []
+    else:
+        prepared = OutcomeAnalytics(df, real_only=True).prepared()
+        raw_records = build_resolved_outcome_records(prepared)
+        records = build_tony_outcomes(raw_records, eod_date=eod_date)
+    path = write_tony_outcomes(records)
+    return path, len(records)
+
+
+def run_emit_outcomes(args: argparse.Namespace) -> dict[str, Any]:
+    """Standalone backfill: write tony_stocks_outcomes.json from the live DB.
+
+    Research only: reads resolved snapshot history, writes JSON for the Command
+    Center. No scoring, trigger, or trading changes.
+    """
+    report_date = getattr(args, "date", None) or new_york_market_date()
+    print(f"Emit Tony outcomes — {report_date} {MARKET_TIMEZONE_LABEL}")
+    print("Research only: reads resolved snapshots, writes tony_stocks_outcomes.json. No trading.")
+    try:
+        settings = load_scanner_settings(args.config)
+    except (FileNotFoundError, OSError) as exc:
+        print(f"Config not loadable: {exc}")
+        return {"skipped": True, "reason": str(exc)}
+    repo = ScannerRepository(settings.database_path)
+    days = int(getattr(args, "days", None) or 120)
+    path, count = _emit_tony_outcomes(repo, report_date, days=days)
+    print(f"Resolved outcomes emitted: {count}")
+    print(f"Outcomes file: {path}")
+    return {"outcomes_file": str(path), "count": count}
+
+
 def _run_vault_export(
     date: str,
     eod_result: dict[str, Any],
@@ -3067,11 +3121,10 @@ def _run_vault_export(
 
     if bridge_enabled:
         # Emit resolved outcomes so the Command Center can grade Tony's verdicts.
-        # Path defaults to reports/tony_stocks_outcomes.json (honors TONY_OUTCOMES_FILE)
-        # and is independent of command_center_dir.
-        outcome_records = eod_result.get("outcomes_since_last_brief") or []
-        built_outcomes = build_tony_outcomes(outcome_records, eod_date=date)
-        outcomes_path = write_tony_outcomes(built_outcomes)
+        # Sourced from the real-only resolved snapshot history; path defaults to
+        # reports/tony_stocks_outcomes.json (honors TONY_OUTCOMES_FILE) and is
+        # independent of command_center_dir.
+        outcomes_path, outcomes_count = _emit_tony_outcomes(repo, date)
         files_written.append(str(outcomes_path))
 
     return {
@@ -3138,6 +3191,8 @@ def main() -> None:
         run_provider_health(args)
     elif args.command == "export-to-vault":
         run_export_to_vault(args)
+    elif args.command == "emit-outcomes":
+        run_emit_outcomes(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 
