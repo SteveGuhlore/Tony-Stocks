@@ -54,9 +54,13 @@ export default function BoardPage() {
 
       {loading
         ? <p style={{ color: "var(--text-tertiary)", fontSize: 12, padding: 16 }}>Loading…</p>
-        : view === "watches"
-          ? <BoardTable snapshots={watches} />
-          : <UniverseTable rows={universeRows} />}
+        : (
+          <div className="board-scroll">
+            {view === "watches"
+              ? <BoardTable snapshots={watches} />
+              : <UniverseTable rows={universeRows} />}
+          </div>
+        )}
     </div>
   )
 }

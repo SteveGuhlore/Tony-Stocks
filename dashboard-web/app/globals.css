@@ -111,25 +111,10 @@ html, body {
 
 /* responsive ============================================== */
 
-/* mobile sidebar collapse: flatten vertical nav into a top bar */
-@media (max-width: 767px) {
-  .sidebar-nav {
-    width: 100% !important;
-    height: 44px !important;
-    flex-direction: row !important;
-    border-right: none !important;
-    border-bottom: 1px solid var(--border) !important;
-    bottom: auto !important;
-    padding-top: 0 !important;
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-    align-items: center !important;
-    gap: 2px !important;
-    overflow-x: auto;
-  }
-  .sidebar-nav .sidebar-clock { display: none !important; }
-  main.app-main { margin-left: 0 !important; margin-top: 44px; padding-top: 12px; }
-}
+/* The dense Board keeps its columns and scrolls horizontally on narrow screens
+   rather than crushing — preserves the "scannable tape" intent on tablet/phone. */
+.board-scroll { overflow-x: auto; }
+.board-scroll > div { min-width: 720px; }
 
 /* tablet-and-down drawer width */
 @media (max-width: 1023px) {
