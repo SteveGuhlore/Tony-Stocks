@@ -59,6 +59,8 @@ class Broker(Protocol):
 
     def close_position(self, symbol: str, *, price: float | None = None) -> BracketOrderResult | None: ...
 
+    def closed_positions(self) -> list[dict[str, Any]]: ...
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()

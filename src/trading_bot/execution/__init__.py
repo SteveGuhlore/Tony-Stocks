@@ -20,6 +20,7 @@ from trading_bot.execution.broker import (
     FakeBroker,
 )
 from trading_bot.execution.alpaca_paper import AlpacaPaperBroker, build_alpaca_paper_broker
+from trading_bot.execution.paper_engine import run_paper_cycle
 
 __all__ = [
     "PaperBroker",
@@ -40,4 +41,5 @@ __all__ = [
     "FakeBroker",
     "AlpacaPaperBroker",
     "build_alpaca_paper_broker",
+    "run_paper_cycle",
 ]

@@ -114,6 +114,39 @@ class AlpacaPaperBroker:
                 return p
         return None
 
+    def closed_positions(self) -> list[dict[str, Any]]:
+        """Recently filled closing (SELL) orders, for reconciling exits.
+
+        Best-effort: returns {symbol, exit, result, realized_pl} per filled sell. The
+        engine refines ``result`` against the position's stored target/stop. Returns
+        [] on any error so a reconciliation pass never breaks the watch loop. Needs
+        live verification against real bracket fills.
+        """
+        try:
+            from alpaca.trading.enums import OrderSide, QueryOrderStatus  # noqa: PLC0415
+            from alpaca.trading.requests import GetOrdersRequest  # noqa: PLC0415
+
+            req = GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=100)
+            out: list[dict[str, Any]] = []
+            for order in self._client.get_orders(filter=req):
+                if str(getattr(order, "status", "")).lower().endswith("filled") is False and \
+                        str(getattr(order, "status", "")).lower() != "filled":
+                    continue
+                if getattr(order, "side", None) not in (OrderSide.SELL, "sell"):
+                    continue
+                filled = getattr(order, "filled_avg_price", None)
+                if filled is None:
+                    continue
+                out.append({
+                    "symbol": str(getattr(order, "symbol", "")).upper(),
+                    "exit": _f(filled),
+                    "result": None,
+                    "realized_pl": None,
+                })
+            return out
+        except Exception:
+            return []
+
     def close_position(self, symbol: str, *, price: float | None = None) -> BracketOrderResult | None:
         sym = str(symbol).upper()
         try:

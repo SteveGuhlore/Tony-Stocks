@@ -959,6 +959,39 @@ class ScannerRepository:
                 ).fetchall()
             return [dict(row) for row in rows]
 
+    def triggerable_paper_picks(self, *, day: str, limit: int = 200) -> list[dict[str, Any]]:
+        """Open snapshots whose entry triggered on ``day`` (ET date), with a valid plan.
+
+        Used by the paper-trading watch hook to find picks to submit. Terminal rows
+        (target/stop/closed) are excluded. entry/target/stop fall back from the frozen
+        original_* plan to the working columns.
+        """
+        terminal = ("target_hit", "stop_hit", "closed", "expired", "invalidated")
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT id, symbol, original_entry_price, actual_entry_price,
+                       original_target_price, target, original_stop_price, stop
+                FROM candidate_snapshots
+                WHERE entry_status = 'triggered'
+                  AND substr(COALESCE(entry_triggered_at, actual_entry_time, ''), 1, 10) = ?
+                  AND LOWER(COALESCE(tracking_status, '')) NOT IN (?, ?, ?, ?, ?)
+                ORDER BY id DESC LIMIT ?
+                """,
+                (day, *terminal, limit),
+            ).fetchall()
+        picks: list[dict[str, Any]] = []
+        for row in rows:
+            entry = row["original_entry_price"] if row["original_entry_price"] is not None else row["actual_entry_price"]
+            target = row["original_target_price"] if row["original_target_price"] is not None else row["target"]
+            stop = row["original_stop_price"] if row["original_stop_price"] is not None else row["stop"]
+            if entry and target and stop:
+                picks.append({
+                    "symbol": str(row["symbol"]).upper(), "entry": float(entry),
+                    "stop": float(stop), "target": float(target), "snapshot_id": int(row["id"]),
+                })
+        return picks
+
     # ── Internal helpers ───────────────────────────────────────────────────────
 
     def _recent_snapshot_exists(self, conn: Any, symbol: str, setup_category: str, dedupe_minutes: int) -> bool:

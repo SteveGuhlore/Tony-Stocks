@@ -1070,6 +1070,60 @@ def run_seed_demo_snapshots(args: argparse.Namespace) -> None:
     print(f"Expected outcome mix: {summary or 'none'}")
 
 
+def _build_paper_broker(settings: Any) -> tuple[Any, Any]:
+    """Build the paper broker if paper_trading is enabled. Returns (broker|None, config).
+
+    Guarded: a missing key / config problem disables paper trading without stopping
+    the watch loop. Independent of live_trading_enabled (which stays false).
+    """
+    from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_config  # noqa: PLC0415
+
+    cfg = load_paper_trading_config(getattr(settings, "paper_trading", None))
+    if not cfg.enabled:
+        if cfg.disabled_reason:
+            print(f"Paper trading disabled (fail-closed): {cfg.disabled_reason}")
+        return None, cfg
+    try:
+        broker = build_alpaca_paper_broker(cfg)
+        account = broker.account()
+        print(
+            f"Paper trading ENABLED — account '{cfg.account_label}': "
+            f"equity ${account.equity:,.0f} @ {cfg.base_url}"
+        )
+        return broker, cfg
+    except Exception as exc:  # never break the watch loop on broker init
+        print(f"Paper trading could not start ({exc}); continuing without it.")
+        LOGGER.warning("Paper broker init failed: %s", exc)
+        return None, cfg
+
+
+def _run_paper_trading_cycle(repo: Any, broker: Any, cfg: Any, now_et: datetime, stop_file_dir: Path) -> None:
+    """Submit/reconcile paper trades for one watch cycle. No-op when disabled."""
+    if broker is None or not getattr(cfg, "enabled", False):
+        return
+    from trading_bot.execution import run_paper_cycle  # noqa: PLC0415
+
+    try:
+        day = now_et.strftime("%Y-%m-%d")
+        kill_switch = (stop_file_dir / "STOP_PAPER_TRADING").exists()
+        market_open = _is_within_regular_market_hours(now_et)
+        picks = repo.triggerable_paper_picks(day=day)
+        summary = run_paper_cycle(
+            broker=broker, repo=repo, config=cfg, triggered_picks=picks,
+            account_label=cfg.account_label, market_open=market_open, kill_switch=kill_switch,
+            cc_exits=set(), now_iso=utc_now_iso(), day=day,
+        )
+        if summary["submitted"] or summary["reconciled"] or summary["cc_closed"]:
+            print(
+                f"  Paper trading: submitted={len(summary['submitted'])} "
+                f"reconciled={len(summary['reconciled'])} cc_closed={len(summary['cc_closed'])}"
+            )
+            for item in summary["submitted"]:
+                LOGGER.info("Paper order submitted: %s", item)
+    except Exception as exc:  # never break the watch loop on a paper-trading error
+        LOGGER.warning("Paper trading cycle failed: %s", exc)
+
+
 def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     """Run scheduled scanning plus candidate snapshot collection.
 
@@ -1201,6 +1255,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     _waiting_logged = False
     bridge_emitted_slots: set[str] = set()
     bridge_date: str | None = None
+    paper_broker, paper_cfg = _build_paper_broker(settings)
     try:
         while max_cycles is None or cycles_completed < max_cycles:
             if stop_file.exists():
@@ -1280,6 +1335,11 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
             update_summary: dict[str, Any] | None = None
             if run_updates:
                 update_summary = run_update_snapshots(SimpleNamespace(config=args.config, limit=500))
+
+            # Paper trading: submit risk-sized brackets for today's triggers, reconcile
+            # fills -> outcomes. No-op unless paper_trading.enabled. Never breaks the loop.
+            _run_paper_trading_cycle(repo, paper_broker, paper_cfg, cycle_started, stop_file.parent)
+
             cycles_completed += 1
 
             warnings_count = int(scan_summary.get("warnings_count", 0))
