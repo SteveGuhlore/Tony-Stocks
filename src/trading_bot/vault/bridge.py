@@ -71,12 +71,20 @@ def write_bridge_export(
     eod_result: dict[str, Any],
     command_center_dir: str | Path,
     snapshots: list[dict[str, Any]] | None = None,
+    slot: str | None = None,
 ) -> Path:
-    """Write curated analyst brief to {command_center_dir}/bridge/tony-stocks/YYYY-MM-DD.md."""
+    """Write curated analyst brief to {command_center_dir}/bridge/tony-stocks/.
+
+    ``slot`` selects the drop cadence: None or "eod" writes the canonical daily
+    file ``YYYY-MM-DD.md`` (export_type: eod-bridge). An intraday slot like "1030"
+    writes a timestamped ``YYYY-MM-DDTHHMM.md`` (export_type: intraday-bridge) so
+    it never overwrites the daily file; the Command Center dedups on the timestamp.
+    """
+    is_intraday = bool(slot) and slot != "eod"
     cc_path = Path(command_center_dir)
     bridge_dir = cc_path / "bridge" / "tony-stocks"
     bridge_dir.mkdir(parents=True, exist_ok=True)
-    out_path = bridge_dir / f"{date}.md"
+    out_path = bridge_dir / (f"{date}T{slot}.md" if is_intraday else f"{date}.md")
 
     sc = eod_result.get("scan_coverage") or {}
     scorecard = eod_result.get("signal_scorecard") or {}
@@ -110,15 +118,21 @@ def write_bridge_export(
     except Exception:
         prev_date = "previous"
 
+    export_type = "intraday-bridge" if is_intraday else "eod-bridge"
+    title_suffix = f" — {slot} ET intraday" if is_intraday else ""
     lines: list[str] = [
         "---",
         f"date: {date}",
         "source: TradingBotAgentProject",
         f"strategy_version: {strategy_version}",
-        "export_type: eod-bridge",
+        f"export_type: {export_type}",
+    ]
+    if is_intraday:
+        lines.append(f"slot: {slot}")
+    lines += [
         "---",
         "",
-        f"# Tony Stocks Bridge — {date}",
+        f"# Tony Stocks Bridge — {date}{title_suffix}",
         "",
         "## Scanner Summary",
         f"- Universe: {universe_size} | Scored: {scored_count} ({coverage_pct:.1f}%) | Cycles: {cycles}",

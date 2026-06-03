@@ -251,6 +251,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_vault.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     export_vault.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
+    export_vault.add_argument("--slot", default=None, choices=["1030", "1300", "1530", "eod"], help="Intraday bridge slot (ET). Omit or 'eod' for the canonical daily drop.")
 
     emit_outcomes = subparsers.add_parser(
         "emit-outcomes",
@@ -1198,6 +1199,8 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     stopped_by = "max_cycles" if max_cycles == 0 else ""
     summaries: list[dict[str, Any]] = []
     _waiting_logged = False
+    bridge_emitted_slots: set[str] = set()
+    bridge_date: str | None = None
     try:
         while max_cycles is None or cycles_completed < max_cycles:
             if stop_file.exists():
@@ -1205,6 +1208,16 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                 print(f"Stop file found. Exiting cleanly: {stop_file}")
                 LOGGER.info("Stop file detected: %s", stop_file)
                 break
+
+            # Intraday/EOD bridge handoffs at US Eastern checkpoints (10:30/13:00/
+            # 15:30/16:00). Runs before the market-hours guard so the 16:00 EOD drop
+            # still fires after the scan window closes. Resets per Eastern day.
+            now_et_bridge = datetime.now(ZoneInfo("America/New_York"))
+            et_day = now_et_bridge.strftime("%Y-%m-%d")
+            if et_day != bridge_date:
+                bridge_date = et_day
+                bridge_emitted_slots = set()
+            bridge_emitted_slots = _emit_due_bridges(args.config, now_et_bridge, bridge_emitted_slots)
 
             if market_hours_only and not _within_watch_window(watch_config, timezone_name):
                 now_et = datetime.now(ZoneInfo(timezone_name))
@@ -3064,12 +3077,63 @@ def run_emit_outcomes(args: argparse.Namespace) -> dict[str, Any]:
     return {"outcomes_file": str(path), "count": count}
 
 
+def _emit_due_bridges(
+    config_path: str,
+    now_et: datetime,
+    emitted_slots: set[str],
+) -> set[str]:
+    """Emit any intraday/EOD bridges due at the current US Eastern time. Idempotent.
+
+    Checkpoints (America/New_York, inside the 9:30-16:00 ET session): 10:30, 13:00,
+    15:30, and the 16:00 EOD. Disk-idempotent so a watch restart never re-drops a
+    slot. Failures are logged and never break the watch loop.
+    """
+    from trading_bot.vault import due_bridge_slots  # noqa: PLC0415
+
+    due = due_bridge_slots(now_et, emitted_slots)
+    if not due:
+        return emitted_slots
+    try:
+        settings = load_scanner_settings(config_path)
+    except (FileNotFoundError, OSError, ValueError):
+        return emitted_slots
+    vault_cfg = settings.vault or {}
+    if not vault_cfg.get("enabled", False) or not vault_cfg.get("bridge_enabled", False):
+        emitted_slots.update(due)  # nothing to write; don't retry every cycle
+        return emitted_slots
+    cc_dir = vault_cfg.get("command_center_dir", "")
+    date = now_et.strftime("%Y-%m-%d")
+    for slot in due:
+        is_intraday = slot != "eod"
+        fname = f"{date}T{slot}.md" if is_intraday else f"{date}.md"
+        bridge_file = Path(cc_dir) / "bridge" / "tony-stocks" / fname if cc_dir else None
+        if bridge_file is not None and bridge_file.exists():
+            emitted_slots.add(slot)  # already on disk (e.g. after a restart)
+            continue
+        try:
+            eod_result = run_eod_report(SimpleNamespace(config=config_path, date=date))
+            _run_vault_export(date, eod_result, config_path, slot=slot)
+            emitted_slots.add(slot)
+            print(f"Bridge emitted for slot {slot} ({date} ET)")
+            LOGGER.info("Intraday bridge emitted: slot=%s date=%s", slot, date)
+        except Exception as exc:  # never break the watch loop on a bridge failure
+            LOGGER.warning("Bridge emit for slot %s failed: %s", slot, exc)
+    return emitted_slots
+
+
 def _run_vault_export(
     date: str,
     eod_result: dict[str, Any],
     config_path: str,
+    slot: str | None = None,
 ) -> dict[str, Any]:
-    """Load active snapshots from DB, compute days_active, write vault + bridge files."""
+    """Load active snapshots from DB, compute days_active, write vault + bridge files.
+
+    ``slot`` controls bridge cadence (see write_bridge_export). For an intraday slot
+    only the bridge + outcomes are written (the repo vault daily note / ticker pages
+    / index stay an EOD artifact); the canonical EOD run writes everything.
+    """
+    is_intraday = bool(slot) and slot != "eod"
     try:
         settings = load_scanner_settings(config_path)
     except (FileNotFoundError, OSError) as exc:
@@ -3105,18 +3169,19 @@ def _run_vault_export(
 
     files_written: list[str] = []
 
-    daily_path = write_daily_note(date, eod_result, vault_dir, snapshots=snapshots)
-    files_written.append(str(daily_path))
+    if not is_intraday:
+        daily_path = write_daily_note(date, eod_result, vault_dir, snapshots=snapshots)
+        files_written.append(str(daily_path))
 
-    for snap in snapshots:
-        ticker_path = upsert_ticker_page(date, snap, vault_dir)
-        files_written.append(str(ticker_path))
+        for snap in snapshots:
+            ticker_path = upsert_ticker_page(date, snap, vault_dir)
+            files_written.append(str(ticker_path))
 
-    index_path = update_vault_index(date, snapshots, vault_dir)
-    files_written.append(str(index_path))
+        index_path = update_vault_index(date, snapshots, vault_dir)
+        files_written.append(str(index_path))
 
     if bridge_enabled and command_center_dir:
-        bridge_path = write_bridge_export(date, eod_result, command_center_dir, snapshots=snapshots)
+        bridge_path = write_bridge_export(date, eod_result, command_center_dir, snapshots=snapshots, slot=slot)
         files_written.append(str(bridge_path))
 
     if bridge_enabled:
@@ -3141,10 +3206,11 @@ def run_export_to_vault(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Vault export — {report_date} {MARKET_TIMEZONE_LABEL}")
     print("Research only: reads DB, writes markdown. No scoring or trading changes.")
 
+    slot = getattr(args, "slot", None)
     eod_args = SimpleNamespace(config=args.config, date=report_date)
     eod_result = run_eod_report(eod_args)
 
-    result = _run_vault_export(report_date, eod_result, args.config)
+    result = _run_vault_export(report_date, eod_result, args.config, slot=slot)
     if result.get("skipped"):
         print(f"Vault export skipped: {result.get('reason')}")
         return result
