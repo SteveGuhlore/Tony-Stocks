@@ -5,10 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from trading_bot.dashboard.helpers import (
-    is_heartbeat_stale,
-    is_within_us_eastern_market_hours,
-    watch_status_label,
+from trading_bot.cli import (
+    _is_heartbeat_stale as is_heartbeat_stale,
+    _is_within_regular_market_hours as is_within_us_eastern_market_hours,
 )
 from trading_bot.storage.database import connect, initialize_database
 from trading_bot.storage.repositories import ScannerRepository
@@ -267,7 +266,8 @@ class TestIsHeartbeatStale:
 class TestIsWithinUsEasternMarketHours:
     def _dt(self, hour: int, minute: int) -> datetime:
         from zoneinfo import ZoneInfo
-        return datetime(2026, 5, 17, hour, minute, 0, tzinfo=ZoneInfo("America/New_York"))
+        # 2026-05-18 is a Monday — the surviving guard is weekday-aware.
+        return datetime(2026, 5, 18, hour, minute, 0, tzinfo=ZoneInfo("America/New_York"))
 
     def test_during_market_hours_true(self) -> None:
         assert is_within_us_eastern_market_hours(self._dt(10, 30)) is True
@@ -292,39 +292,6 @@ class TestIsWithinUsEasternMarketHours:
 
     def test_midnight_false(self) -> None:
         assert is_within_us_eastern_market_hours(self._dt(0, 0)) is False
-
-
-# ── TestWatchStatusLabel ──────────────────────────────────────────────────────
-
-class TestWatchStatusLabel:
-    def test_none_returns_no_run(self) -> None:
-        assert watch_status_label(None) == "no_run"
-
-    def test_running_with_fresh_heartbeat(self) -> None:
-        now = _fixed_now()
-        run = {"status": "running", "last_heartbeat_at": (now - timedelta(minutes=3)).isoformat()}
-        assert watch_status_label(run, stale_minutes=10, now=now) == "running"
-
-    def test_running_with_stale_heartbeat(self) -> None:
-        now = _fixed_now()
-        run = {"status": "running", "last_heartbeat_at": (now - timedelta(minutes=20)).isoformat()}
-        assert watch_status_label(run, stale_minutes=10, now=now) == "stale"
-
-    def test_stopped(self) -> None:
-        run = {"status": "stopped", "last_heartbeat_at": _ts(timedelta(hours=2))}
-        assert watch_status_label(run) == "stopped"
-
-    def test_error(self) -> None:
-        run = {"status": "error", "last_heartbeat_at": _ts(timedelta(hours=2))}
-        assert watch_status_label(run) == "error"
-
-    def test_unknown_status(self) -> None:
-        run = {"status": "unknown", "last_heartbeat_at": _ts(timedelta(minutes=1))}
-        assert watch_status_label(run) == "unknown"
-
-    def test_running_no_heartbeat_not_stale(self) -> None:
-        run = {"status": "running", "last_heartbeat_at": None}
-        assert watch_status_label(run, stale_minutes=10) == "running"
 
 
 # ── TestNoBrokerBehavior ───────────────────────────────────────────────────────

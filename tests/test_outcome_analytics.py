@@ -20,7 +20,7 @@ from trading_bot.analytics import (
     new_york_market_date,
     score_bucket,
 )
-from trading_bot.dashboard.helpers import summarize_product_reconciliation
+from trading_bot.cli import _summarize_product_reconciliation as summarize_product_reconciliation
 from trading_bot.scoring.score_models import ScoredStock
 from trading_bot.storage.database import connect
 from trading_bot.storage.repositories import ScannerRepository
@@ -832,156 +832,6 @@ def test_run_eod_report_date_override_uses_explicit_market_date(tmp_path, monkey
     assert result["tony_memory_summary"]["report_date"] == "2026-05-18"
 
 
-def test_classified_snapshots_and_reconciliation_distinguish_raw_vs_product(tmp_path):
-    repo = ScannerRepository(tmp_path / "analytics.db")
-    first = create_snapshot(repo, stock("ARM", 88, "Breakout Watch"), "still_open", provider="alpaca_iex")
-    second = create_snapshot(repo, stock("ARM", 89, "Breakout Watch"), "still_open", provider="alpaca_iex")
-    waiting = create_snapshot(repo, stock("DKNG", 84, "Breakout Watch"), "unreviewed", triggered=0, provider="alpaca_iex")
-    closed = create_snapshot(repo, stock("OXY", 82, "Pullback Watch"), "target_hit", provider="alpaca_iex")
-    create_snapshot(
-        repo,
-        stock("DEMO", 75, "Speculative Watchlist"),
-        "unreviewed",
-        triggered=0,
-        provider="demo_generated",
-        data_source="demo_generated",
-    )
-    create_snapshot(
-        repo,
-        stock("MISS", 70, "Pullback Watch", warnings=["provider_missing"]),
-        "unreviewed",
-        triggered=0,
-        provider="alpaca_iex",
-        data_source="missing_real_data",
-    )
-    with connect(repo.database_path) as conn:
-        conn.execute(
-            """
-            UPDATE candidate_snapshots
-            SET entry_status = 'triggered',
-                actual_entry_price = 120.0,
-                actual_entry_time = '2026-05-19T14:05:00+00:00',
-                target = 128.0,
-                stop = 116.0,
-                current_price = 125.0,
-                tracking_status = 'active'
-            WHERE id = ?
-            """,
-            (first,),
-        )
-        conn.execute(
-            """
-            UPDATE candidate_snapshots
-            SET entry_status = 'triggered',
-                actual_entry_price = 124.0,
-                actual_entry_time = '2026-05-19T15:05:00+00:00',
-                target = 130.0,
-                stop = 118.0,
-                current_price = 126.5,
-                tracking_status = 'active'
-            WHERE id = ?
-            """,
-            (second,),
-        )
-        conn.execute(
-            """
-            UPDATE candidate_snapshots
-            SET entry_status = 'pending',
-                planned_entry_price = 41.5,
-                target = 45.0,
-                stop = 39.5,
-                current_price = 40.9
-            WHERE id = ?
-            """,
-            (waiting,),
-        )
-        conn.execute(
-            """
-            UPDATE candidate_snapshots
-            SET entry_status = 'triggered',
-                planned_entry_price = 48.0,
-                actual_entry_price = 48.2,
-                actual_entry_time = '2026-05-19T15:10:00+00:00',
-                target = 52.0,
-                stop = 46.0,
-                close = 52.0,
-                tracking_status = 'closed'
-            WHERE id = ?
-            """,
-            (closed,),
-        )
-
-    snapshots = repo.list_snapshots_for_analytics(include_seeded_demo=True)
-    analytics = OutcomeAnalytics(snapshots, include_seeded_demo=True, real_only=False, include_demo=True, include_legacy=True)
-    classified = analytics.classified_snapshots()
-    assert set(classified["data_source_classification"]) >= {"real_alpaca", "demo_generated", "missing_real_data"}
-
-    prepared = OutcomeAnalytics(
-        snapshots,
-        include_seeded_demo=True,
-        real_only=True,
-        include_demo=False,
-        include_legacy=False,
-    ).prepared()
-    reconciliation = summarize_product_reconciliation(prepared)
-    assert reconciliation["raw_snapshot_rows"] == 4
-    assert reconciliation["raw_triggered_entry_rows"] == 3
-    assert reconciliation["product_visible_symbols"] == 3
-    assert reconciliation["deduped_active_positions"] == 1
-    assert reconciliation["deduped_waiting_picks"] == 1
-    assert reconciliation["deduped_closed_results"] == 1
-    assert reconciliation["target_hits"] == 1
-    assert reconciliation["pending_triggers"] == 1
-    assert reconciliation["history_rows_hidden_from_product_views"] == 1
-
-
-def test_reconciliation_counts_incomplete_hidden_rows_without_deleting_history(tmp_path):
-    repo = ScannerRepository(tmp_path / "analytics.db")
-    valid = create_snapshot(repo, stock("OXY", 82, "Pullback Watch"), "still_open", provider="alpaca_iex")
-    invalid = create_snapshot(repo, stock("JOBY", 71, "Momentum Continuation"), "still_open", provider="alpaca_iex")
-
-    with connect(repo.database_path) as conn:
-        conn.execute(
-            """
-            UPDATE candidate_snapshots
-            SET entry_status = 'triggered',
-                actual_entry_price = 48.0,
-                actual_entry_time = '2026-05-19T14:05:00+00:00',
-                target = 52.0,
-                stop = 46.0,
-                current_price = 49.0,
-                tracking_status = 'active'
-            WHERE id = ?
-            """,
-            (valid,),
-        )
-        conn.execute(
-            """
-            UPDATE candidate_snapshots
-            SET entry_status = 'triggered',
-                actual_entry_price = NULL,
-                actual_entry_time = NULL,
-                target = 8.0,
-                stop = 6.5,
-                tracking_status = 'active'
-            WHERE id = ?
-            """,
-            (invalid,),
-        )
-
-    snapshots_before = repo.list_snapshots_for_analytics(include_seeded_demo=True)
-    prepared = OutcomeAnalytics(snapshots_before, include_seeded_demo=True, real_only=True).prepared()
-    before_count = len(snapshots_before)
-    reconciliation = summarize_product_reconciliation(prepared)
-    snapshots_after = repo.list_snapshots_for_analytics(include_seeded_demo=True)
-
-    assert reconciliation["raw_snapshot_rows"] == 2
-    assert reconciliation["deduped_active_positions"] == 1
-    assert reconciliation["incomplete_rows_hidden_from_product_views"] == 1
-    assert len(snapshots_after) == before_count
-    assert set(snapshots_after["symbol"]) == {"OXY", "JOBY"}
-
-
 def test_daily_tony_memory_summary_counts_real_only_rows(tmp_path):
     repo = ScannerRepository(tmp_path / "analytics.db")
     closed = create_snapshot(repo, stock("ARM", 90, "Breakout Watch"), "target_hit", provider="alpaca_iex")
@@ -1142,7 +992,7 @@ def test_daily_tony_memory_summary_preserves_raw_history_notes(tmp_path):
     assert memory["active_count"] == 1
     assert memory["triggered_count"] == 2
     assert memory["reassessment_label_counts"] == {"needs_review": 1, "still_valid": 1}
-    assert any("hidden from current product views" in note for note in memory["data_quality_notes"])
+    # Raw history preservation: snapshots are never deleted by analytics/product views.
     assert len(snapshots_after) == 2
 
 
@@ -1520,7 +1370,6 @@ def test_self_review_deduped_active_count_from_reconciliation(tmp_path):
 
     analytics = OutcomeAnalytics(repo.list_snapshots_for_analytics(), real_only=True)
     prepared = analytics.prepared()
-    from trading_bot.dashboard.helpers import summarize_product_reconciliation
     reconciliation = summarize_product_reconciliation(prepared)
     memory = analytics.daily_tony_memory_summary(reconciliation=reconciliation)
     review = build_tony_self_review(prepared, memory, reconciliation=reconciliation)

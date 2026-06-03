@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pytest
 
-from trading_bot.dashboard.helpers import build_tracked_setup_card_model
 from trading_bot.snapshots.active_tracking import (
     REASSESSMENT_INVALIDATED,
     REASSESSMENT_NEEDS_REVIEW,
@@ -214,42 +213,6 @@ class TestTimeAndPlHelpers:
 
     def test_research_pl_none_without_prices(self) -> None:
         assert compute_research_unrealized_pl_pct(None, 105.0) is None
-
-
-class TestDashboardCardModel:
-    def test_uses_frozen_original_and_current_fields(self) -> None:
-        row = _triggered_snapshot(
-            original_entry_price=100.0,
-            original_target_price=110.0,
-            original_stop_price=95.0,
-            current_price=103.0,
-            current_target_price=110.0,
-            current_stop_price=95.0,
-            research_unrealized_pl_pct=3.0,
-            tracking_status=TRACKING_STATUS_ACTIVE,
-            time_active_minutes=120,
-        )
-        card = build_tracked_setup_card_model(row)
-        assert card["tracked_from_price"] == "$100.00"
-        assert card["current_price"] == "$103.00"
-        assert card["research_pl_pct"] == "+3.00%"
-        assert "frozen" in card["plan_note"].lower()
-        assert "V15.8" not in card["plan_note"]
-
-    def test_legacy_row_without_tracking_fields_does_not_crash(self) -> None:
-        card = build_tracked_setup_card_model(
-            {
-                "symbol": "X",
-                "actual_entry_price": 50.0,
-                "intraday_close": 51.0,
-                "entry_status": ENTRY_STATUS_TRIGGERED,
-                "entry_triggered": 1,
-                "target": 55.0,
-                "stop": 48.0,
-            }
-        )
-        assert card["symbol"] == "X"
-        assert card["tracked_from_price"] == "$50.00"
 
 
 class TestDatabaseMigrations:
