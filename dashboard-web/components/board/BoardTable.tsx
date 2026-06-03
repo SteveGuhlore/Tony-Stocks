@@ -1,10 +1,11 @@
 "use client"
 import { useDrawer } from "@/components/overlays/DrawerContext"
 import { useLivePrices } from "@/lib/hooks/useLivePrices"
+import { useCommandCenter } from "@/lib/hooks/useCommandCenter"
 import { formatPrice, formatSignedPct, plPercent } from "@/lib/format"
 import { boardStatus, STATUS_DISPLAY } from "@/lib/board"
 import { PlanRail, ScorePair, VerdictChip, ToneText, TONE_VAR } from "./cells"
-import type { CandidateSnapshot, LiveQuote } from "@/lib/types"
+import type { CandidateSnapshot, LiveQuote, CommandCenterPick } from "@/lib/types"
 import type { Tone } from "@/lib/signal"
 
 const COLS = "1.4fr .9fr .7fr 2.1fr .45fr .8fr 1.05fr .85fr"
@@ -13,7 +14,7 @@ function Cell({ children, align = "left" }: { children: React.ReactNode; align?:
   return <div style={{ textAlign: align, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{children}</div>
 }
 
-function Row({ snap, quote }: { snap: CandidateSnapshot; quote: LiveQuote | undefined }) {
+function Row({ snap, quote, cc }: { snap: CandidateSnapshot; quote: LiveQuote | undefined; cc: CommandCenterPick | undefined }) {
   const { openSymbol } = useDrawer()
   const last = quote?.price ?? null
   const status = boardStatus(snap, last)
@@ -58,8 +59,8 @@ function Row({ snap, quote }: { snap: CandidateSnapshot; quote: LiveQuote | unde
         <PlanRail stop={snap.stop} entry={snap.entry} target={snap.target} live={last} markerTone={markerTone} />
       </Cell>
       <Cell align="right"><span className="mono" style={{ fontSize: 12, color: "var(--text-secondary)" }}>{snap.risk_reward != null ? snap.risk_reward.toFixed(1) : "—"}</span></Cell>
-      <Cell align="right"><ScorePair tony={snap.total_score} /></Cell>
-      <Cell><VerdictChip verdict={null} /></Cell>
+      <Cell align="right"><ScorePair tony={snap.total_score} tonyStocks={cc?.score ?? null} /></Cell>
+      <Cell><VerdictChip verdict={cc?.verdict ?? null} /></Cell>
       <Cell><span className="mono" style={{ fontSize: 11, color: TONE_VAR[st.tone as Tone] }}>{st.label}</span></Cell>
     </div>
   )
@@ -67,6 +68,7 @@ function Row({ snap, quote }: { snap: CandidateSnapshot; quote: LiveQuote | unde
 
 export function BoardTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
   const quotes = useLivePrices()
+  const cc = useCommandCenter()
   if (snapshots.length === 0) {
     return <p style={{ color: "var(--text-tertiary)", fontSize: 12, padding: "16px" }}>No watches yet — Tony hasn&apos;t flagged anything this session.</p>
   }
@@ -82,7 +84,7 @@ export function BoardTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
         <div>VERDICT</div>
         <div>STATUS</div>
       </div>
-      {snapshots.map((s) => <Row key={s.id} snap={s} quote={quotes[s.symbol]} />)}
+      {snapshots.map((s) => <Row key={s.id} snap={s} quote={quotes[s.symbol]} cc={cc.picks[s.symbol]} />)}
     </div>
   )
 }

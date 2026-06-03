@@ -68,3 +68,30 @@ export interface LiveQuote {
 }
 export interface MarketStatus { open: boolean; next_open: string | null; next_close: string | null; timezone: string }
 export interface PricesResponse { symbols: LiveQuote[]; market: MarketStatus }
+
+// --- Command Center ("Tony Stocks") second-layer contract (see docs/CONTRACTS/command-center-bridge.md) ---
+export interface CommandCenterPick {
+  symbol: string
+  score: number
+  verdict: "reaffirm" | "adjust" | "override" | "close"
+  reasoning: string
+  returned_at: string
+}
+export interface CommandCenterRecord {
+  win_rate: number | null
+  avg_pl_per_trade: number | null
+  target_hits: number | null
+  stop_hits: number | null
+  equity_curve: number[]
+}
+export interface CommandCenterAgreement {
+  agreed_right: number
+  agreed_wrong: number
+  cc_overrode_saved: number
+  cc_overrode_missed: number
+}
+export interface CommandCenterResponse {
+  picks: Record<string, CommandCenterPick>
+  record: CommandCenterRecord | null
+  agreement: CommandCenterAgreement | null
+}

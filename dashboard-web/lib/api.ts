@@ -41,4 +41,5 @@ export const api = {
   streamUrl: () => `${BASE}/api/events/stream`,
   prices: () => get<import("./types").PricesResponse>("/api/prices"),
   priceSymbol: (symbol: string) => get<import("./types").LiveQuote>(`/api/prices/${symbol}`),
+  commandCenter: () => get<import("./types").CommandCenterResponse>("/api/command-center"),
 }

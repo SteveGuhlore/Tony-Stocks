@@ -5,9 +5,10 @@ import { AnimatePresence, motion } from "motion/react"
 import { api } from "@/lib/api"
 import { useDrawer } from "./DrawerContext"
 import { ScoreBreakdown } from "@/components/charts/ScoreBreakdown"
-import { PlanRail, ScorePair, VerdictChip } from "@/components/board/cells"
+import { PlanRail, VerdictChip } from "@/components/board/cells"
 import { PlanChart } from "@/components/board/PlanChart"
 import { useLivePrices } from "@/lib/hooks/useLivePrices"
+import { useCommandCenter } from "@/lib/hooks/useCommandCenter"
 import { formatPrice, formatSignedPct, plPercent } from "@/lib/format"
 
 export function SymbolDrawer() {
@@ -52,6 +53,8 @@ export function SymbolDrawer() {
     }
   }, [isOpen, closeSymbol])
 
+  const cc = useCommandCenter()
+  const ccPick = symbolDrawer ? cc.picks[symbolDrawer] : undefined
   const snap = data?.latest_snapshot
   const scan = data?.latest_scan_result
   const quote = symbolDrawer ? liveQuotes[symbolDrawer] : undefined
@@ -133,12 +136,15 @@ export function SymbolDrawer() {
               <div className="card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--text-secondary)" }}>▢ TONY STOCKS</span>
-                  <ScorePair tony={null} />
+                  <span className="mono" style={{ fontSize: 16, fontWeight: 700, color: ccPick ? "var(--green)" : "var(--text-tertiary)" }}>{ccPick ? Math.round(ccPick.score) : "⋯"}</span>
                 </div>
-                <div style={{ marginTop: 10 }}><VerdictChip verdict={null} /></div>
-                <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 10, lineHeight: 1.5 }}>
-                  Command Center hasn&apos;t returned analysis for this pick yet. Its score, verdict, and reasoning will appear here once the handoff completes.
-                </p>
+                <div style={{ marginTop: 10 }}><VerdictChip verdict={ccPick?.verdict ?? null} /></div>
+                {ccPick
+                  ? <>
+                      <p style={{ fontSize: 11, color: "var(--text-primary)", marginTop: 10, lineHeight: 1.5 }}>{ccPick.reasoning}</p>
+                      <div className="mono" style={{ fontSize: 9, color: "var(--text-tertiary)", marginTop: 8 }}>returned {ccPick.returned_at.slice(0, 16).replace("T", " ")}</div>
+                    </>
+                  : <p style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 10, lineHeight: 1.5 }}>Command Center hasn&apos;t returned analysis for this pick yet. Its score, verdict, and reasoning will appear here once the handoff completes.</p>}
               </div>
             </div>
 
