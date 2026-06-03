@@ -12,6 +12,14 @@ from trading_bot.execution.order_router import (
     should_trade,
     size_position,
 )
+from trading_bot.execution.broker import (
+    BracketOrderResult,
+    Broker,
+    BrokerAccount,
+    BrokerPosition,
+    FakeBroker,
+)
+from trading_bot.execution.alpaca_paper import AlpacaPaperBroker, build_alpaca_paper_broker
 
 __all__ = [
     "PaperBroker",
@@ -25,4 +33,11 @@ __all__ = [
     "PortfolioState",
     "should_trade",
     "size_position",
+    "Broker",
+    "BrokerAccount",
+    "BrokerPosition",
+    "BracketOrderResult",
+    "FakeBroker",
+    "AlpacaPaperBroker",
+    "build_alpaca_paper_broker",
 ]
