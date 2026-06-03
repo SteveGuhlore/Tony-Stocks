@@ -147,7 +147,7 @@ watch_universe_rotation:
     - QQQ
     - IWM
   core_max_symbols: 50
-  rotating_bucket_size: 125
+  rotating_bucket_size: 350   # fill discovery up to the per-cycle cap (scan ~full universe each cycle)
   rotation_strategy: round_robin
   keep_previous_candidates: true
   always_include_open_snapshots: true
