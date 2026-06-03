@@ -58,11 +58,20 @@ The outcomes file is written to the **bot repo's** `reports/tony_stocks_outcomes
 the CC's Phase 3/4 learning, point the CC at it via the **`TONY_OUTCOMES_FILE`** env var (the agreed
 contract). Until then the CC stays in `awaiting_outcomes` cleanly.
 
-### Next: paper-trading phases 2–6 (spec: docs/superpowers/specs/2026-06-02-paper-trading-design.md)
-2. **Order router (pure)** — `execution/order_router.py`: `should_trade()` + `size_position()` with
-   all gates (risk-% sizing from entry→stop, max_open, max_notional, max_daily, dedup, kill switch).
-   TDD, no network. **This is the recommended next step — decision-light.**
-3. `AlpacaPaperBroker` over `alpaca-py` (paper=True) + a `FakeBroker` for tests; integration test
+### Also shipped this session (after the 4 items above)
+5. **Intraday bridge handoffs** (commit `2510909`). `vault/bridge_schedule.py:due_bridge_slots` +
+   `write_bridge_export(slot=...)` (timestamped `YYYY-MM-DDTHHMM.md`, `export_type: intraday-bridge`).
+   Watch loop emits at US-Eastern checkpoints **10:30 / 13:00 / 15:30 / 16:00 EOD** (top of loop,
+   before the market-hours guard so EOD fires after close; disk-idempotent; resets per ET day).
+   `export-to-vault --slot {1030,1300,1530,eod}` for manual runs. 16 tests. **CC must recognize the
+   timestamped intraday files, dedup on timestamp, and spawn a lighter "intraday update" task.**
+6. **Paper-trading phase 2 — pure order router** (commit `743ae01`). `execution/order_router.py`:
+   `size_position` (risk-% of equity from entry→stop, max_notional cap, whole shares) + `should_trade`
+   (fail-closed gates: enabled, kill switch, market open, dedup one-per-symbol, max_open_positions,
+   max_daily_orders, plan validity, size>0; state via `PortfolioState`). 18 tests. Suite **727 passed**.
+
+### Next: paper-trading phases 3–6 (spec: docs/superpowers/specs/2026-06-02-paper-trading-design.md)
+3. **`AlpacaPaperBroker`** over `alpaca-py` (paper=True) + a `FakeBroker` for tests; integration test
    gated behind keys. Use `assert_paper_base_url` at startup. Design the broker to take an account
    identity (label + keys) for the future 2nd CC account.
 4. Storage: `paper_orders`/`paper_positions` tables + repo methods + fill journaling.
