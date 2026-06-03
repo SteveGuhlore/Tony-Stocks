@@ -185,6 +185,42 @@ CREATE TABLE IF NOT EXISTS watch_runs (
     latest_fallback_count INTEGER,
     latest_error_message TEXT
 );
+
+CREATE TABLE IF NOT EXISTS paper_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    broker_order_id TEXT,
+    account_label TEXT NOT NULL DEFAULT 'tony',
+    symbol TEXT NOT NULL,
+    side TEXT NOT NULL DEFAULT 'buy',
+    qty INTEGER NOT NULL,
+    entry REAL,
+    stop REAL,
+    target REAL,
+    time_in_force TEXT NOT NULL DEFAULT 'day',
+    status TEXT NOT NULL DEFAULT 'submitted',
+    snapshot_id INTEGER,
+    reason TEXT,
+    submitted_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS paper_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_label TEXT NOT NULL DEFAULT 'tony',
+    symbol TEXT NOT NULL,
+    qty INTEGER NOT NULL,
+    entry_price REAL,
+    stop REAL,
+    target REAL,
+    status TEXT NOT NULL DEFAULT 'open',
+    result TEXT,
+    exit_price REAL,
+    realized_pl REAL,
+    broker_order_id TEXT,
+    snapshot_id INTEGER,
+    opened_at TEXT NOT NULL,
+    closed_at TEXT
+);
 """
 
 

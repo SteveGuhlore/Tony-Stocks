@@ -863,6 +863,102 @@ class ScannerRepository:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    # ── Paper trading (orders + positions) ───────────────────────────────────────
+
+    def record_paper_order(
+        self, *, broker_order_id: str | None, account_label: str, symbol: str, side: str,
+        qty: int, entry: float | None, stop: float | None, target: float | None,
+        time_in_force: str, status: str, snapshot_id: int | None, reason: str | None,
+        submitted_at: str,
+    ) -> int:
+        """Journal a submitted paper order. Returns the new row id."""
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO paper_orders (
+                    broker_order_id, account_label, symbol, side, qty, entry, stop, target,
+                    time_in_force, status, snapshot_id, reason, submitted_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (broker_order_id, account_label, str(symbol).upper(), side, int(qty), entry, stop,
+                 target, time_in_force, status, snapshot_id, reason, submitted_at, utc_now_iso()),
+            )
+            return int(cursor.lastrowid)
+
+    def count_paper_orders_today(self, *, account_label: str, day: str | None = None) -> int:
+        """Count orders for an account submitted on a given YYYY-MM-DD (by submitted_at)."""
+        day = day or utc_now_iso()[:10]
+        with connect(self.database_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM paper_orders WHERE account_label = ? AND substr(submitted_at, 1, 10) = ?",
+                (account_label, day),
+            ).fetchone()
+            return int(row[0])
+
+    def open_paper_position(
+        self, *, account_label: str, symbol: str, qty: int, entry_price: float | None,
+        stop: float | None, target: float | None, broker_order_id: str | None,
+        snapshot_id: int | None, opened_at: str,
+    ) -> int:
+        """Record a newly opened paper position. Returns the new row id."""
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO paper_positions (
+                    account_label, symbol, qty, entry_price, stop, target, status,
+                    broker_order_id, snapshot_id, opened_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?)
+                """,
+                (account_label, str(symbol).upper(), int(qty), entry_price, stop, target,
+                 broker_order_id, snapshot_id, opened_at),
+            )
+            return int(cursor.lastrowid)
+
+    def close_paper_position(
+        self, symbol: str, *, account_label: str, result: str, exit_price: float | None,
+        realized_pl: float | None, closed_at: str,
+    ) -> None:
+        """Mark the open position for a symbol/account closed with its terminal outcome."""
+        with connect(self.database_path) as conn:
+            conn.execute(
+                """
+                UPDATE paper_positions
+                SET status = 'closed', result = ?, exit_price = ?, realized_pl = ?, closed_at = ?
+                WHERE account_label = ? AND symbol = ? AND status = 'open'
+                """,
+                (result, exit_price, realized_pl, closed_at, account_label, str(symbol).upper()),
+            )
+
+    def list_open_paper_positions(self, *, account_label: str | None = None) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            if account_label is None:
+                rows = conn.execute("SELECT * FROM paper_positions WHERE status = 'open' ORDER BY id").fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM paper_positions WHERE status = 'open' AND account_label = ? ORDER BY id",
+                    (account_label,),
+                ).fetchall()
+            return [dict(row) for row in rows]
+
+    def open_paper_position_symbols(self, *, account_label: str) -> set[str]:
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                "SELECT symbol FROM paper_positions WHERE status = 'open' AND account_label = ?",
+                (account_label,),
+            ).fetchall()
+            return {str(row[0]).upper() for row in rows}
+
+    def list_paper_positions(self, *, account_label: str | None = None, limit: int = 500) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            if account_label is None:
+                rows = conn.execute("SELECT * FROM paper_positions ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM paper_positions WHERE account_label = ? ORDER BY id DESC LIMIT ?",
+                    (account_label, limit),
+                ).fetchall()
+            return [dict(row) for row in rows]
+
     # ── Internal helpers ───────────────────────────────────────────────────────
 
     def _recent_snapshot_exists(self, conn: Any, symbol: str, setup_category: str, dedupe_minutes: int) -> bool:
