@@ -72,10 +72,12 @@ from trading_bot.tony import TonyStocksService
 from trading_bot.tony.analysis import TONY_ANALYSIS_VERSION, MarketContext, analyze_candidates
 from trading_bot.utils.time_utils import utc_now_iso
 from trading_bot.vault import (
+    build_tony_outcomes,
     update_vault_index,
     upsert_ticker_page,
     write_bridge_export,
     write_daily_note,
+    write_tony_outcomes,
 )
 
 
@@ -3062,6 +3064,15 @@ def _run_vault_export(
     if bridge_enabled and command_center_dir:
         bridge_path = write_bridge_export(date, eod_result, command_center_dir, snapshots=snapshots)
         files_written.append(str(bridge_path))
+
+    if bridge_enabled:
+        # Emit resolved outcomes so the Command Center can grade Tony's verdicts.
+        # Path defaults to reports/tony_stocks_outcomes.json (honors TONY_OUTCOMES_FILE)
+        # and is independent of command_center_dir.
+        outcome_records = eod_result.get("outcomes_since_last_brief") or []
+        built_outcomes = build_tony_outcomes(outcome_records, eod_date=date)
+        outcomes_path = write_tony_outcomes(built_outcomes)
+        files_written.append(str(outcomes_path))
 
     return {
         "vault_dir": str(vault_dir),
