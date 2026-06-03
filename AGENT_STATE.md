@@ -1,8 +1,80 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-05-24_
+_Last updated: 2026-06-02_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-02 handoff — Outcomes bridge to Command Center + paper-trading phase 1
+
+Branch: `feat/outcomes-emitter` (5 commits, suite 696 passed). Not merged to `main` yet.
+
+### What shipped (in order)
+
+1. **Tony outcomes emitter** (`src/trading_bot/vault/outcomes_bridge.py`) — commit `3c78e3f`.
+   - `build_tony_outcomes(records, *, eod_date)` (pure): normalizes resolved records to the
+     Command Center schema `{symbol, pick_date, result, entry, exit, return_pct, days_held,
+     resolved_date}`. `result` ∈ `target_hit|stop_hit|closed|expired`. Unresolved rows skipped.
+     `pick_date` = originating bridge date (day-1), the CC `(symbol, date)` join key — never entry_date.
+   - `write_tony_outcomes(records, path=None)` honors `TONY_OUTCOMES_FILE`, defaults
+     `reports/tony_stocks_outcomes.json`. `_to_float` guards NaN/inf → null (valid JSON).
+   - 37 tests in `tests/test_outcomes_bridge.py`.
+
+2. **Test-suite repair** (commits `3c78e3f` part, `e7d2862`). The Streamlit `trading_bot.dashboard`
+   module was deleted in the Next.js overhaul but 4 test files still imported it. Deleted dead
+   `test_v27a_regression.py`; repointed survivors to new homes (`cli._is_heartbeat_stale`,
+   `cli._is_within_regular_market_hours`, `cli._summarize_product_reconciliation`); dropped tests
+   for removed display helpers + the per-row reconciliation accounting the lightweight cli version
+   intentionally dropped. `run_tests.ps1` is green again.
+
+3. **Resolved-outcomes assembly + backfill** (commit `112916a`).
+   - `analytics.build_resolved_outcome_records(rows)` walks each symbol's snapshot history into
+     per-episode resolved records (episode = first appearance → first terminal row; consecutive
+     terminal echoes collapse; a re-pick = a new episode with its own `pick_date`). Non-entered
+     picks (empty `tracking_status`) are non-terminal and excluded. Exit/PL come from stored
+     stop/target levels via `compute_terminal_outcome_fields`.
+   - Wired through `cli._emit_tony_outcomes` → `build_tony_outcomes` → `write_tony_outcomes`,
+     replacing the always-empty `outcomes_since_last_brief` source in the vault export.
+   - New CLI: `python -m trading_bot.cli emit-outcomes --config config/default_config.yaml [--days N]`.
+   - **Live backfill produced 37 real resolved outcomes** (13 target / 12 stop / 12 closed),
+     pick_dates 2026-05-18→05-22, into `reports/tony_stocks_outcomes.json` (gitignored).
+   - 9 tests in `tests/test_resolved_outcomes.py`.
+
+4. **Paper-trading phase 1 — config + flags** (commit `9edefee`).
+   - `src/trading_bot/execution/paper_config.py`: `PaperTradingConfig` + `load_paper_trading_config`
+     (fail-closed: a misconfigured enabled:true → disabled + `disabled_reason`) +
+     `assert_paper_base_url` (rejects the live `api.alpaca.markets` endpoint).
+   - `paper_trading:` block in `default_config.yaml` (OFF; independent of `live_trading_enabled`).
+   - `settings.paper_trading` dict field loads it. 18 tests in `tests/test_paper_trading_config.py`.
+   - **Locked decisions** (encoded in config + dataclass defaults): risk-% of equity sizing,
+     DAY entry TIF, `gate_on_command_center=false` (trade on Tony's trigger, not CC-gated),
+     `close_on_command_center_exit=true` (flatten when CC verdict says sell/get-out),
+     `account_label` for a future 2nd (CC) paper account.
+
+### Coordination action for the operator (NOT code)
+The Command Center lives at `C:/Users/alexa/Downloads/AI Operations Command Center` (separate dir).
+The outcomes file is written to the **bot repo's** `reports/tony_stocks_outcomes.json`. To unblock
+the CC's Phase 3/4 learning, point the CC at it via the **`TONY_OUTCOMES_FILE`** env var (the agreed
+contract). Until then the CC stays in `awaiting_outcomes` cleanly.
+
+### Next: paper-trading phases 2–6 (spec: docs/superpowers/specs/2026-06-02-paper-trading-design.md)
+2. **Order router (pure)** — `execution/order_router.py`: `should_trade()` + `size_position()` with
+   all gates (risk-% sizing from entry→stop, max_open, max_notional, max_daily, dedup, kill switch).
+   TDD, no network. **This is the recommended next step — decision-light.**
+3. `AlpacaPaperBroker` over `alpaca-py` (paper=True) + a `FakeBroker` for tests; integration test
+   gated behind keys. Use `assert_paper_base_url` at startup. Design the broker to take an account
+   identity (label + keys) for the future 2nd CC account.
+4. Storage: `paper_orders`/`paper_positions` tables + repo methods + fill journaling.
+5. Watch-loop wiring: call router on `entry_triggered`, submit, persist; reconcile each cycle →
+   outcomes. **Add the CC-verdict exit hook here** (close on sell/get-out). FakeBroker drives a full
+   trigger→fill→target/stop lifecycle test.
+6. API + dashboard: `/api/paper/positions` + account; Board real P/L + StatusBar account chip.
+
+### Pre-existing note
+`src/trading_bot/dashboard/` (Streamlit) is gone; the dashboard is Next.js (`dashboard-web/`) +
+FastAPI (`src/trading_bot/api/`). The empty Board/Track Record in screenshots is expected when no
+scan is running and the CC second-layer is awaiting — not a bug.
 
 ---
 
