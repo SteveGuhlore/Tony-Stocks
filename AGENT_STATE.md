@@ -1,8 +1,87 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-02_
+_Last updated: 2026-06-03_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-03 handoff — Two-agent paper trading is LIVE (read this first)
+
+**TL;DR:** The full bot↔Command-Center two-agent paper-trading loop is **live and trading end-to-end**:
+bot scan → corrected bridge → CC ingests → Tony deep-dive → verdicts → Alpaca fills. Two independent
+paper books graded against the same outcomes (the "does the 2nd pass help?" experiment). All code is
+committed + pushed to `origin/main` (github.com/SteveGuhlore/Tony-Stocks).
+
+### ⚠️ Live processes running right now — do NOT disrupt during market hours
+Launched detached (Start-Process, hidden) on this Windows machine; they persist while the device is
+awake but **do not auto-restart** if it sleeps or a process dies.
+- **Bot watch loop** (`python -m trading_bot.cli watch`) — scanning/trading/bridging. Log: `logs/watch_live2.err`.
+- **FastAPI backend** on **:8001** (`uvicorn trading_bot.api.main:app`) — serves the dashboard. Log:
+  `logs/api.err`. (Dropped once mid-session; relaunch if down — read-only, no trading impact.)
+- **Next.js dashboard** on **:3000** (`npm run dev` in `dashboard-web`). Log: `logs/web.err`.
+- Kill switches: `data/STOP_WATCH_MODE` (stops watch), `data/STOP_PAPER_TRADING` (pauses paper trades).
+- **OPERATING RULE: market hours (09:30–16:00 ET) = watch only, NO code changes/restarts.** Make code
+  changes after the 16:00 ET close so a mistake can't hit a live order.
+
+### Accounts + config (real money posture intact)
+- **TWO SEPARATE Alpaca paper accounts, never shared keys:** bot = **`PA3P0RN75VL1`** (.env `ALPACA_API_KEY`
+  prefix `PKU74F…`); CC's Tony = the **$1M** account (key `…K5ZP`). `load_dotenv` uses setdefault — keys
+  come cleanly from `.env` (no OS-env shadowing).
+- `config/default_config.yaml`: `live_trading_enabled: false` (stays false). `paper_trading.enabled: true`,
+  `close_on_command_center_exit: false` (**PURE SEPARATION** — bot ignores Tony's verdicts on its own book),
+  `account_label: "Trading Bot"`, rotation `max_symbols_per_cycle/rotating_bucket_size: 350` (scans ~full
+  universe each cycle).
+
+### File contract between the two terminals
+| File / path | Owner | Purpose |
+|---|---|---|
+| `…/AI Operations Command Center/bridge/tony-stocks/YYYY-MM-DD.md` | bot writes | daily deep-dive anchor |
+| `…/bridge/tony-stocks/YYYY-MM-DDTHHMM.md` | bot writes | intraday light updates |
+| `reports/tony_stocks_outcomes.json` | bot writes | resolved outcomes (join on `pick_date`+`resolved_date`) — CC grades |
+| `reports/tony_stocks_verdicts.json` | **CC writes** | bot reads (records only — pure separation) |
+| `reports/tony_stocks_record.json` | **CC writes** | bot dashboard will read (has real graded data now) |
+
+### What this session shipped (all committed on `main`)
+Outcomes emitter + resolved-outcomes assembly; test-suite repair (removed dead Streamlit `dashboard`
+tests); **paper-trading subsystem (6 phases)** = config (`execution/paper_config.py`), pure order router
+(`order_router.py`), broker (`broker.py` FakeBroker + `alpaca_paper.py` AlpacaPaperBroker), storage
+(`paper_orders`/`paper_positions` + repo methods), engine + watch wiring (`paper_engine.py`,
+`run_paper_cycle`), API + CLIs; CC-verdict reader (`cc_verdicts.py`, pure-separation); intraday bridges +
+daily-anchor automation; and the **bridge-export fix** — the export was decoupled from the live scan/book,
+now wired to real Universe/Scored counts, live `current_price`, triggered flags, and real carry-over;
+`update-snapshots` per-cycle limit 500→120 for cadence.
+
+### CLIs
+`watch`, `export-to-vault [--slot 1030|1300|1530|eod]`, `emit-outcomes`, `paper-status`,
+`paper-flatten` (kill switch — close all), `paper-check [--test-order SYM]`.
+
+### How to verify (read-only, safe anytime)
+- Bot book: `python -m trading_bot.cli paper-status` or `GET http://127.0.0.1:8001/api/paper/positions`.
+- Dashboard: `http://localhost:3000`. Watch: latest `watch_runs` heartbeat / `logs/watch_live2.err`.
+- Bridges: `…/bridge/tony-stocks/2026-06-03*.md`.
+
+### Pending work — do AFTER market close, prefer a fresh (cheaper) session
+1. **`GET /api/command-center` endpoint (bot)** — the dashboard's right side ("TONY STOCKS · Command
+   Center" panel, "does the 2nd pass help?" matrix, head-to-head equity) is empty because this endpoint
+   was never built. Read `reports/tony_stocks_record.json` (`tony_win_rate, agreement, calibration,
+   graded`) + `tony_stocks_verdicts.json` → map to `CommandCenterResponse` per
+   `docs/CONTRACTS/command-center-bridge.md` and the frontend `CommandCenter*` types in
+   `dashboard-web/lib/types.ts`; register in `api/main.py`. record.json now has real data (7 verdicts,
+   6 graded, win_rate 33.3%, override_saved 2 / override_missed 4).
+2. **Tony teaching / divergence memory layer** — spec `docs/superpowers/specs/2026-06-03-tony-teaching-divergence-design.md`.
+3. **Research Funnel v2** (FMP/Finnhub/Twelve Data, staged universe) — spec `docs/superpowers/specs/2026-06-03-research-funnel-design.md`.
+4. **Scan-coverage UTC-date edge** — after-hours scans (past UTC midnight) can mis-bucket coverage; make
+   the coverage/`today_events` filter ET-market-date aware.
+5. **CC-side (their terminal, not this repo):** add a bracket-validity guard so an override with
+   target/stop invalid vs live price still places (D-override didn't place today); investigate why the
+   "Forge" worker didn't spawn for a queued bug-fix; keep the memory-poison fix (reset `signal-ledger.md`
+   + trim `_load_vault_history`).
+
+### Restart commands (after close, if needed)
+- Watch: `$env:PYTHONPATH="src"; python -m trading_bot.cli watch --config config/default_config.yaml`
+- Backend: `$env:PYTHONPATH="src"; python -m uvicorn trading_bot.api.main:app --port 8001`
+- Frontend: `cd dashboard-web; npm run dev`
 
 ---
 
