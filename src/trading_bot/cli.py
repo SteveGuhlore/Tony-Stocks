@@ -261,6 +261,12 @@ def build_parser() -> argparse.ArgumentParser:
     emit_outcomes.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
     emit_outcomes.add_argument("--days", type=int, default=120, help="Lookback window (days) of snapshot history to scan.")
 
+    paper_status = subparsers.add_parser("paper-status", help="Show paper-trading account/positions status. Read-only.")
+    paper_status.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+
+    paper_flatten = subparsers.add_parser("paper-flatten", help="Kill switch: close ALL open paper positions.")
+    paper_flatten.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+
     return parser
 
 
@@ -3137,6 +3143,63 @@ def run_emit_outcomes(args: argparse.Namespace) -> dict[str, Any]:
     return {"outcomes_file": str(path), "count": count}
 
 
+def run_paper_status(args: argparse.Namespace) -> dict[str, Any]:
+    """Print paper-trading account/positions status. Read-only."""
+    from trading_bot.execution import load_paper_trading_config  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    cfg = load_paper_trading_config(getattr(settings, "paper_trading", None))
+    repo = ScannerRepository(settings.database_path)
+    print(f"Paper trading: {'ENABLED' if cfg.enabled else 'disabled'} (account '{cfg.account_label}')")
+    if cfg.disabled_reason:
+        print(f"  reason: {cfg.disabled_reason}")
+    open_rows = repo.list_open_paper_positions(account_label=cfg.account_label)
+    closed_rows = [r for r in repo.list_paper_positions(account_label=cfg.account_label) if r["status"] == "closed"]
+    print(f"Open positions: {len(open_rows)}")
+    for r in open_rows:
+        print(f"  {r['symbol']}: qty={r['qty']} entry={r['entry_price']} stop={r['stop']} target={r['target']}")
+    target_hits = sum(1 for r in closed_rows if r.get("result") == "target_hit")
+    stop_hits = sum(1 for r in closed_rows if r.get("result") == "stop_hit")
+    realized = sum(float(r["realized_pl"]) for r in closed_rows if r.get("realized_pl") is not None)
+    print(f"Closed: {len(closed_rows)} (target_hits={target_hits} stop_hits={stop_hits}) realized P/L ${realized:,.2f}")
+    return {"enabled": cfg.enabled, "open": len(open_rows), "closed": len(closed_rows), "realized_pl": realized}
+
+
+def run_paper_flatten(args: argparse.Namespace) -> dict[str, Any]:
+    """Kill switch: close all open paper positions at the broker and in the ledger."""
+    from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_config  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    cfg = load_paper_trading_config(getattr(settings, "paper_trading", None))
+    repo = ScannerRepository(settings.database_path)
+    open_rows = repo.list_open_paper_positions(account_label=cfg.account_label)
+    if not open_rows:
+        print("No open paper positions to flatten.")
+        return {"flattened": 0}
+    try:
+        broker = build_alpaca_paper_broker(cfg)
+    except Exception as exc:
+        print(f"Could not build broker to flatten ({exc}).")
+        return {"flattened": 0, "error": str(exc)}
+    flattened = 0
+    for r in open_rows:
+        sym = str(r["symbol"]).upper()
+        try:
+            broker.close_position(sym)
+            record = next((c for c in broker.closed_positions() if c["symbol"].upper() == sym), {})
+            repo.close_paper_position(
+                sym, account_label=cfg.account_label, result="closed",
+                exit_price=record.get("exit"), realized_pl=record.get("realized_pl"),
+                closed_at=utc_now_iso(),
+            )
+            flattened += 1
+            print(f"  flattened {sym}")
+        except Exception as exc:
+            print(f"  failed to flatten {sym}: {exc}")
+    print(f"Flattened {flattened} position(s).")
+    return {"flattened": flattened}
+
+
 def _emit_due_bridges(
     config_path: str,
     now_et: datetime,
@@ -3319,6 +3382,10 @@ def main() -> None:
         run_export_to_vault(args)
     elif args.command == "emit-outcomes":
         run_emit_outcomes(args)
+    elif args.command == "paper-status":
+        run_paper_status(args)
+    elif args.command == "paper-flatten":
+        run_paper_flatten(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 

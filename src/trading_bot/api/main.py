@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from trading_bot.api.live_prices import PriceCache, run_price_poll_loop
 from trading_bot.api.routes import (
-    health, today, picks, outcomes, scan, analytics, events, system, symbols, vault
+    health, today, picks, outcomes, scan, analytics, events, system, symbols, vault, paper
 )
 from trading_bot.api.routes import prices as prices_router
 from trading_bot.settings import load_dotenv_if_present
@@ -72,6 +72,7 @@ for _router in (
     symbols.router,
     vault.router,
     prices_router.router,
+    paper.router,
 ):
     app.include_router(_router, prefix="/api")
 
