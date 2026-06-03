@@ -54,6 +54,10 @@ html, body {
 .status-brass  { color: var(--brass); }
 .status-muted  { color: var(--text-tertiary); }
 
+.board-row { transition: background 0.12s; }
+.board-row:hover { background: var(--bg-elevated); }
+.board-row:focus-visible { background: var(--bg-elevated); }
+
 /* dense container: settings, tables, supplementary panels */
 .card {
   background: var(--bg-surface);
