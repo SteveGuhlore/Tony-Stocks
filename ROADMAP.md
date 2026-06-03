@@ -1,6 +1,19 @@
 # Trading Bot Project — Roadmap
 
-_Last updated: 2026-05-23_
+_Last updated: 2026-06-03_
+
+---
+
+## Planned — next sessions
+
+- **Research Funnel v2 (tomorrow, after market).** Staged first-layer pick funnel before Tony:
+  FMP screener + earnings calendar, Finnhub news-sentiment, Twelve Data breadth/fallback feeding the
+  existing scorer; staged universe growth (350 → 800 → larger); evaluated against the now-live paper
+  outcomes. Spec: `docs/superpowers/specs/2026-06-03-research-funnel-design.md`. Default-off, TDD.
+- **Paper-trading dashboard surface.** Board real-P/L cell + StatusBar account chip consuming
+  `GET /api/paper/positions` (API ready; small Next.js task).
+- **Scan-coverage ET date fix.** Coverage buckets scan runs by UTC, so after-hours scans (past UTC
+  midnight) show `Universe:0/Scored:0` for the ET report date. Make the filter ET-market-date aware.
 
 ---
 
