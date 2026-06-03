@@ -201,3 +201,20 @@ vault:
   vault_dir: vault
   command_center_dir: C:/Users/alexa/Downloads/AI Operations Command Center
   bridge_enabled: true
+
+# Paper-trading execution (Alpaca paper account). OFF by default and INDEPENDENT
+# of live_trading_enabled (which stays false and blocks any real-money path).
+# A misconfigured-but-enabled block fails closed (treated as disabled). See
+# docs/superpowers/specs/2026-06-02-paper-trading-design.md.
+paper_trading:
+  enabled: false
+  risk_per_trade_pct: 1.0          # % of paper equity risked per trade (entry->stop distance)
+  max_open_positions: 8
+  max_notional_per_position: 5000
+  max_daily_orders: 20
+  bracket: true                    # entry + stop + target as one bracket
+  time_in_force: day               # entry order expires end of day
+  gate_on_command_center: false    # trade on Tony's trigger; do not wait for CC verdict
+  close_on_command_center_exit: true  # flatten a position if the CC verdict says sell/get-out
+  account_label: tony              # account identity (room for a future 2nd CC account)
+  base_url: https://paper-api.alpaca.markets
