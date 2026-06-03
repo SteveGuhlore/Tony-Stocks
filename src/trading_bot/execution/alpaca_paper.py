@@ -91,6 +91,7 @@ class AlpacaPaperBroker:
             cash=_f(getattr(a, "cash", 0.0)),
             buying_power=_f(getattr(a, "buying_power", 0.0)),
             account_label=self.account_label,
+            account_number=str(getattr(a, "account_number", "") or ""),
         )
 
     def list_positions(self) -> list[BrokerPosition]:

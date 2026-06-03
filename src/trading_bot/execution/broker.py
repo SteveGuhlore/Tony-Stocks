@@ -20,6 +20,7 @@ class BrokerAccount:
     cash: float
     buying_power: float
     account_label: str
+    account_number: str = ""
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,7 @@ class FakeBroker:
             cash=self._equity,
             buying_power=self._equity,
             account_label=self._label,
+            account_number="PAPER-FAKE-0001",
         )
 
     def submit_bracket(

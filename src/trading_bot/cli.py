@@ -3225,10 +3225,12 @@ def run_paper_check(args: argparse.Namespace) -> dict[str, Any]:
         print(f"FAILED to connect to Alpaca paper account: {exc}")
         return {"ok": False, "error": str(exc)}
     print(
-        f"Account OK — equity ${account.equity:,.2f}, cash ${account.cash:,.2f}, "
+        f"Account OK — number {account.account_number or '(n/a)'} | "
+        f"equity ${account.equity:,.2f}, cash ${account.cash:,.2f}, "
         f"buying power ${account.buying_power:,.2f}"
     )
-    result: dict[str, Any] = {"ok": True, "equity": account.equity}
+    print("  (compare this account number to the Command Center's Tony account — they MUST differ)")
+    result: dict[str, Any] = {"ok": True, "equity": account.equity, "account_number": account.account_number}
 
     symbol = getattr(args, "test_order", None)
     if symbol:
@@ -3243,8 +3245,12 @@ def run_paper_check(args: argparse.Namespace) -> dict[str, Any]:
                 time_in_force=cfg.time_in_force,
             )
             print(f"  submitted: id={order.order_id} status={order.status}")
-            broker.close_position(symbol)
-            print("  test position flattened.")
+            position = broker.get_position(symbol)
+            if position is not None:
+                broker.close_position(symbol)
+                print("  filled — test position flattened.")
+            else:
+                print("  queued (market closed / not yet filled) — left as proof it reached the account.")
             result["test_order_id"] = order.order_id
         except Exception as exc:
             print(f"  TEST ORDER failed: {exc}")

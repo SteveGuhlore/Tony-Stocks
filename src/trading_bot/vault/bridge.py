@@ -72,6 +72,7 @@ def write_bridge_export(
     command_center_dir: str | Path,
     snapshots: list[dict[str, Any]] | None = None,
     slot: str | None = None,
+    note: str | None = None,
 ) -> Path:
     """Write curated analyst brief to {command_center_dir}/bridge/tony-stocks/.
 
@@ -129,11 +130,18 @@ def write_bridge_export(
     ]
     if is_intraday:
         lines.append(f"slot: {slot}")
+    if note:
+        lines.append("test: true")
+        lines.append(f"note: {note}")
     lines += [
         "---",
         "",
         f"# Tony Stocks Bridge — {date}{title_suffix}",
         "",
+    ]
+    if note:
+        lines += [f"> ⚠️ **{note}**", ""]
+    lines += [
         "## Scanner Summary",
         f"- Universe: {universe_size} | Scored: {scored_count} ({coverage_pct:.1f}%) | Cycles: {cycles}",
         "",
