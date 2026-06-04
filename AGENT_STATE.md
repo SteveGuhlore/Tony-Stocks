@@ -120,6 +120,10 @@ restart will also deliver today's missed 1600 EOD handoff to Tony (expected/beni
 `ROADMAP.md`, `AGENT_STATE.md`. Branch off main first.
 
 ### Update 4 (2026-06-04 ~17:40 ET, after close) — Funnel LIVE + execution-parity contract
+> **NEXT SESSION:** execute `docs/superpowers/specs/2026-06-04-remaining-roadmap-plan.md` — all remaining
+> roadmap items in one clean pass (funnel enrichment scaling → ET-date fix → funnel eval harness → Tony
+> teaching layer → universe-growth decision → **paper-trade dashboard LAST**). Sizing is now matched 1%
+> of each account: **bot $1k / CC $10k**. Bot sizing live as `max_notional_per_position: 1000`.
 - **Research Funnel is ENABLED and live on the watch loop** (PID 35116, relaunched after close with
   `PYTHONUNBUFFERED=1` so logs stream). Verified at startup: `universe 543 → 542 shortlist (dropped 1:
   DOCU earnings-blackout)`, rotator now pulls from the funnel shortlist. Config: `enabled:true`,

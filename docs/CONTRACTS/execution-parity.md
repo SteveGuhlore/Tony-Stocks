@@ -20,7 +20,7 @@ is the canonical reference**; the CC must match these values.
 | Risk per trade | `risk_per_trade_pct: 1.0` (% of equity risked = entry→stop distance) | The core sizing policy; neither side implicitly leveraged. |
 | Position-sizing formula | `shares = floor( (risk_pct × equity) ÷ (entry − stop) )` | Same formula both sides. |
 | Max open positions | `max_open_positions: 50` | Same concurrent exposure. |
-| Max notional / position | **1% of account equity** → bot ($100k) = `1000`; CC ($1M) = `10000` | Same *%* single-name cap so concentration matches across unequal account sizes. ⚠️ CC is currently `5000` (0.5% of $1M) — should move to `10000` for a clean 1% match. |
+| Max notional / position | **1% of account equity** → bot ($100k) = `1000`; CC ($1M) = `10000` ✅ | Same *%* single-name cap so concentration matches across unequal account sizes. **Aligned 2026-06-04:** bot `1000`, CC `10000` — clean 1%-of-account match. |
 | Max daily orders | `max_daily_orders: 200` | Same activity ceiling. |
 | Order mechanics | market entry + **GTC** OCO bracket (take-profit limit + stop) | Same fill + protection behavior. |
 | Time-in-force | `gtc` | Protection persists overnight on both. |
