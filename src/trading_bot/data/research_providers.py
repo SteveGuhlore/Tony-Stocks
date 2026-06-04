@@ -12,9 +12,11 @@ a provider with no key is inert (its methods return None/empty).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Callable
 
 import requests
@@ -224,6 +226,109 @@ class TwelveDataProvider:
         return {"price": price or 0.0, "volume": volume or 0.0}
 
 
+class RecommendationCache:
+    """Daily-keyed cache of Finnhub analyst-recommendation scores.
+
+    Lets the funnel warm the *whole* universe over several watch cycles instead of
+    bursting Finnhub's free ~60/min tier in one startup pass: each cycle fetches
+    only a small budget of stale/missing symbols and reads the rest from cache, so
+    after a few cycles every symbol carries a recommendation score (and ranking is
+    no longer skewed toward only the first ``enrich_limit`` names).
+
+    Persists ``{SYMBOL: {"score": float|None, "fetched_date": "YYYY-MM-DD"}}`` as
+    JSON. A ``None`` score is cached for the day too (symbol attempted but Finnhub
+    has no coverage) so we don't re-hammer it. Entries older than ``ttl_days`` are
+    treated as stale and refetched, so scores refresh at least daily. All disk I/O
+    is defensive — a missing or corrupt file degrades to an empty cache, never an
+    exception that could break the watch loop.
+    """
+
+    def __init__(self, path: str | Path, *, ttl_days: int = 1) -> None:
+        self.path = Path(path)
+        self.ttl_days = max(1, int(ttl_days))
+        self._data: dict[str, dict[str, Any]] = {}
+
+    def load(self) -> "RecommendationCache":
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            self._data = {}
+            return self
+        if isinstance(raw, dict):
+            self._data = {
+                str(k).upper(): v for k, v in raw.items() if isinstance(v, dict)
+            }
+        else:
+            self._data = {}
+        return self
+
+    def save(self) -> None:
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(
+                json.dumps(self._data, indent=2, sort_keys=True), encoding="utf-8"
+            )
+        except OSError as exc:  # pragma: no cover - disk failure is non-fatal
+            LOGGER.warning("could not write recommendation cache %s: %s", self.path, exc)
+
+    def is_fresh(self, symbol: str, today: date) -> bool:
+        entry = self._data.get(symbol.upper())
+        if not entry:
+            return False
+        fetched = _parse_date(entry.get("fetched_date"))
+        if fetched is None:
+            return False
+        age = (today - fetched).days
+        return 0 <= age < self.ttl_days
+
+    def get_fresh(self, symbol: str, today: date) -> tuple[bool, float | None]:
+        """Return ``(hit, score)``. ``hit`` is True only when a fresh entry exists;
+        a fresh-but-None score still counts as a hit (don't re-hammer no-coverage
+        symbols). A miss returns ``(False, None)`` so the caller fetches it."""
+        if not self.is_fresh(symbol, today):
+            return False, None
+        return True, _safe_float(self._data[symbol.upper()].get("score"))
+
+    def put(self, symbol: str, score: float | None, today: date) -> None:
+        self._data[symbol.upper()] = {
+            "score": _safe_float(score),
+            "fetched_date": today.isoformat(),
+        }
+
+
+def warm_recommendation_cache(
+    symbols: list[str],
+    *,
+    finnhub: FinnhubProvider | None,
+    cache: RecommendationCache,
+    today: date,
+    budget: int,
+) -> int:
+    """Fetch analyst-recommendation scores for up to ``budget`` stale/missing symbols
+    and write them into ``cache``. Returns the number actually fetched.
+
+    Called once per watch cycle to progressively warm the cache without bursting
+    Finnhub's free ~60/min tier: fresh cache entries are skipped for free, so over a
+    few cycles the whole universe is covered and every symbol carries a score the
+    next time the funnel ranks. Inert (returns 0) when Finnhub has no key, and every
+    per-symbol failure caches a ``None`` (so it isn't re-hammered) rather than raising.
+    """
+    if finnhub is None or not finnhub.available or budget <= 0:
+        return 0
+    fetched = 0
+    for sym in symbols:
+        if fetched >= budget:
+            break
+        if cache.is_fresh(sym, today):
+            continue
+        score = finnhub.recommendation(sym)
+        cache.put(sym, score, today)
+        fetched += 1
+    if fetched:
+        cache.save()
+    return fetched
+
+
 def build_providers_from_env(get_json: GetJson | None = None) -> dict[str, Any]:
     """Construct providers from environment keys. Each is inert without its key."""
     return {
@@ -243,6 +348,8 @@ def gather_funnel_signals(
     enrich_limit: int = 150,
     earnings_blackout_days: int = 10,
     use_news_sentiment: bool = True,
+    reco_cache: "RecommendationCache | None" = None,
+    enrich_per_run: int | None = None,
 ) -> dict[str, SymbolSignals]:
     """Assemble per-symbol SymbolSignals.
 
@@ -250,8 +357,15 @@ def gather_funnel_signals(
     the caller's already-cached Alpaca scan data — that is the consistent feed and
     needs no API call. Provider enrichment (earnings/sentiment/recommendation) is
     layered on top: one bulk FMP earnings call for the whole window, plus per-symbol
-    Finnhub calls capped at ``enrich_limit`` to respect free-tier rate limits.
-    Symbols beyond the cap still get base metrics (price/volume/RS) — just no catalyst.
+    Finnhub calls for the analyst recommendation.
+
+    To rank the *whole* shortlist (not just the first ``enrich_limit`` symbols)
+    without bursting Finnhub's free ~60/min tier, pass a ``reco_cache``. Then each
+    run reads fresh recommendation scores from the cache for free and only fetches
+    stale/missing symbols, capped at ``enrich_per_run`` (the per-cycle budget). Over
+    a few cycles the cache warms the entire universe; thereafter it is all cache
+    hits until the daily TTL expires. Without a cache, behavior is unchanged: the
+    first ``enrich_limit`` symbols are enriched and the rest carry base metrics only.
     """
     base_metrics = base_metrics or {}
     upper = [s.upper() for s in symbols]
@@ -260,16 +374,29 @@ def gather_funnel_signals(
     if fmp is not None and fmp.available and earnings_blackout_days > 0:
         earnings = fmp.earnings_calendar(today, today + timedelta(days=earnings_blackout_days + 1))
 
+    budget = enrich_per_run if enrich_per_run is not None else enrich_limit
     signals: dict[str, SymbolSignals] = {}
-    enriched = 0
+    fetched = 0
     for sym in upper:
         base = base_metrics.get(sym, {})
         sentiment = recommendation = None
-        if finnhub is not None and finnhub.available and enriched < enrich_limit:
-            if use_news_sentiment:  # news-sentiment is a premium Finnhub endpoint (403 on free)
-                sentiment = finnhub.news_sentiment(sym)
-            recommendation = finnhub.recommendation(sym)
-            enriched += 1
+        if finnhub is not None and finnhub.available:
+            if reco_cache is not None:
+                hit, cached = reco_cache.get_fresh(sym, today)
+                if hit:
+                    recommendation = cached  # free — served from the daily cache
+                elif fetched < budget:
+                    recommendation = finnhub.recommendation(sym)
+                    reco_cache.put(sym, recommendation, today)
+                    fetched += 1
+                    if use_news_sentiment:  # premium endpoint (403 on free tier)
+                        sentiment = finnhub.news_sentiment(sym)
+                # else: over budget this cycle — a later cycle warms this symbol
+            elif fetched < budget:
+                if use_news_sentiment:  # news-sentiment is a premium Finnhub endpoint
+                    sentiment = finnhub.news_sentiment(sym)
+                recommendation = finnhub.recommendation(sym)
+                fetched += 1
         signals[sym] = SymbolSignals(
             symbol=sym,
             price=_safe_float(base.get("price")),
@@ -279,4 +406,6 @@ def gather_funnel_signals(
             recommendation_score=recommendation,
             earnings_date=earnings.get(sym),
         )
+    if reco_cache is not None:
+        reco_cache.save()
     return signals

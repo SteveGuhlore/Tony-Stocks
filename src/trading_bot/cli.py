@@ -1204,6 +1204,13 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
     # Universe rotation — initialized once; state carries forward across cycles
     rotation_cfg = settings.watch_universe_rotation or {}
     rotator: WatchUniverseRotator | None = None
+    # Funnel state (set below when the funnel is enabled). Declared at function scope
+    # so the per-cycle cache-warming step is always bound, even when rotation/funnel
+    # are off — otherwise the loop hits an UnboundLocalError.
+    funnel_reco_cache = None
+    funnel_providers: dict[str, Any] | None = None
+    funnel_warm_symbols: list[str] = []
+    funnel_enrich_per_run = 0
     if rotation_cfg.get("enabled", False):
         universe_symbols = load_universe(settings.universe_config_path)
         universe_symbols, watch_quarantined = apply_symbol_quarantine(
@@ -1247,24 +1254,37 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
         # Runs once here; never breaks the loop — any failure falls back to the
         # pre-screened universe. See docs/superpowers/specs/2026-06-03-research-funnel-design.md.
         funnel_cfg = settings.research_funnel or {}
+        funnel_enrich_per_run = int(
+            funnel_cfg.get("enrich_per_run", funnel_cfg.get("enrich_limit", 50))
+        )
         if funnel_cfg.get("enabled", False):
             try:
                 from trading_bot.data.research_funnel import FunnelStageConfig, build_funnel
                 from trading_bot.data.research_providers import (
+                    RecommendationCache,
                     build_providers_from_env,
                     gather_funnel_signals,
                 )
 
                 _funnel_today = datetime.now(ZoneInfo("America/New_York")).date()
-                _providers = build_providers_from_env()
+                funnel_providers = build_providers_from_env()
+                funnel_reco_cache = RecommendationCache(
+                    Path("reports") / "finnhub_reco_cache.json",
+                    ttl_days=int(funnel_cfg.get("reco_cache_ttl_days", 1)),
+                ).load()
+                # The funnel ranks over this pre-screened set; warm the cache over the
+                # same set each cycle so every name eventually carries a score.
+                funnel_warm_symbols = list(universe_symbols)
                 _signals = gather_funnel_signals(
                     universe_symbols,
                     today=_funnel_today,
-                    fmp=_providers["fmp"],
-                    finnhub=_providers["finnhub"],
+                    fmp=funnel_providers["fmp"],
+                    finnhub=funnel_providers["finnhub"],
                     enrich_limit=int(funnel_cfg.get("enrich_limit", 150)),
                     earnings_blackout_days=int(funnel_cfg.get("earnings_blackout_days", 0)),
                     use_news_sentiment=bool(funnel_cfg.get("use_news_sentiment", True)),
+                    reco_cache=funnel_reco_cache,
+                    enrich_per_run=funnel_enrich_per_run,
                 )
                 _core = {s.upper() for s in (rotation_cfg.get("core_symbols") or [])}
                 _funnel = build_funnel(
@@ -1275,10 +1295,21 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                     always_include=_core,
                 )
                 universe_symbols = _funnel.shortlist
-                LOGGER.info("Research funnel applied: %s", _funnel.to_dict())
-                print(f"Research funnel: {_funnel.to_dict()['stage_counts']}")
+                _cached_count = sum(
+                    1 for s in funnel_warm_symbols if funnel_reco_cache.is_fresh(s, _funnel_today)
+                )
+                LOGGER.info(
+                    "Research funnel applied: %s (reco cache fresh for %d/%d symbols)",
+                    _funnel.to_dict(), _cached_count, len(funnel_warm_symbols),
+                )
+                print(
+                    f"Research funnel: {_funnel.to_dict()['stage_counts']} "
+                    f"(reco cache {_cached_count}/{len(funnel_warm_symbols)} warm)"
+                )
             except Exception as exc:  # never break the watch loop on funnel failure
                 LOGGER.warning("Research funnel failed; using pre-screened universe: %s", exc)
+                funnel_reco_cache = None
+                funnel_providers = None
 
         rotator = WatchUniverseRotator(universe_symbols, rotation_cfg)
         LOGGER.info(
@@ -1352,6 +1383,27 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
             tony.start_cycle()
             cycle_started = datetime.now(ZoneInfo(timezone_name))
             print(f"\nWatch cycle {cycle_number} started at {cycle_started.isoformat()}")
+
+            # Funnel: warm the analyst-recommendation cache by one budget batch per
+            # cycle so the WHOLE universe gets ranked over a few cycles without bursting
+            # Finnhub's free ~60/min tier. Fresh entries are skipped, so each cycle
+            # advances to the next unwarmed batch. Persists daily; the next watch
+            # startup ranks the full universe from cache. Never breaks the loop.
+            if funnel_reco_cache is not None and funnel_providers is not None and funnel_warm_symbols:
+                try:
+                    from trading_bot.data.research_providers import warm_recommendation_cache
+
+                    _warmed = warm_recommendation_cache(
+                        funnel_warm_symbols,
+                        finnhub=funnel_providers["finnhub"],
+                        cache=funnel_reco_cache,
+                        today=cycle_started.date(),
+                        budget=funnel_enrich_per_run,
+                    )
+                    if _warmed:
+                        LOGGER.info("Funnel reco cache warmed +%d symbols this cycle", _warmed)
+                except Exception as exc:  # never break the loop on cache warming
+                    LOGGER.warning("Funnel reco cache warm failed: %s", exc)
 
             # Universe rotation: select symbols for this cycle
             rotation_result: RotationResult | None = None

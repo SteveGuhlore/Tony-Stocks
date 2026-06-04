@@ -4,6 +4,14 @@ _Last updated: 2026-05-19_
 
 ## Immediate
 
+- **(Item 2, 2026-06-04) Scan-coverage ET-date bucketing is verified ET-correct and locked** by
+  `tests/test_scan_coverage_et_date.py` (after-hours 02:00 UTC scan buckets to the prior ET day). The
+  original UTC-bucketing bug was already fixed via `market_date_mask` (V16A); the new tests guard it.
+  **Dormant edge still open (low priority):** `ScannerRepository.count_paper_orders_today` compares
+  `substr(submitted_at,1,10)` (UTC date) against the ET `day` the watch loop passes. Harmless today
+  because paper orders only submit during market hours (09:30–16:00 ET), when the ET and UTC dates
+  coincide — but if extended-hours submission is ever enabled the daily-order cap could miscount across
+  UTC midnight. Fix when paper trading goes extended-hours: bucket by ET market date consistently.
 - Review V15.9 reassessment labels after several real market-hours refresh cycles to confirm `still_valid / weakening / invalidated / needs_review` wording stays intuitive without implying trading instructions.
 - Review V16 Tony memory summaries after several real-only market days to confirm the preliminary best/worst setup notes stay useful and do not overstate sparse data.
 - Review V16A ET market-date reporting after the next after-hours run to confirm `eod-report` and `outcome-analytics --today` now match the intended New York session without surprising users near UTC midnight.

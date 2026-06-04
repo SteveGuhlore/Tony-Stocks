@@ -155,11 +155,15 @@ watch_universe_rotation:
 research_funnel:
   # Research Funnel v2 — multi-stage pre-Tony shortlisting with FMP/Finnhub/Twelve Data
   # enrichment. DEFAULT OFF. See docs/superpowers/specs/2026-06-03-research-funnel-design.md.
-  # When enabled, runs ONCE at watch start (after the pre-screener) and feeds the rotator
-  # a ranked shortlist. Enrichment feeds are ADVISORY — a missing/failed API never drops a
-  # symbol. Needs FMP_API_KEY / FINNHUB_API_KEY in .env to enrich (inert without them).
+  # When enabled, runs at watch start (after the pre-screener) to feed the rotator a ranked
+  # shortlist, and warms a daily recommendation cache by one budget batch each cycle so the
+  # WHOLE universe gets analyst-ranked over a few cycles (not just the first enrich_limit).
+  # Enrichment feeds are ADVISORY — a missing/failed API never drops a symbol. Needs
+  # FMP_API_KEY / FINNHUB_API_KEY in .env to enrich (inert without them).
   enabled: true                  # LIVE 2026-06-04 after close; fail-safe (errors -> pre-screened universe)
-  enrich_limit: 50               # cap per-symbol Finnhub calls/run UNDER the ~60/min free tier (150 bursts 429s)
+  enrich_limit: 50               # legacy one-shot cap (used only when the reco cache is unavailable)
+  enrich_per_run: 50             # per-CYCLE Finnhub budget with the daily reco cache on (stays under ~60/min)
+  reco_cache_ttl_days: 1         # recommendation-cache freshness; entries refetched after N days
   use_news_sentiment: false      # Finnhub news-sentiment is premium (403 on free) -> skip; rank by recommendation
   # Stage thresholds (map 1:1 to FunnelStageConfig):
   min_price: 5.0
