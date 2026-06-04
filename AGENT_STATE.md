@@ -41,10 +41,27 @@ A watch restart picks up Item 1 (reco cache + per-cycle warming). Same restart c
 emits due bridges at the top before the market guard). Merge the branch to `main` first (or run from the
 branch). Nothing forces a restart — Item 1 only changes behavior on the next `run_watch`.
 
-### Next session
-Item 7 — paper-trade dashboard surface (Next.js, LAST). Read `dashboard-web/AGENTS.md` first. Includes the
-operator's requested **normalized head-to-head equity curve** (Tony vs bot indexed to 100; mirror the CC's
-`/api/tony/equity-curve` canvas).
+### Item 7 — paper-trade dashboard surface (SHIPPED this session, frontend committed `46e8d14`)
+- **Backend** (`f...`): `analytics/equity_curve.py` (pure `build_paper_equity_curve`, realized series indexed
+  to 100) + `GET /api/paper/equity-curve?base_equity=100000`. Tests in `test_equity_curve.py` + api smoke.
+- **Frontend** (Next.js 16, tsc clean, verified live in the running :3000 dashboard):
+  - Board: amber **PAPER** badge on held symbols + real fill-based P/L (verified: FITB/C/PINS/GLW/SLB).
+  - StatusBar: account chip ("Trading Bot 31 open · realized").
+  - `/record`: **HeadToHeadEquity** chart — bot (amber) vs Tony (cyan), each indexed to 100, baseline at
+    100, legend with each side's % return, "Collecting…" until ≥2 points.
+  - SymbolDrawer: bot paper-position section (fill/qty/opened/stop/target/live P/L) vs the planned entry.
+  - `lib/hooks/usePaper.ts` (usePaper + usePaperEquityCurve, fail-quiet), api + Paper* types.
+- **Equity-curve model (operator decision):** each side publishes its OWN normalized series; either dashboard
+  overlays both. Bot publishes `/api/paper/equity-curve`. **To light up the curve with data:** (1) restart the
+  API on :8001 so the new endpoint exists (currently 404s → graceful "Collecting…"); (2) need ≥2 closed paper
+  trades. **CC side (coordinate):** have the Command Center expose/keep its Tony series (it already builds
+  `equity-history.json` / `/api/tony/equity-curve`); the bot dashboard reads Tony's series from
+  `command-center record.equity_curve`.
+
+### Still open
+- Roadmap item 6 (auto-universe growth — FMP screener is paid): **operator decision**, no code until a path is picked.
+- Restart API :8001 (attended) to expose `/api/paper/equity-curve`. Restart watch loop (attended, after close) to
+  activate Item 1's reco cache + per-cycle warming. Neither is forced.
 
 ---
 
