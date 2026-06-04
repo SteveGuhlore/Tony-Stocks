@@ -272,6 +272,12 @@ def build_parser() -> argparse.ArgumentParser:
     funnel_eval.add_argument("--save-report", action="store_true", help="Write reports/<date>/funnel_eval.json.")
     funnel_eval.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
 
+    tony_divergence = subparsers.add_parser(
+        "tony-divergence",
+        help="Grade Tony's verdicts vs the bot's outcomes into a teaching ledger. Research only; never trades.",
+    )
+    tony_divergence.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+
     paper_status = subparsers.add_parser("paper-status", help="Show paper-trading account/positions status. Read-only.")
     paper_status.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
 
@@ -3346,6 +3352,51 @@ def run_funnel_eval(args: argparse.Namespace) -> dict[str, Any]:
     return report.to_dict()
 
 
+def _load_json_list(path: str) -> list[dict[str, Any]]:
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def run_tony_divergence(args: argparse.Namespace) -> dict[str, Any]:
+    """Build + persist the Tony teaching/divergence ledger: grade Tony's verdicts
+    against the bot's resolved outcomes. Research only — pure separation stays; nothing
+    here ever touches the bot's paper book.
+    """
+    from trading_bot.analytics.tony_divergence import (  # noqa: PLC0415
+        build_tony_divergence,
+        write_divergence_ledger,
+    )
+
+    print("Tony divergence - research only. Grades Tony's verdicts vs the bot's outcomes; never trades.")
+    verdicts_path = os.environ.get("TONY_VERDICTS_FILE") or "reports/tony_stocks_verdicts.json"
+    outcomes_path = os.environ.get("TONY_OUTCOMES_FILE") or "reports/tony_stocks_outcomes.json"
+    verdicts = _load_json_list(verdicts_path)
+    outcomes = _load_json_list(outcomes_path)
+
+    ledger = build_tony_divergence(verdicts, outcomes)
+    out = write_divergence_ledger(ledger)
+    tallies = ledger.tallies
+
+    print(f"Verdicts: {len(verdicts)} | Outcomes: {len(outcomes)} | Graded records: {len(ledger.records)}")
+    print(
+        f"agreed_right={tallies['agreed_right']} agreed_wrong={tallies['agreed_wrong']} "
+        f"cc_overrode_saved={tallies['cc_overrode_saved']} cc_overrode_missed={tallies['cc_overrode_missed']} "
+        f"pending={tallies['pending']}"
+    )
+    divergences = [r for r in ledger.records if r.classification.startswith("cc_overrode")]
+    if divergences:
+        print("Recent divergences (Tony vs bot, who was right):")
+        for r in divergences[:15]:
+            who = "tony" if r.classification == "cc_overrode_saved" else "bot"
+            ret = f"{r.return_pct:+.1f}%" if r.return_pct is not None else "-"
+            print(f"  {r.symbol} {r.pick_date}: tony={r.verdict} -> {who} right ({ret}) :: {r.tony_reasoning[:70]}")
+    print(f"Teaching ledger: {out}")
+    return ledger.to_dict()
+
+
 def run_paper_status(args: argparse.Namespace) -> dict[str, Any]:
     """Print paper-trading account/positions status. Read-only."""
     from trading_bot.execution import load_paper_trading_config  # noqa: PLC0415
@@ -3728,6 +3779,8 @@ def main() -> None:
         run_emit_outcomes(args)
     elif args.command == "funnel-eval":
         run_funnel_eval(args)
+    elif args.command == "tony-divergence":
+        run_tony_divergence(args)
     elif args.command == "paper-status":
         run_paper_status(args)
     elif args.command == "paper-flatten":

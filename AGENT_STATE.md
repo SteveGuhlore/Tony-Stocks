@@ -6,6 +6,48 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-04 (evening session) handoff — roadmap items 1–4 shipped (funnel scaling, ET-date lock, funnel eval, Tony teaching)
+
+**TL;DR:** Executed `docs/superpowers/specs/2026-06-04-remaining-roadmap-plan.md` items 1–4 on branch
+`feat/remaining-roadmap-2026-06-04` (off `main`). Full suite green after each. **NOT merged to main, NOT
+pushed, live watch loop NOT restarted** — all changes are code/config/tests/docs only and won't affect the
+running PID until an attended restart. **Item 7 (paper-trade dashboard) is the only remaining roadmap item.**
+
+### What shipped (commits on the feature branch)
+1. **Item 1 — Funnel enrichment scaling** (`686443a`). `RecommendationCache` (`reports/finnhub_reco_cache.json`,
+   daily-keyed `{SYMBOL:{score,fetched_date}}`) + `enrich_per_run` per-cycle budget so the funnel ranks the
+   WHOLE universe over a few cycles without bursting Finnhub's free ~60/min tier. `gather_funnel_signals` is
+   cache-aware (fresh = free, stale/missing fetched up to budget); `warm_recommendation_cache` runs each watch
+   cycle (wired into `run_watch`). Config: `enrich_per_run: 50`, `reco_cache_ttl_days: 1`.
+2. **Item 2 — Scan-coverage ET-date** (`686443a`). The coverage builder already buckets after-hours scans by
+   ET via `market_date_mask` (V16A); locked with `tests/test_scan_coverage_et_date.py`. Dormant
+   `count_paper_orders_today` UTC/ET edge noted in `KNOWN_BACKLOG.md` (only bites in extended hours — gated off).
+3. **Item 3 — Funnel evaluation harness** (`4e5972b`). `analytics/funnel_eval.py` (pure) + `funnel-eval` CLI:
+   per stage, win-rate/avg-R of KEPT vs DROPPED names over stored outcomes → helps/hurts/neutral/insufficient.
+   Live run: 46 picks, all stages `insufficient_data` (picks only exist for funnel survivors — honest).
+4. **Item 4 — Tony teaching / divergence** (pending commit this session). `analytics/tony_divergence.py` (pure)
+   + `tony-divergence` CLI → `reports/tony_teaching_log.json`. Joins `tony_stocks_verdicts.json` ×
+   `tony_stocks_outcomes.json` on (symbol, pick_date), classifies agreed_right/wrong + cc_overrode_saved/missed
+   + pending, reasoning verbatim. `/api/command-center` agreement block now **falls back to this ledger** when
+   the CC record lacks one (`build_agreement_from_teaching`). Live run: 10 verdicts × 46 outcomes → all pending
+   (verdict dates 06-03/04 vs resolved outcomes 05-18→05-22, so none join yet — they grade as outcomes resolve).
+
+### New CLIs
+`funnel-eval [--days N --min-sample N --save-report]`, `tony-divergence` (both research-only, read-only except
+writing their report/ledger JSON).
+
+### To activate on the live loop (after close, attended)
+A watch restart picks up Item 1 (reco cache + per-cycle warming). Same restart caveat as prior handoffs (it
+emits due bridges at the top before the market guard). Merge the branch to `main` first (or run from the
+branch). Nothing forces a restart — Item 1 only changes behavior on the next `run_watch`.
+
+### Next session
+Item 7 — paper-trade dashboard surface (Next.js, LAST). Read `dashboard-web/AGENTS.md` first. Includes the
+operator's requested **normalized head-to-head equity curve** (Tony vs bot indexed to 100; mirror the CC's
+`/api/tony/equity-curve` canvas).
+
+---
+
 ## 2026-06-03 handoff — Two-agent paper trading is LIVE (read this first)
 
 **TL;DR:** The full bot↔Command-Center two-agent paper-trading loop is **live and trading end-to-end**:

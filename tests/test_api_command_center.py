@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from trading_bot.api.main import app
 from trading_bot.api.routes.command_center import (
     build_agreement,
+    build_agreement_from_teaching,
     build_picks,
     build_record,
 )
@@ -123,6 +124,19 @@ def test_build_agreement_none_when_no_agreement_block():
     assert build_agreement(None) is None
 
 
+def test_build_agreement_from_teaching_reads_quadrants():
+    teaching = {"agreement": {"agreed_right": 3, "agreed_wrong": 1,
+                              "cc_overrode_saved": 2, "cc_overrode_missed": 4}}
+    agr = build_agreement_from_teaching(teaching)
+    assert agr is not None
+    assert (agr.agreed_right, agr.agreed_wrong, agr.cc_overrode_saved, agr.cc_overrode_missed) == (3, 1, 2, 4)
+
+
+def test_build_agreement_from_teaching_none_when_missing():
+    assert build_agreement_from_teaching(None) is None
+    assert build_agreement_from_teaching({"records": []}) is None
+
+
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
 @pytest.fixture()
@@ -133,6 +147,7 @@ def client(tmp_path, monkeypatch):
     # Don't let a developer's real env-var overrides leak into the test.
     monkeypatch.delenv("TONY_VERDICTS_FILE", raising=False)
     monkeypatch.delenv("TONY_RECORD_FILE", raising=False)
+    monkeypatch.delenv("TONY_TEACHING_FILE", raising=False)
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "test.db"))
     with TestClient(app) as c:
         yield c, reports
@@ -157,6 +172,29 @@ def test_endpoint_maps_full_payload(client):
     assert data["record"]["win_rate"] == pytest.approx(0.333)
     assert data["agreement"]["cc_overrode_saved"] == 2
     assert data["agreement"]["cc_overrode_missed"] == 4
+
+
+def test_endpoint_falls_back_to_teaching_agreement(client):
+    # No CC record file -> agreement comes from the bot-side teaching ledger.
+    c, reports = client
+    teaching = {"agreement": {"agreed_right": 1, "agreed_wrong": 0,
+                              "cc_overrode_saved": 2, "cc_overrode_missed": 1}}
+    (reports / "tony_teaching_log.json").write_text(json.dumps(teaching), encoding="utf-8")
+    data = c.get("/api/command-center").json()
+    assert data["record"] is None  # no CC record file
+    assert data["agreement"]["cc_overrode_saved"] == 2
+    assert data["agreement"]["agreed_right"] == 1
+
+
+def test_cc_record_agreement_wins_over_teaching(client):
+    # When the CC record has its own agreement, it takes precedence over the ledger.
+    c, reports = client
+    (reports / "tony_stocks_record.json").write_text(json.dumps(_RECORD), encoding="utf-8")
+    teaching = {"agreement": {"agreed_right": 9, "agreed_wrong": 9,
+                              "cc_overrode_saved": 9, "cc_overrode_missed": 9}}
+    (reports / "tony_teaching_log.json").write_text(json.dumps(teaching), encoding="utf-8")
+    data = c.get("/api/command-center").json()
+    assert data["agreement"]["cc_overrode_saved"] == 2  # from _RECORD, not the ledger
 
 
 def test_endpoint_survives_malformed_json(client):

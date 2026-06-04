@@ -45,6 +45,11 @@ def _record_path(reports_dir: Path) -> Path:
     return Path(env) if env else reports_dir / "tony_stocks_record.json"
 
 
+def _teaching_path(reports_dir: Path) -> Path:
+    env = os.environ.get("TONY_TEACHING_FILE")
+    return Path(env) if env else reports_dir / "tony_teaching_log.json"
+
+
 def _load_json(path: Path) -> Any | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -153,6 +158,26 @@ def build_agreement(record: Any) -> CommandCenterAgreement | None:
     )
 
 
+def build_agreement_from_teaching(teaching: Any) -> CommandCenterAgreement | None:
+    """Bot-side fallback: derive the agreement tally from the Tony divergence ledger
+    (``tony_teaching_log.json``) when the CC's own record file has no agreement block.
+
+    The ledger already uses the cc_overrode_* spelling (see
+    ``trading_bot.analytics.tony_divergence``), so this is a straight read.
+    """
+    if not isinstance(teaching, dict):
+        return None
+    agr = teaching.get("agreement")
+    if not isinstance(agr, dict):
+        return None
+    return CommandCenterAgreement(
+        agreed_right=_to_int(agr.get("agreed_right")),
+        agreed_wrong=_to_int(agr.get("agreed_wrong")),
+        cc_overrode_saved=_to_int(agr.get("cc_overrode_saved")),
+        cc_overrode_missed=_to_int(agr.get("cc_overrode_missed")),
+    )
+
+
 # ── Route ─────────────────────────────────────────────────────────────────────
 
 @router.get("/command-center", response_model=CommandCenterResponse)
@@ -160,8 +185,14 @@ def get_command_center(request: Request) -> CommandCenterResponse:
     reports_dir = Path(getattr(request.app.state, "reports_dir", "reports"))
     verdicts = _load_json(_verdicts_path(reports_dir))
     record_raw = _load_json(_record_path(reports_dir))
+    # Prefer the CC's own graded agreement; fall back to the bot-side Tony divergence
+    # ledger so the "does the 2nd pass help?" matrix populates from our teaching layer
+    # even before the CC writes its record file.
+    agreement = build_agreement(record_raw)
+    if agreement is None:
+        agreement = build_agreement_from_teaching(_load_json(_teaching_path(reports_dir)))
     return CommandCenterResponse(
         picks=build_picks(verdicts),
         record=build_record(record_raw),
-        agreement=build_agreement(record_raw),
+        agreement=agreement,
     )

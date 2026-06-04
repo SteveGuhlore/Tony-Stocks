@@ -6,6 +6,21 @@ _Last updated: 2026-06-03_
 
 ## Planned — next sessions
 
+- ✅ **DONE (2026-06-04 eve session) — Funnel enrichment scaling.** Daily `RecommendationCache`
+  (`reports/finnhub_reco_cache.json`) + per-cycle budget (`enrich_per_run`): the funnel now ranks the
+  WHOLE universe over a few cycles instead of only the first `enrich_limit`, never bursting Finnhub's
+  free ~60/min tier. `warm_recommendation_cache` runs each watch cycle. Tests in `test_research_providers.py`.
+- ✅ **DONE (2026-06-04 eve session) — Scan-coverage ET-date fix.** Verified the coverage builder already
+  buckets after-hours scans by ET market date (`market_date_mask`); locked with `tests/test_scan_coverage_et_date.py`.
+  Dormant `count_paper_orders_today` UTC/ET edge documented in `KNOWN_BACKLOG.md` (market-hours-gated).
+- ✅ **DONE (2026-06-04 eve session) — Funnel evaluation harness.** `analytics/funnel_eval.py` +
+  `funnel-eval` CLI: per funnel stage, win-rate/avg-R of KEPT vs DROPPED names over stored outcomes →
+  "helps / hurts / neutral / insufficient_data" verdicts. Research only. Tests in `test_funnel_eval.py`.
+- ✅ **DONE (2026-06-04 eve session) — Tony teaching / divergence memory layer.** `analytics/tony_divergence.py`
+  + `tony-divergence` CLI (writes `reports/tony_teaching_log.json`): grades Tony's verdicts vs the bot's
+  outcomes into agreement quadrants (agreed_right/wrong, cc_overrode_saved/missed, pending), reasoning
+  preserved verbatim. `/api/command-center` agreement block now falls back to this ledger. Pure separation
+  intact — never touches the bot's book. Tests in `test_tony_divergence.py` + `test_api_command_center.py`.
 - ✅ **DONE (2026-06-04, after close) — Universe expansion 349 → 548.** Added 199 liquid names via
   `scripts/expand_universe.py`; raised `filters.max_universe_size` 350→600 (loader was truncating);
   suite green (789). Needs an attended pre-open watch restart to go live (see AGENT_STATE "Activation").
