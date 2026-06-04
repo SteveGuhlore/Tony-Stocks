@@ -78,3 +78,20 @@ def test_symbol_detail(client):
     data = r.json()
     assert data["symbol"] == "AAPL"
     assert data["latest_snapshot"] is None
+
+
+def test_paper_positions_empty(client):
+    r = client.get("/api/paper/positions")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["open"] == []
+    assert data["closed"] == []
+
+
+def test_paper_equity_curve_empty(client):
+    r = client.get("/api/paper/equity-curve")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["points"] == []
+    assert data["return_pct"] == 0.0
+    assert data["base_equity"] == 100000.0

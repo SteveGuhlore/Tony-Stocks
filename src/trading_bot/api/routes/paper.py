@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
+from trading_bot.analytics.equity_curve import build_paper_equity_curve
 from trading_bot.api.deps import get_repo
 from trading_bot.storage.repositories import ScannerRepository
 
@@ -106,4 +107,41 @@ def get_paper_positions(repo: ScannerRepository = Depends(get_repo)) -> PaperRes
             realized_pl=round(realized, 2),
             win_rate=win_rate,
         ),
+    )
+
+
+class EquityPointSchema(BaseModel):
+    t: str
+    equity: float
+    index: float
+
+
+class PaperEquityResponse(BaseModel):
+    enabled: bool
+    label: str
+    base_equity: float
+    return_pct: float
+    points: list[EquityPointSchema]
+    research_only: bool = True
+
+
+@router.get("/paper/equity-curve", response_model=PaperEquityResponse)
+def get_paper_equity_curve(
+    base_equity: float = Query(100_000.0, gt=0, description="Paper account base equity to index to 100."),
+    repo: ScannerRepository = Depends(get_repo),
+) -> PaperEquityResponse:
+    """The bot's realized paper-equity series, indexed to 100 for a normalized
+    head-to-head against the Command Center's Tony curve. Read-only; realized only
+    (the live marked-to-market point is added client-side from live prices).
+    """
+    enabled, _reason, label = _paper_config()
+    rows = repo.list_paper_positions(limit=1000)
+    closed_rows = [r for r in rows if r.get("status") == "closed"]
+    curve = build_paper_equity_curve(closed_rows, base_equity=base_equity, label=label or "bot")
+    return PaperEquityResponse(
+        enabled=enabled,
+        label=curve.label,
+        base_equity=curve.base_equity,
+        return_pct=curve.return_pct,
+        points=[EquityPointSchema(**p.to_dict()) for p in curve.points],
     )
