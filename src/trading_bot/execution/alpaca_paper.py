@@ -84,6 +84,60 @@ class AlpacaPaperBroker:
             entry=float(entry), stop=float(stop), target=float(target),
         )
 
+    def submit_protection(
+        self, *, symbol: str, qty: int, stop: float, target: float, time_in_force: str = "gtc",
+    ) -> BracketOrderResult:
+        """Attach a protective OCO (take-profit limit + stop-loss) to an existing long.
+
+        OCO = a SELL limit at ``target`` one-cancels-other with a SELL stop at ``stop``.
+        Used to re-protect positions whose original bracket legs expired (e.g. a prior
+        day-TIF bracket). GTC so the protection persists.
+        """
+        from alpaca.trading.enums import OrderClass, OrderSide, TimeInForce  # noqa: PLC0415
+        from alpaca.trading.requests import (  # noqa: PLC0415
+            LimitOrderRequest,
+            StopLossRequest,
+            TakeProfitRequest,
+        )
+
+        # Alpaca OCO requires the take-profit leg as take_profit.limit_price (a top-level
+        # limit_price alone is rejected: code 40010001). The stop leg is stop_loss.stop_price.
+        tif = TimeInForce.GTC if str(time_in_force).lower() == "gtc" else TimeInForce.DAY
+        request = LimitOrderRequest(
+            symbol=str(symbol).upper(),
+            qty=int(qty),
+            side=OrderSide.SELL,
+            time_in_force=tif,
+            order_class=OrderClass.OCO,
+            limit_price=round(float(target), 2),
+            take_profit=TakeProfitRequest(limit_price=round(float(target), 2)),
+            stop_loss=StopLossRequest(stop_price=round(float(stop), 2)),
+        )
+        order = self._client.submit_order(request)
+        return BracketOrderResult(
+            order_id=str(getattr(order, "id", "")),
+            symbol=str(getattr(order, "symbol", symbol)).upper(),
+            qty=int(_f(getattr(order, "qty", qty), qty)),
+            status=str(getattr(order, "status", "accepted")),
+            submitted_at=_now_iso(),
+            stop=float(stop), target=float(target),
+        )
+
+    def open_protective_symbols(self) -> set[str]:
+        """Symbols that already have an OPEN SELL order (so re-protect can skip them)."""
+        try:
+            from alpaca.trading.enums import OrderSide, QueryOrderStatus  # noqa: PLC0415
+            from alpaca.trading.requests import GetOrdersRequest  # noqa: PLC0415
+
+            req = GetOrdersRequest(status=QueryOrderStatus.OPEN, limit=500)
+            out: set[str] = set()
+            for order in self._client.get_orders(filter=req):
+                if getattr(order, "side", None) in (OrderSide.SELL, "sell"):
+                    out.add(str(getattr(order, "symbol", "")).upper())
+            return out
+        except Exception:
+            return set()
+
     def account(self) -> BrokerAccount:
         a = self._client.get_account()
         return BrokerAccount(

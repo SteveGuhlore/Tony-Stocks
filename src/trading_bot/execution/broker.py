@@ -54,6 +54,12 @@ class Broker(Protocol):
         time_in_force: str = "day",
     ) -> BracketOrderResult: ...
 
+    def submit_protection(
+        self, *, symbol: str, qty: int, stop: float, target: float, time_in_force: str = "gtc",
+    ) -> BracketOrderResult: ...
+
+    def open_protective_symbols(self) -> set[str]: ...
+
     def get_position(self, symbol: str) -> BrokerPosition | None: ...
 
     def list_positions(self) -> list[BrokerPosition]: ...
@@ -75,6 +81,7 @@ class FakeBroker:
         self._label = account_label
         self._positions: dict[str, dict[str, Any]] = {}
         self._closed: list[dict[str, Any]] = []
+        self._protected: set[str] = set()
         self._seq = 0
 
     def account(self) -> BrokerAccount:
@@ -105,6 +112,26 @@ class FakeBroker:
             submitted_at=_now_iso(), entry=float(entry), stop=float(stop), target=float(target),
         )
 
+    def submit_protection(
+        self, *, symbol: str, qty: int, stop: float, target: float, time_in_force: str = "gtc",
+    ) -> BracketOrderResult:
+        """Attach a protective OCO (stop + target) to an already-held position."""
+        sym = str(symbol).upper()
+        self._seq += 1
+        order_id = f"fake-oco-{self._seq}"
+        self._protected.add(sym)
+        if sym in self._positions:  # keep the tracked levels in sync
+            self._positions[sym]["stop"] = float(stop)
+            self._positions[sym]["target"] = float(target)
+        return BracketOrderResult(
+            order_id=order_id, symbol=sym, qty=int(qty), status="accepted",
+            submitted_at=_now_iso(), stop=float(stop), target=float(target),
+        )
+
+    def open_protective_symbols(self) -> set[str]:
+        """Symbols with an open protective order (still-held only)."""
+        return {s for s in self._protected if s in self._positions}
+
     def _to_position(self, sym: str, p: dict[str, Any]) -> BrokerPosition:
         return BrokerPosition(
             symbol=sym, qty=p["qty"], avg_entry_price=p["entry"],
@@ -122,6 +149,7 @@ class FakeBroker:
 
     def _close(self, sym: str, exit_price: float, result: str) -> BracketOrderResult:
         p = self._positions.pop(sym)
+        self._protected.discard(sym)
         self._closed.append({
             "symbol": sym, "qty": p["qty"], "entry": p["entry"], "exit": exit_price,
             "result": result, "order_id": p["order_id"], "closed_at": _now_iso(),

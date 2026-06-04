@@ -271,6 +271,12 @@ def build_parser() -> argparse.ArgumentParser:
     paper_check.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     paper_check.add_argument("--test-order", default=None, metavar="SYMBOL", help="Submit a 1-share test bracket for SYMBOL then flatten it.")
 
+    paper_reprotect = subparsers.add_parser(
+        "paper-reprotect",
+        help="Re-attach GTC stop/target (OCO) protection to open paper positions whose bracket legs are missing/expired.",
+    )
+    paper_reprotect.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+
     return parser
 
 
@@ -3258,6 +3264,58 @@ def run_paper_flatten(args: argparse.Namespace) -> dict[str, Any]:
     return {"flattened": flattened}
 
 
+def run_paper_reprotect(args: argparse.Namespace) -> dict[str, Any]:
+    """Re-attach GTC stop/target (OCO) protection to open paper positions.
+
+    For positions held at the broker that lack a live protective sell order (e.g.
+    their original day-TIF bracket legs expired at a prior close), submit a GTC OCO
+    using the position's stored stop/target. Idempotent: skips any symbol that
+    already has an open protective sell order, so re-running never double-protects.
+    """
+    from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_config  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    cfg = load_paper_trading_config(getattr(settings, "paper_trading", None))
+    repo = ScannerRepository(settings.database_path)
+    open_rows = repo.list_open_paper_positions(account_label=cfg.account_label)
+    if not open_rows:
+        print("No open paper positions to protect.")
+        return {"protected": 0, "skipped": 0}
+    try:
+        broker = build_alpaca_paper_broker(cfg)
+    except Exception as exc:
+        print(f"Could not build broker ({exc}).")
+        return {"protected": 0, "skipped": 0, "error": str(exc)}
+
+    held = {p.symbol.upper() for p in broker.list_positions()}
+    already = broker.open_protective_symbols()
+    tif = cfg.time_in_force if cfg.time_in_force == "gtc" else "gtc"  # protection must persist
+    protected = 0
+    skipped = 0
+    results: list[dict[str, Any]] = []
+    for r in open_rows:
+        sym = str(r["symbol"]).upper()
+        if sym not in held:
+            print(f"  skip {sym}: not held at broker"); skipped += 1; continue
+        if sym in already:
+            print(f"  skip {sym}: already has an open protective order"); skipped += 1; continue
+        stop, target, qty = r.get("stop"), r.get("target"), r.get("qty")
+        if stop is None or target is None or not qty:
+            print(f"  skip {sym}: missing stop/target/qty"); skipped += 1; continue
+        try:
+            order = broker.submit_protection(
+                symbol=sym, qty=int(qty), stop=float(stop), target=float(target), time_in_force=tif,
+            )
+            protected += 1
+            results.append({"symbol": sym, "order_id": order.order_id, "stop": float(stop), "target": float(target)})
+            print(f"  protected {sym}: qty={qty} stop={stop} target={target} (order {order.order_id})")
+        except Exception as exc:
+            print(f"  FAILED {sym}: {exc}")
+            results.append({"symbol": sym, "error": str(exc)})
+    print(f"Re-protected {protected} position(s); skipped {skipped}.")
+    return {"protected": protected, "skipped": skipped, "results": results}
+
+
 def run_paper_check(args: argparse.Namespace) -> dict[str, Any]:
     """Verify the bot's Alpaca PAPER account connects (and optionally can send a trade).
 
@@ -3535,6 +3593,8 @@ def main() -> None:
         run_paper_flatten(args)
     elif args.command == "paper-check":
         run_paper_check(args)
+    elif args.command == "paper-reprotect":
+        run_paper_reprotect(args)
     else:
         parser.error(f"Unknown command: {args.command}")
 

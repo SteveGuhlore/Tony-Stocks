@@ -141,9 +141,14 @@ restart will also deliver today's missed 1600 EOD handoff to Tony (expected/beni
    the safe default/fallback in `paper_config.py`. Tests updated (`test_paper_trading_config.py`).
    **⚠️ EXISTING 10 open paper positions** were opened under day-TIF yesterday — their protective legs
    already expired at the 2026-06-03 close, so they are currently UNPROTECTED. The config fix only covers
-   NEW orders. Remediation options (not yet done): (a) `paper-flatten` to close them, or (b) re-submit GTC
-   stop/target OCO legs for each open position (needs a small CLI/script — not built yet). Flag for the
-   operator before 09:30 ET.
+   NEW orders. **REMEDIATION DONE (2026-06-04 pre-open):** new `paper-reprotect` CLI built
+   (`broker.submit_protection`/`open_protective_symbols` OCO seam; `AlpacaPaperBroker` submits a GTC
+   SELL OCO = take_profit.limit_price + stop_loss.stop_price — note Alpaca rejects a bare top-level
+   limit_price, it needs the take_profit leg). Ran live against the paper account: **all 10 open positions
+   re-protected** with GTC stop/target OCO (LYFT/CVS/PINS/D/DAL/OXY/SLB/BAC/HIMS/DKNG), using each
+   position's stored levels. Verified idempotent (2nd run skipped all 10 — no double-protection). Tests:
+   `test_broker_protection.py`. Re-run anytime with
+   `python -m trading_bot.cli paper-reprotect --config config/default_config.yaml`.
 
 ### Pending work — do AFTER market close, prefer a fresh (cheaper) session
 1. ~~**`GET /api/command-center` endpoint (bot)**~~ — ✅ DONE (see "Update" above).
