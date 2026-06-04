@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import time
 from collections import Counter
 from dataclasses import asdict
@@ -260,6 +261,16 @@ def build_parser() -> argparse.ArgumentParser:
     emit_outcomes.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     emit_outcomes.add_argument("--date", default=None, help="America/New_York market date as YYYY-MM-DD. Defaults to today.")
     emit_outcomes.add_argument("--days", type=int, default=120, help="Lookback window (days) of snapshot history to scan.")
+
+    funnel_eval = subparsers.add_parser(
+        "funnel-eval",
+        help="Research only: does each funnel stage separate winners from losers in stored outcomes?",
+    )
+    funnel_eval.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    funnel_eval.add_argument("--days", type=int, default=120, help="Lookback window (days) of snapshot history for signals.")
+    funnel_eval.add_argument("--min-sample", type=int, default=5, dest="min_sample", help="Minimum kept/dropped sample per stage before a verdict is given.")
+    funnel_eval.add_argument("--save-report", action="store_true", help="Write reports/<date>/funnel_eval.json.")
+    funnel_eval.add_argument("--output-dir", default="reports", help="Base directory for saved reports (default: reports/).")
 
     paper_status = subparsers.add_parser("paper-status", help="Show paper-trading account/positions status. Read-only.")
     paper_status.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
@@ -3260,6 +3271,81 @@ def run_emit_outcomes(args: argparse.Namespace) -> dict[str, Any]:
     return {"outcomes_file": str(path), "count": count}
 
 
+def _funnel_eval_signals_from_snapshots(snapshots: Any) -> dict[str, dict[str, Any]]:
+    """Best-effort per-symbol funnel signals from the EARLIEST snapshot per symbol
+    (closest to pick time). Only price + dollar-volume are reliably stored; the
+    recommendation/earnings/relative-strength signals are not persisted historically,
+    so those stages report ``insufficient_data`` rather than guessing.
+    """
+    if snapshots is None or getattr(snapshots, "empty", True) or "symbol" not in snapshots.columns:
+        return {}
+    df = snapshots
+    if "snapshot_time" in df.columns:
+        df = df.sort_values("snapshot_time")
+    price_cols = [c for c in ("snapshot_price", "latest_close", "close", "entry") if c in df.columns]
+    dv_cols = [c for c in ("dollar_volume", "dollar_volume_20") if c in df.columns]
+    out: dict[str, dict[str, Any]] = {}
+    for symbol, grp in df.groupby("symbol", sort=False):
+        first = grp.iloc[0]
+        price = next((float(first[c]) for c in price_cols if pd.notna(first.get(c))), None)
+        dv = next((float(first[c]) for c in dv_cols if pd.notna(first.get(c))), None)
+        out[str(symbol).upper()] = {"price": price, "dollar_volume": dv}
+    return out
+
+
+def run_funnel_eval(args: argparse.Namespace) -> dict[str, Any]:
+    """Research-only funnel evaluation: per funnel stage, does the screen separate
+    winning picks from losing ones in the stored outcome history? No trading, no
+    scoring changes, no profitability claim.
+    """
+    from trading_bot.analytics.funnel_eval import (  # noqa: PLC0415
+        build_evaluated_picks,
+        evaluate_funnel_stages,
+    )
+    from trading_bot.data.research_funnel import FunnelStageConfig  # noqa: PLC0415
+
+    print("Funnel evaluation - research only. Measures stage selectivity over stored outcomes; no edge claim.")
+    settings = load_scanner_settings(args.config)
+    repo = ScannerRepository(settings.database_path)
+
+    outcomes_path = os.environ.get("TONY_OUTCOMES_FILE") or "reports/tony_stocks_outcomes.json"
+    try:
+        outcomes = json.loads(Path(outcomes_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        outcomes = []
+    if not isinstance(outcomes, list):
+        outcomes = []
+
+    days = int(getattr(args, "days", None) or 120)
+    snapshots = repo.list_snapshots_for_analytics(days=days)
+    signals = _funnel_eval_signals_from_snapshots(snapshots)
+    picks = build_evaluated_picks(outcomes, signals)
+
+    cfg = FunnelStageConfig.from_dict(settings.research_funnel or {})
+    min_sample = int(getattr(args, "min_sample", None) or 5)
+    report = evaluate_funnel_stages(picks, cfg, min_sample=min_sample)
+
+    print(f"Outcomes file: {outcomes_path} ({len(outcomes)} records -> {len(picks)} evaluable picks)")
+    print(f"Signals: price/dollar-volume from snapshots; recommendation/earnings/RS not persisted historically.")
+    print(f"{'Stage':<26}{'kept (win%)':<16}{'dropped (win%)':<18}{'d win%':<10}{'verdict'}")
+    print("-" * 86)
+    for st in report.stages:
+        kept = f"{st.kept_n} ({st.kept_win_rate*100:.0f}%)" if st.kept_win_rate is not None else f"{st.kept_n} (-)"
+        drop = f"{st.dropped_n} ({st.dropped_win_rate*100:.0f}%)" if st.dropped_win_rate is not None else f"{st.dropped_n} (-)"
+        delta = f"{st.win_rate_delta*100:+.0f}" if st.win_rate_delta is not None else "-"
+        print(f"{st.stage:<26}{kept:<16}{drop:<18}{delta:<10}{st.verdict}")
+
+    if getattr(args, "save_report", False):
+        report_date = new_york_market_date()
+        out_dir = Path(getattr(args, "output_dir", "reports")) / report_date
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / "funnel_eval.json"
+        out_path.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
+        print(f"Saved: {out_path}")
+
+    return report.to_dict()
+
+
 def run_paper_status(args: argparse.Namespace) -> dict[str, Any]:
     """Print paper-trading account/positions status. Read-only."""
     from trading_bot.execution import load_paper_trading_config  # noqa: PLC0415
@@ -3640,6 +3726,8 @@ def main() -> None:
         run_export_to_vault(args)
     elif args.command == "emit-outcomes":
         run_emit_outcomes(args)
+    elif args.command == "funnel-eval":
+        run_funnel_eval(args)
     elif args.command == "paper-status":
         run_paper_status(args)
     elif args.command == "paper-flatten":
