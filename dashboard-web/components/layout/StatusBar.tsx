@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { useMarketStatus } from "@/lib/hooks/useMarketStatus"
+import { usePaper } from "@/lib/hooks/usePaper"
 import { scanAgeLabel } from "@/lib/format"
 
 const NAV = [
@@ -15,6 +16,7 @@ export function StatusBar() {
   const pathname = usePathname()
   const { data } = useQuery({ queryKey: ["today"], queryFn: api.today, refetchInterval: 30_000 })
   const market = useMarketStatus()
+  const paper = usePaper()
 
   const scanning = data?.watch.status === "running"
   const wr = data?.kpis.win_rate
@@ -58,6 +60,15 @@ export function StatusBar() {
         <span>Watching <b style={{ color: "var(--text-primary)" }}>{data?.kpis.watching ?? "—"}</b></span>
         <span>Triggered <b style={{ color: "var(--text-primary)" }}>{data?.kpis.triggered ?? "—"}</b></span>
         <span>Win <b style={{ color: "var(--green)" }}>{wr != null ? `${Math.round(wr * 100)}%` : "—"}</b></span>
+        {paper.enabled && (
+          <span title="Bot paper book" style={{ paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
+            📄 <b style={{ color: "var(--text-primary)" }}>{paper.account_label}</b>{" "}
+            {paper.summary.open_count} open ·{" "}
+            <b style={{ color: paper.summary.realized_pl >= 0 ? "var(--green)" : "var(--red)" }}>
+              {paper.summary.realized_pl >= 0 ? "+" : ""}{paper.summary.realized_pl.toFixed(0)}
+            </b>
+          </span>
+        )}
       </div>
     </header>
   )

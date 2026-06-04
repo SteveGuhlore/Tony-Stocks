@@ -95,3 +95,44 @@ export interface CommandCenterResponse {
   record: CommandCenterRecord | null
   agreement: CommandCenterAgreement | null
 }
+
+// Paper trading (GET /api/paper/positions + /api/paper/equity-curve)
+export interface PaperPosition {
+  symbol: string
+  qty: number
+  entry_price: number | null
+  stop: number | null
+  target: number | null
+  status: string
+  result: string | null
+  exit_price: number | null
+  realized_pl: number | null
+  account_label: string | null
+  opened_at: string | null
+  closed_at: string | null
+}
+export interface PaperSummary {
+  open_count: number
+  closed_count: number
+  target_hits: number
+  stop_hits: number
+  realized_pl: number
+  win_rate: number | null
+}
+export interface PaperResponse {
+  enabled: boolean
+  disabled_reason: string | null
+  account_label: string
+  open: PaperPosition[]
+  closed: PaperPosition[]
+  summary: PaperSummary
+}
+export interface PaperEquityPoint { t: string; equity: number; index: number }
+export interface PaperEquityCurve {
+  enabled: boolean
+  label: string
+  base_equity: number
+  return_pct: number
+  points: PaperEquityPoint[]
+  research_only: boolean
+}

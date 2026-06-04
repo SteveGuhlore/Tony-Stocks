@@ -9,6 +9,7 @@ import { PlanRail, VerdictChip } from "@/components/board/cells"
 import { PlanChart } from "@/components/board/PlanChart"
 import { useLivePrices } from "@/lib/hooks/useLivePrices"
 import { useCommandCenter } from "@/lib/hooks/useCommandCenter"
+import { usePaper } from "@/lib/hooks/usePaper"
 import { formatPrice, formatSignedPct, plPercent } from "@/lib/format"
 
 export function SymbolDrawer() {
@@ -55,6 +56,8 @@ export function SymbolDrawer() {
 
   const cc = useCommandCenter()
   const ccPick = symbolDrawer ? cc.picks[symbolDrawer] : undefined
+  const paper = usePaper()
+  const paperPos = symbolDrawer ? paper.open.find((p) => p.symbol === symbolDrawer) : undefined
   const snap = data?.latest_snapshot
   const scan = data?.latest_scan_result
   const quote = symbolDrawer ? liveQuotes[symbolDrawer] : undefined
@@ -108,6 +111,29 @@ export function SymbolDrawer() {
                 <PlanRail stop={snap.stop} entry={snap.entry} target={snap.target} live={last}
                   markerTone={snap.entry_triggered ? (pl != null && pl >= 0 ? "green" : "red") : "azure"} />
                 {snap.risk_reward != null && <div className="mono" style={{ fontSize: 9, color: "var(--text-tertiary)", textAlign: "right", marginTop: 2 }}>R:R {snap.risk_reward.toFixed(1)}</div>}
+              </div>
+            )}
+
+            {/* bot paper position: actual fill vs the scanner's planned entry */}
+            {paperPos && (
+              <div className="card" style={{ marginBottom: 12, borderLeft: "2px solid var(--amber)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--amber)" }}>📄 BOT PAPER POSITION · {paper.account_label}</span>
+                  {(() => {
+                    const ppl = plPercent(paperPos.entry_price, last)
+                    return ppl != null ? (
+                      <span className="mono" style={{ fontSize: 14, fontWeight: 700, color: ppl >= 0 ? "var(--green)" : "var(--red)" }}>{formatSignedPct(ppl)}</span>
+                    ) : null
+                  })()}
+                </div>
+                <div className="mono" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, fontSize: 11 }}>
+                  <div><div style={{ color: "var(--text-tertiary)", fontSize: 9 }}>FILL</div>{formatPrice(paperPos.entry_price)}</div>
+                  <div><div style={{ color: "var(--text-tertiary)", fontSize: 9 }}>QTY</div>{paperPos.qty}</div>
+                  <div><div style={{ color: "var(--text-tertiary)", fontSize: 9 }}>OPENED</div>{paperPos.opened_at ? paperPos.opened_at.slice(0, 10) : "—"}</div>
+                  <div><div style={{ color: "var(--text-tertiary)", fontSize: 9 }}>STOP</div>{formatPrice(paperPos.stop)}</div>
+                  <div><div style={{ color: "var(--text-tertiary)", fontSize: 9 }}>TARGET</div>{formatPrice(paperPos.target)}</div>
+                  <div><div style={{ color: "var(--text-tertiary)", fontSize: 9 }}>PLANNED ENTRY</div>{formatPrice(snap?.entry ?? null)}</div>
+                </div>
               </div>
             )}
 

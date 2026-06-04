@@ -42,4 +42,7 @@ export const api = {
   prices: () => get<import("./types").PricesResponse>("/api/prices"),
   priceSymbol: (symbol: string) => get<import("./types").LiveQuote>(`/api/prices/${symbol}`),
   commandCenter: () => get<import("./types").CommandCenterResponse>("/api/command-center"),
+  paper: () => get<import("./types").PaperResponse>("/api/paper/positions"),
+  paperEquityCurve: (base_equity?: number) =>
+    get<import("./types").PaperEquityCurve>("/api/paper/equity-curve", { base_equity }),
 }

@@ -2,7 +2,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { api } from "@/lib/api"
 import { scaleY } from "@/lib/chart"
+import { HeadToHeadEquity } from "@/components/charts/HeadToHeadEquity"
 import { useCommandCenter } from "@/lib/hooks/useCommandCenter"
+import { usePaper } from "@/lib/hooks/usePaper"
 
 function pct(wr: number | null | undefined): string {
   return wr != null ? `${Math.round(wr * 100)}%` : "—"
@@ -78,6 +80,7 @@ export default function RecordPage() {
   const outcomes = useQuery({ queryKey: ["outcomes"], queryFn: () => api.outcomes(), refetchInterval: 60_000 })
   const analytics = useQuery({ queryKey: ["analytics"], queryFn: api.analytics, refetchInterval: 60_000 })
   const cc = useCommandCenter()
+  const paper = usePaper()
 
   const k = outcomes.data?.kpis
   const bt = analytics.data?.backtest
@@ -119,6 +122,22 @@ export default function RecordPage() {
           <span className="mono" style={{ fontSize: 10 }}><span style={{ color: "var(--accent)" }}>▬ Tony</span> <span style={{ color: ccRec ? "var(--green)" : "var(--text-tertiary)" }}>▬ Tony Stocks{ccRec ? "" : " (awaiting)"}</span></span>
         </div>
         <EquityOverlay tony={equity} cc={ccRec?.equity_curve ?? []} />
+      </div>
+
+      {/* paper head-to-head: real bot paper book vs Tony, normalized to 100 */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 9, letterSpacing: "0.08em", color: "var(--text-tertiary)" }}>
+            PAPER HEAD-TO-HEAD · {paper.account_label}
+          </span>
+          <span className="mono" style={{ fontSize: 10, color: "var(--text-secondary)" }}>
+            {paper.summary.open_count} open · realized{" "}
+            <b style={{ color: paper.summary.realized_pl >= 0 ? "var(--green)" : "var(--red)" }}>
+              {paper.summary.realized_pl >= 0 ? "+" : ""}{paper.summary.realized_pl.toFixed(0)}
+            </b>
+          </span>
+        </div>
+        <HeadToHeadEquity />
       </div>
 
       {/* matrix + breakdown */}

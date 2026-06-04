@@ -2,10 +2,11 @@
 import { useDrawer } from "@/components/overlays/DrawerContext"
 import { useLivePrices } from "@/lib/hooks/useLivePrices"
 import { useCommandCenter } from "@/lib/hooks/useCommandCenter"
+import { usePaper } from "@/lib/hooks/usePaper"
 import { formatPrice, formatSignedPct, plPercent } from "@/lib/format"
 import { boardStatus, STATUS_DISPLAY } from "@/lib/board"
 import { PlanRail, ScorePair, VerdictChip, ToneText, TONE_VAR } from "./cells"
-import type { CandidateSnapshot, LiveQuote, CommandCenterPick } from "@/lib/types"
+import type { CandidateSnapshot, LiveQuote, CommandCenterPick, PaperPosition } from "@/lib/types"
 import type { Tone } from "@/lib/signal"
 
 const COLS = "1.4fr .9fr .7fr 2.1fr .45fr .8fr 1.05fr .85fr"
@@ -14,12 +15,16 @@ function Cell({ children, align = "left" }: { children: React.ReactNode; align?:
   return <div style={{ textAlign: align, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{children}</div>
 }
 
-function Row({ snap, quote, cc }: { snap: CandidateSnapshot; quote: LiveQuote | undefined; cc: CommandCenterPick | undefined }) {
+function Row({ snap, quote, cc, paperPos }: { snap: CandidateSnapshot; quote: LiveQuote | undefined; cc: CommandCenterPick | undefined; paperPos: PaperPosition | undefined }) {
   const { openSymbol } = useDrawer()
   const last = quote?.price ?? null
   const status = boardStatus(snap, last)
   const triggered = status === "triggered"
-  const pl = triggered ? plPercent(snap.entry, last) : null
+  // When the bot actually holds a paper position, prefer its real fill price for P/L
+  // (the actual entry) over the snapshot's planned entry.
+  const held = !!paperPos
+  const paperPl = held ? plPercent(paperPos!.entry_price, last) : null
+  const pl = held ? paperPl : triggered ? plPercent(snap.entry, last) : null
   const markerTone: Tone = triggered ? (pl != null && pl >= 0 ? "green" : "red") : status === "armed" ? "brass" : "azure"
   const st = STATUS_DISPLAY[status]
 
@@ -38,6 +43,12 @@ function Row({ snap, quote, cc }: { snap: CandidateSnapshot; quote: LiveQuote | 
     >
       <Cell>
         <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>{snap.symbol}</span>{" "}
+        {held && (
+          <span title={`Bot holds ${paperPos!.qty} sh @ ${formatPrice(paperPos!.entry_price)}`} style={{
+            fontSize: 8, fontWeight: 800, letterSpacing: "0.06em", padding: "1px 4px", borderRadius: 3,
+            background: "var(--amber)", color: "var(--bg-base)", verticalAlign: "middle",
+          }}>PAPER</span>
+        )}{" "}
         <span style={{ fontSize: 9, color: "var(--text-tertiary)" }}>{snap.universe_role || snap.setup_category}</span>
       </Cell>
       <Cell align="right">
@@ -69,6 +80,9 @@ function Row({ snap, quote, cc }: { snap: CandidateSnapshot; quote: LiveQuote | 
 export function BoardTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
   const quotes = useLivePrices()
   const cc = useCommandCenter()
+  const paper = usePaper()
+  const paperBySymbol: Record<string, PaperPosition> = {}
+  for (const p of paper.open) paperBySymbol[p.symbol] = p
   if (snapshots.length === 0) {
     return <p style={{ color: "var(--text-tertiary)", fontSize: 12, padding: "16px" }}>No watches yet — Tony hasn&apos;t flagged anything this session.</p>
   }
@@ -84,7 +98,7 @@ export function BoardTable({ snapshots }: { snapshots: CandidateSnapshot[] }) {
         <div>VERDICT</div>
         <div>STATUS</div>
       </div>
-      {snapshots.map((s) => <Row key={s.id} snap={s} quote={quotes[s.symbol]} cc={cc.picks[s.symbol]} />)}
+      {snapshots.map((s) => <Row key={s.id} snap={s} quote={quotes[s.symbol]} cc={cc.picks[s.symbol]} paperPos={paperBySymbol[s.symbol]} />)}
     </div>
   )
 }
