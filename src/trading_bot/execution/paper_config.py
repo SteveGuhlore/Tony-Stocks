@@ -36,7 +36,11 @@ class PaperTradingConfig:
     max_notional_per_position: float = 5000.0
     max_daily_orders: int = 20
     bracket: bool = True
-    time_in_force: str = "day"
+    # GTC by default: the entry is a market order (fills immediately, never rests), so
+    # the only effect of "day" would be to expire the protective take-profit/stop-loss
+    # legs at the close — leaving overnight positions UNPROTECTED. GTC keeps the bracket
+    # protection persistent; only a never-resting market entry is involved either way.
+    time_in_force: str = "gtc"
     gate_on_command_center: bool = False
     close_on_command_center_exit: bool = True
     account_label: str = "tony"
@@ -90,9 +94,9 @@ def load_paper_trading_config(raw: dict[str, Any] | None) -> PaperTradingConfig:
     max_daily = _coerce_int(data.get("max_daily_orders", 20), 20)
     base_url = str(data.get("base_url", PAPER_BASE_URL) or PAPER_BASE_URL)
 
-    tif = str(data.get("time_in_force", "day")).strip().lower()
+    tif = str(data.get("time_in_force", "gtc")).strip().lower()
     if tif not in _VALID_TIF:
-        tif = "day"
+        tif = "gtc"  # safe default: persistent bracket protection, never silently day-expired
 
     defaults = PaperTradingConfig()
     common = {

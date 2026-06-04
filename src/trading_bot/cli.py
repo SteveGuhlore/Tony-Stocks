@@ -1236,6 +1236,43 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
             except Exception as exc:
                 LOGGER.warning("Pre-screener failed; using full universe list: %s", exc)
 
+        # Research Funnel v2 (default off): rank + shortlist the pre-screened universe
+        # via advisory enrichment (earnings blackout, news sentiment, analyst recs).
+        # Runs once here; never breaks the loop — any failure falls back to the
+        # pre-screened universe. See docs/superpowers/specs/2026-06-03-research-funnel-design.md.
+        funnel_cfg = settings.research_funnel or {}
+        if funnel_cfg.get("enabled", False):
+            try:
+                from trading_bot.data.research_funnel import FunnelStageConfig, build_funnel
+                from trading_bot.data.research_providers import (
+                    build_providers_from_env,
+                    gather_funnel_signals,
+                )
+
+                _funnel_today = datetime.now(ZoneInfo("America/New_York")).date()
+                _providers = build_providers_from_env()
+                _signals = gather_funnel_signals(
+                    universe_symbols,
+                    today=_funnel_today,
+                    fmp=_providers["fmp"],
+                    finnhub=_providers["finnhub"],
+                    enrich_limit=int(funnel_cfg.get("enrich_limit", 150)),
+                    earnings_blackout_days=int(funnel_cfg.get("earnings_blackout_days", 0)),
+                )
+                _core = {s.upper() for s in (rotation_cfg.get("core_symbols") or [])}
+                _funnel = build_funnel(
+                    universe_symbols,
+                    _signals,
+                    FunnelStageConfig.from_dict(funnel_cfg),
+                    _funnel_today,
+                    always_include=_core,
+                )
+                universe_symbols = _funnel.shortlist
+                LOGGER.info("Research funnel applied: %s", _funnel.to_dict())
+                print(f"Research funnel: {_funnel.to_dict()['stage_counts']}")
+            except Exception as exc:  # never break the watch loop on funnel failure
+                LOGGER.warning("Research funnel failed; using pre-screened universe: %s", exc)
+
         rotator = WatchUniverseRotator(universe_symbols, rotation_cfg)
         LOGGER.info(
             "Universe rotation enabled: %d symbols available, max %d per cycle",

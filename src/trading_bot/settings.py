@@ -55,6 +55,7 @@ class ScannerSettings:
     pre_screener: dict[str, Any] | None = None
     vault: dict[str, Any] | None = None
     paper_trading: dict[str, Any] | None = None
+    research_funnel: dict[str, Any] | None = None
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

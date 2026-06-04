@@ -119,6 +119,32 @@ restart will also deliver today's missed 1600 EOD handoff to Tony (expected/beni
 `scripts/expand_universe.py`, `config/universe_swing_research_config.yaml`, `tests/test_universe.py`,
 `ROADMAP.md`, `AGENT_STATE.md`. Branch off main first.
 
+### Update 3 (2026-06-04 pre-open) — Research Funnel v2 + GTC bracket-protection fix
+**Full suite 820 passed. Watch loop restarted pre-open so the GTC fix is live for today.**
+
+1. **Research Funnel v2 implemented (DEFAULT OFF).** Pure staging core `data/research_funnel.py`
+   (`build_funnel` + `SymbolSignals` + `FunnelStageConfig` + `FunnelResult`; cheap screen → catalyst →
+   rank/shortlist; advisory-by-default so a missing/failed API never drops a symbol; `always_include`
+   protects core/open names). Provider adapters `data/research_providers.py` (`FmpProvider` screener+
+   earnings+revenue-growth, `FinnhubProvider` news-sentiment+recommendation, `TwelveDataProvider` quote;
+   HTTP dependency-injected; inert without keys; failures→None) + `gather_funnel_signals` (one bulk FMP
+   earnings call + per-symbol Finnhub capped by `enrich_limit`). Wired into `run_watch` after the
+   pre-screener, behind `research_funnel.enabled` (false), try/except fail-safe → feeds the rotator a
+   ranked shortlist. Config block in `default_config.yaml`; `ScannerSettings.research_funnel` field.
+   Tests: `test_research_funnel.py` (16) + `test_research_providers.py` (15). To enable later: set
+   `research_funnel.enabled: true`, ensure FMP_API_KEY/FINNHUB_API_KEY in `.env`, tune thresholds, restart.
+2. **GTC bracket-protection fix (stop/target now persist).** Was `paper_trading.time_in_force: day`.
+   The entry is a **market order** (`alpaca_paper.submit_bracket` → MarketOrderRequest+BRACKET) that fills
+   at trigger and never rests — so "day" wasn't expiring stale entries, it was expiring the protective
+   take-profit/stop-loss legs at the close, leaving overnight positions UNPROTECTED (and `reconcile_closed`
+   relies on those legs to detect target/stop exits). Fix: `time_in_force: gtc` in config + `gtc` is now
+   the safe default/fallback in `paper_config.py`. Tests updated (`test_paper_trading_config.py`).
+   **⚠️ EXISTING 10 open paper positions** were opened under day-TIF yesterday — their protective legs
+   already expired at the 2026-06-03 close, so they are currently UNPROTECTED. The config fix only covers
+   NEW orders. Remediation options (not yet done): (a) `paper-flatten` to close them, or (b) re-submit GTC
+   stop/target OCO legs for each open position (needs a small CLI/script — not built yet). Flag for the
+   operator before 09:30 ET.
+
 ### Pending work — do AFTER market close, prefer a fresh (cheaper) session
 1. ~~**`GET /api/command-center` endpoint (bot)**~~ — ✅ DONE (see "Update" above).
 1b. ~~**EOD bridge collision**~~ — ✅ DONE (Update 2). ~~**Universe expansion (staged)**~~ — ✅ DONE 349→548 (Update 2).

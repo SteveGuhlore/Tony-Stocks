@@ -152,6 +152,29 @@ watch_universe_rotation:
   keep_previous_candidates: true
   always_include_open_snapshots: true
 
+research_funnel:
+  # Research Funnel v2 — multi-stage pre-Tony shortlisting with FMP/Finnhub/Twelve Data
+  # enrichment. DEFAULT OFF. See docs/superpowers/specs/2026-06-03-research-funnel-design.md.
+  # When enabled, runs ONCE at watch start (after the pre-screener) and feeds the rotator
+  # a ranked shortlist. Enrichment feeds are ADVISORY — a missing/failed API never drops a
+  # symbol. Needs FMP_API_KEY / FINNHUB_API_KEY in .env to enrich (inert without them).
+  enabled: false
+  enrich_limit: 150              # cap per-symbol Finnhub calls per run (free-tier safe)
+  # Stage thresholds (map 1:1 to FunnelStageConfig):
+  min_price: 5.0
+  max_price: 500.0
+  min_dollar_volume: 5000000
+  min_relative_strength: null    # null = off
+  earnings_blackout_days: 0      # 0 = off; e.g. 5 drops names reporting within 5 days
+  sentiment_mode: annotate       # annotate | filter
+  min_news_sentiment: -1.0       # used only when sentiment_mode: filter
+  min_recommendation: null       # null = off
+  min_revenue_growth: null       # null = off (e.g. -0.5 drops >50% revenue decline)
+  shortlist_size: 600            # cap on the shortlist fed to the rotator
+  weight_relative_strength: 1.0
+  weight_sentiment: 0.5
+  weight_recommendation: 0.5
+
 tony_stocks:
   enabled: true
   agent_name: "Tony Stocks"
@@ -213,7 +236,10 @@ paper_trading:
   max_notional_per_position: 5000
   max_daily_orders: 200
   bracket: true                    # entry + stop + target as one bracket
-  time_in_force: day               # entry order expires end of day
+  time_in_force: gtc               # GTC so stop/target protection PERSISTS overnight.
+                                   # Entry is a market order (fills at trigger, never rests),
+                                   # so "day" would only expire the protective legs at the
+                                   # close, leaving positions unprotected. See paper_config.py.
   gate_on_command_center: false    # trade on Tony's trigger; do not wait for CC verdict
   close_on_command_center_exit: false  # PURE SEPARATION: bot trades its own picks/exits only.
                                        # Tony's verdicts are NOT acted on the bot's book; they are

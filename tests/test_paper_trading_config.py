@@ -39,7 +39,9 @@ class TestLoadDefaults:
 
     def test_locked_defaults(self):
         cfg = load_paper_trading_config(None)
-        assert cfg.time_in_force == "day"
+        # GTC by default so bracket stop/target protection persists overnight
+        # (the entry is a never-resting market order — "day" would only expire protection).
+        assert cfg.time_in_force == "gtc"
         assert cfg.gate_on_command_center is False
         assert cfg.close_on_command_center_exit is True
         assert cfg.account_label == "tony"
@@ -85,8 +87,9 @@ class TestLoadEnabled:
         assert load_paper_trading_config({"enabled": True, "time_in_force": "DAY"}).time_in_force == "day"
         assert load_paper_trading_config({"enabled": True, "time_in_force": "Gtc"}).time_in_force == "gtc"
 
-    def test_invalid_time_in_force_defaults_to_day(self):
-        assert load_paper_trading_config({"enabled": True, "time_in_force": "ioc"}).time_in_force == "day"
+    def test_invalid_time_in_force_defaults_to_gtc(self):
+        # Invalid TIF falls back to the safe default (gtc = persistent protection).
+        assert load_paper_trading_config({"enabled": True, "time_in_force": "ioc"}).time_in_force == "gtc"
 
 
 class TestFailClosed:
