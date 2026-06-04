@@ -26,17 +26,17 @@ def fake_get(responses: dict):
 
 class TestFmp:
     def test_inert_without_key(self):
-        p = FmpProvider("", fake_get({"stock-screener": [{"symbol": "AAA"}]}))
+        p = FmpProvider("", fake_get({"company-screener": [{"symbol": "AAA"}]}))
         assert p.available is False
         assert p.screen() == []
         assert p.earnings_calendar(date(2026, 6, 4), date(2026, 6, 10)) == {}
 
     def test_screen_returns_uppercased_symbols(self):
-        p = FmpProvider("k", fake_get({"stock-screener": [{"symbol": "aaa"}, {"symbol": "BBB"}, {"x": 1}]}))
+        p = FmpProvider("k", fake_get({"company-screener": [{"symbol": "aaa"}, {"symbol": "BBB"}, {"x": 1}]}))
         assert p.screen() == ["AAA", "BBB"]
 
     def test_earnings_calendar_keeps_earliest_per_symbol(self):
-        p = FmpProvider("k", fake_get({"earning_calendar": [
+        p = FmpProvider("k", fake_get({"earnings-calendar": [
             {"symbol": "NVDA", "date": "2026-06-09"},
             {"symbol": "NVDA", "date": "2026-06-20"},
             {"symbol": "AMD", "date": "2026-06-11"},
@@ -94,7 +94,7 @@ class TestTwelve:
 class TestGatherFunnelSignals:
     def test_merges_base_metrics_and_enrichment(self):
         getj = fake_get({
-            "earning_calendar": [{"symbol": "NVDA", "date": "2026-06-09"}],
+            "earnings-calendar": [{"symbol": "NVDA", "date": "2026-06-09"}],
             "news-sentiment": {"companyNewsScore": 1.0},
             "recommendation": [{"strongBuy": 1, "buy": 0, "hold": 0, "sell": 0, "strongSell": 0}],
         })

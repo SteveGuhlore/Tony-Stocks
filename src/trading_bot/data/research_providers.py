@@ -65,9 +65,15 @@ def _parse_date(value: Any) -> date | None:
 
 
 class FmpProvider:
-    """Financial Modeling Prep: wide screener, earnings calendar, revenue growth."""
+    """Financial Modeling Prep: wide screener, earnings calendar, revenue growth.
 
-    BASE = "https://financialmodelingprep.com/api/v3"
+    Uses the current ``/stable`` API (the legacy ``/api/v3`` paths 403 for newer keys).
+    Verified working on free tier: earnings-calendar, quote, income-statement-growth.
+    company-screener is paid-tier (402) — degrades to [] so the funnel falls back to
+    its curated universe rather than the screener-sourced one.
+    """
+
+    BASE = "https://financialmodelingprep.com/stable"
 
     def __init__(self, api_key: str = "", get_json: GetJson | None = None) -> None:
         self.api_key = api_key
@@ -90,7 +96,7 @@ class FmpProvider:
         if not self.available:
             return []
         body = self._get(
-            f"{self.BASE}/stock-screener",
+            f"{self.BASE}/company-screener",
             {
                 "priceMoreThan": price_more_than,
                 "volumeMoreThan": volume_more_than,
@@ -114,7 +120,7 @@ class FmpProvider:
         if not self.available:
             return {}
         body = self._get(
-            f"{self.BASE}/earning_calendar",
+            f"{self.BASE}/earnings-calendar",
             {"from": from_date.isoformat(), "to": to_date.isoformat(), "apikey": self.api_key},
         )
         if not isinstance(body, list):
@@ -134,8 +140,8 @@ class FmpProvider:
         if not self.available:
             return None
         body = self._get(
-            f"{self.BASE}/income-statement-growth/{symbol.upper()}",
-            {"limit": 1, "apikey": self.api_key},
+            f"{self.BASE}/income-statement-growth",
+            {"symbol": symbol.upper(), "limit": 1, "apikey": self.api_key},
         )
         if isinstance(body, list) and body and isinstance(body[0], dict):
             return _safe_float(body[0].get("growthRevenue"))
