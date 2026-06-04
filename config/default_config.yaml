@@ -159,7 +159,7 @@ research_funnel:
   # a ranked shortlist. Enrichment feeds are ADVISORY — a missing/failed API never drops a
   # symbol. Needs FMP_API_KEY / FINNHUB_API_KEY in .env to enrich (inert without them).
   enabled: true                  # LIVE 2026-06-04 after close; fail-safe (errors -> pre-screened universe)
-  enrich_limit: 150              # cap per-symbol Finnhub calls per run (free-tier safe)
+  enrich_limit: 50               # cap per-symbol Finnhub calls/run UNDER the ~60/min free tier (150 bursts 429s)
   use_news_sentiment: false      # Finnhub news-sentiment is premium (403 on free) -> skip; rank by recommendation
   # Stage thresholds (map 1:1 to FunnelStageConfig):
   min_price: 5.0
@@ -234,7 +234,9 @@ paper_trading:
   enabled: true
   risk_per_trade_pct: 1.0          # % of paper equity risked per trade (entry->stop distance)
   max_open_positions: 50
-  max_notional_per_position: 5000
+  max_notional_per_position: 1000   # 1% of the bot's $100k paper account. NEW entries only —
+                                    # existing $5k-sized positions run off until target/stop/close.
+                                    # PARITY: CC ($1M) should use 10000 (1% of $1M). See docs/CONTRACTS/execution-parity.md.
   max_daily_orders: 200
   bracket: true                    # entry + stop + target as one bracket
   time_in_force: gtc               # GTC so stop/target protection PERSISTS overnight.

@@ -119,6 +119,26 @@ restart will also deliver today's missed 1600 EOD handoff to Tony (expected/beni
 `scripts/expand_universe.py`, `config/universe_swing_research_config.yaml`, `tests/test_universe.py`,
 `ROADMAP.md`, `AGENT_STATE.md`. Branch off main first.
 
+### Update 4 (2026-06-04 ~17:40 ET, after close) — Funnel LIVE + execution-parity contract
+- **Research Funnel is ENABLED and live on the watch loop** (PID 35116, relaunched after close with
+  `PYTHONUNBUFFERED=1` so logs stream). Verified at startup: `universe 543 → 542 shortlist (dropped 1:
+  DOCU earnings-blackout)`, rotator now pulls from the funnel shortlist. Config: `enabled:true`,
+  `use_news_sentiment:false` (Finnhub news-sentiment is premium/403), `earnings_blackout_days:5`,
+  `sentiment_mode:annotate`, rank by analyst recommendation. Fail-safe (errors → pre-screened universe).
+- **API keys (live-tested):** Twelve Data ✅, Finnhub recommendation ✅, FMP earnings + revenue-growth ✅
+  (FMP fixed to `/stable` API — `/v3` 403s). **Premium/paid gaps:** Finnhub news-sentiment (403),
+  FMP company-screener (402 — this is the auto-universe-growth engine; needs a paid FMP plan).
+- **⚠️ Finnhub 429 rate-limit:** the funnel's per-symbol recommendation calls burst past the free
+  ~60/min tier. Mitigation applied: `enrich_limit` 150→**50** (the RUNNING loop still has 150 in memory;
+  next restart picks up 50). Proper fix (follow-up): add pacing/rate-limiting to the Finnhub calls so
+  larger enrich_limits don't 429. Funnel degrades gracefully meanwhile (rate-limited → no score, advisory).
+- **Execution-parity contract:** `docs/CONTRACTS/execution-parity.md` — what bot+CC must share
+  (risk%, sizing formula, caps, GTC bracket, candidate set, one grading harness; compare via equity
+  normalized to 100) vs differentiate (reasoning/tools/decision/level-adjustments). **Action item: verify
+  the CC's risk%/caps match Section A — lives in the Command Center workspace, not this repo.**
+- Commits on `main`: `0fd465d` (FMP /stable + verify script), `ab038be` (funnel enable + parity contract),
+  plus the enrich_limit→50 tweak (pending commit). Full suite 824 passed.
+
 ### Update 3 (2026-06-04 pre-open) — Research Funnel v2 + GTC bracket-protection fix
 **Full suite 820 passed. Watch loop restarted pre-open so the GTC fix is live for today.**
 
