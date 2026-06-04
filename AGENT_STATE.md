@@ -61,14 +61,67 @@ now wired to real Universe/Scored counts, live `current_price`, triggered flags,
 - Dashboard: `http://localhost:3000`. Watch: latest `watch_runs` heartbeat / `logs/watch_live2.err`.
 - Bridges: `…/bridge/tony-stocks/2026-06-03*.md`.
 
+### Update (2026-06-03, later same-day session) — item 1 SHIPPED
+- **`GET /api/command-center` endpoint is built, tested, and LIVE.** New route
+  `src/trading_bot/api/routes/command_center.py` (pure mappers `build_picks/build_record/build_agreement`
+  + the route); schemas added to `api/schemas.py` (`CommandCenter*`); registered in `api/main.py`
+  (+ `app.state.reports_dir`, env `REPORTS_DIR`). Reads `reports/tony_stocks_verdicts.json` (override
+  `TONY_VERDICTS_FILE`) + `tony_stocks_record.json` (override `TONY_RECORD_FILE`); never writes.
+  Three contract bridges: `tony_win_rate` 0–100 → 0–1 fraction; agreement `override_saved/missed` →
+  `cc_overrode_saved/missed`; `verdict` passed through **verbatim** so non-enum values (e.g. `"pass"`)
+  survive (frontend degrades unknowns to "⋯ awaiting"). Missing/malformed files → empty/None (no errors).
+  Tests: `tests/test_api_command_center.py` (11 passing); full suite **788 passed**.
+- **API `:8001` was restarted** (old PID 23388 → new PID 30828) so the route loads — uvicorn has no
+  `--reload`. Watch loop (PIDs 11672/25684) and frontend `:3000` were **not** touched. Live check:
+  `GET /api/command-center` → 200, 7 picks (DAL/DXCM/MARA/CRM/HOOD/D/PATH), win_rate 0.333,
+  cc_overrode 2/4. The "TONY STOCKS" panel / "2nd pass help?" matrix / head-to-head equity now populate.
+- **Follow-up (optional, not blocking):** Tony's `"pass"` verdict renders as a muted "⋯ awaiting" chip
+  (score + reasoning still show). To make the chip honest, add a `"pass"` entry to `dashboard-web/lib/signal.ts`
+  `VERDICTS` + the `VerdictKind` union (frontend-only). `equity_curve`/`avg_pl_per_trade`/`target_hits`/
+  `stop_hits` stay null until CC writes them into `record.json`.
+
+### Update 2 (2026-06-04 early, after close) — EOD bridge fix + universe expansion SHIPPED
+**All changes are code/config only and verified green (full suite 789 passed). NOT YET ACTIVATED on
+the live watch loop — see "Activation" below.**
+
+1. **EOD (16:00) bridge handoff was silently never firing — FIXED.** Root cause: the auto 16:00
+   checkpoint was labelled `"eod"`, which writes the canonical daily filename `YYYY-MM-DD.md` — the
+   SAME file the morning daily-anchor already created — so the disk-idempotency guard
+   (`bridge_file.exists()` in `cli._emit_due_bridges`) skipped it every day. Fix: relabel the auto
+   checkpoint `"eod"` → `"1600"` in `vault/bridge_schedule.py` so it writes a timestamped
+   `YYYY-MM-DDT1600.md` (intraday-style) that never collides and the CC reliably ingests. Manual
+   `export-to-vault --slot eod` and the daily anchor keep canonical-daily semantics. Tests updated:
+   `tests/test_bridge_schedule.py` (29 pass), incl. a regression locking the 1600 timestamped name.
+2. **Universe expanded 349 → 548** (requested: "scan more stocks as data grows"). Added 199 curated
+   liquid US names across all sectors via `scripts/expand_universe.py` (idempotent generator; auto-dedups;
+   reloads+validates YAML) as `primary_candidate`/`speculative_candidate` with NO `watchlist_core` tag,
+   so they feed the rotating **discovery** pool (not forced core). **Critical coupling fixed:**
+   `config/universe_swing_research_config.yaml` `filters.max_universe_size` 350 → **600** — without this,
+   `data/universe.load_universe()` truncates `result[:max_universe_size]` and the new names are silently
+   dropped. `tests/test_universe.py` budget test now reads the cap from config (no more hardcoded 350).
+   Per-cycle scan stays bounded by `watch_universe_rotation.max_symbols_per_cycle: 350`, so rate-limit
+   load is unchanged — rotation just covers 548 over ~1.6 cycles. Live loader confirmed: 548.
+
+**Activation (NOT done — deliberately left for an attended pre-open restart):** the live watch loop
+(PIDs 11672/25684) still has the OLD config in memory (349 universe, "eod" slot). A restart picks up
+both changes. I did NOT restart it unattended tonight because: (a) on restart the loop runs
+`_emit_due_bridges` at the top BEFORE the market guard, and since all of today's checkpoints have passed,
+it would immediately emit today's `2026-06-03T1600.md` — which would trigger the CC agent to (possibly)
+place after-hours orders on its $1M book; (b) restarting a money-adjacent loop unattended at night is an
+outward-facing action worth doing attended. **To activate (recommended tomorrow before 09:30 ET):**
+`data/STOP_WATCH_MODE` to stop the old loop (or kill PIDs 11672/25684), then relaunch:
+`$env:PYTHONPATH="src"; python -m trading_bot.cli watch --config config/default_config.yaml`. First
+restart will also deliver today's missed 1600 EOD handoff to Tony (expected/benign).
+
+**Not committed.** On `main` with heavy live vault/*.md churn in the tree. Files to commit (scoped):
+`src/trading_bot/api/routes/command_center.py`, `api/schemas.py`, `api/main.py`,
+`tests/test_api_command_center.py`, `vault/bridge_schedule.py`, `tests/test_bridge_schedule.py`,
+`scripts/expand_universe.py`, `config/universe_swing_research_config.yaml`, `tests/test_universe.py`,
+`ROADMAP.md`, `AGENT_STATE.md`. Branch off main first.
+
 ### Pending work — do AFTER market close, prefer a fresh (cheaper) session
-1. **`GET /api/command-center` endpoint (bot)** — the dashboard's right side ("TONY STOCKS · Command
-   Center" panel, "does the 2nd pass help?" matrix, head-to-head equity) is empty because this endpoint
-   was never built. Read `reports/tony_stocks_record.json` (`tony_win_rate, agreement, calibration,
-   graded`) + `tony_stocks_verdicts.json` → map to `CommandCenterResponse` per
-   `docs/CONTRACTS/command-center-bridge.md` and the frontend `CommandCenter*` types in
-   `dashboard-web/lib/types.ts`; register in `api/main.py`. record.json now has real data (7 verdicts,
-   6 graded, win_rate 33.3%, override_saved 2 / override_missed 4).
+1. ~~**`GET /api/command-center` endpoint (bot)**~~ — ✅ DONE (see "Update" above).
+1b. ~~**EOD bridge collision**~~ — ✅ DONE (Update 2). ~~**Universe expansion (staged)**~~ — ✅ DONE 349→548 (Update 2).
 2. **Tony teaching / divergence memory layer** — spec `docs/superpowers/specs/2026-06-03-tony-teaching-divergence-design.md`.
 3. **Research Funnel v2** (FMP/Finnhub/Twelve Data, staged universe) — spec `docs/superpowers/specs/2026-06-03-research-funnel-design.md`.
 4. **Scan-coverage UTC-date edge** — after-hours scans (past UTC midnight) can mis-bucket coverage; make

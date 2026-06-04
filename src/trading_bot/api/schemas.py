@@ -231,3 +231,40 @@ class MarketStatus(BaseModel):
 class PricesResponse(BaseModel):
     symbols: list[LiveQuoteSchema]
     market: MarketStatus
+
+
+# ── Command Center ("Tony Stocks") second-layer contract ─────────────────────
+# See docs/CONTRACTS/command-center-bridge.md and dashboard-web/lib/types.ts.
+# Producer files are CC-written: reports/tony_stocks_verdicts.json (picks) and
+# reports/tony_stocks_record.json (record + agreement). This endpoint only maps
+# them; it never writes. `verdict` is passed through verbatim so values outside
+# the dashboard enum (e.g. "pass") survive — the frontend degrades unknowns to
+# "⋯ awaiting" without erroring.
+
+class CommandCenterPick(BaseModel):
+    symbol: str
+    score: float
+    verdict: str
+    reasoning: str
+    returned_at: str
+
+
+class CommandCenterRecord(BaseModel):
+    win_rate: float | None
+    avg_pl_per_trade: float | None
+    target_hits: int | None
+    stop_hits: int | None
+    equity_curve: list[float]
+
+
+class CommandCenterAgreement(BaseModel):
+    agreed_right: int
+    agreed_wrong: int
+    cc_overrode_saved: int
+    cc_overrode_missed: int
+
+
+class CommandCenterResponse(BaseModel):
+    picks: dict[str, CommandCenterPick]
+    record: CommandCenterRecord | None
+    agreement: CommandCenterAgreement | None

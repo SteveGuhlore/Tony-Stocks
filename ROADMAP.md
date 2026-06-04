@@ -6,12 +6,32 @@ _Last updated: 2026-06-03_
 
 ## Planned — next sessions
 
+- ✅ **DONE (2026-06-04, after close) — Universe expansion 349 → 548.** Added 199 liquid names via
+  `scripts/expand_universe.py`; raised `filters.max_universe_size` 350→600 (loader was truncating);
+  suite green (789). Needs an attended pre-open watch restart to go live (see AGENT_STATE "Activation").
+  Also fixed tonight: the EOD (16:00) bridge handoff that was silently never firing (slot label
+  collision; `eod`→`1600` in `bridge_schedule.py`). Original staged plan below for reference:
+- **Universe expansion — staged (tonight, after close).** Grow the scan universe beyond the current
+  ~349 (V30) as the paper-outcome dataset grows. Interim step ahead of the full funnel: bump
+  `config/universe_swing_research_config.yaml` in a measured stage (e.g. 349 → ~500) with full metadata
+  per symbol, then verify rotation still covers the list at acceptable freshness without tripping Alpaca
+  rate limits. Tune `watch_universe_rotation` (`max_symbols_per_cycle` / `rotating_bucket_size` / cadence)
+  so coverage-vs-staleness stays healthy. NOTE: a raw count bump adds breadth but no new per-symbol data
+  quality — the real lift is the staged funnel below, which should drive *which* names get added. Keep
+  real-data-only enforcement; default-safe; add a coverage check.
 - **Research Funnel v2 (tomorrow, after market).** Staged first-layer pick funnel before Tony:
   FMP screener + earnings calendar, Finnhub news-sentiment, Twelve Data breadth/fallback feeding the
   existing scorer; staged universe growth (350 → 800 → larger); evaluated against the now-live paper
   outcomes. Spec: `docs/superpowers/specs/2026-06-03-research-funnel-design.md`. Default-off, TDD.
-- **Paper-trading dashboard surface.** Board real-P/L cell + StatusBar account chip consuming
-  `GET /api/paper/positions` (API ready; small Next.js task).
+- **Paper-trading dashboard surface — clearer paper-traded entries (requested 2026-06-03, after close).**
+  Make it obvious on the dashboard which names the bot has actually *paper-traded* vs merely watching.
+  Consuming `GET /api/paper/positions` (API ready; Next.js task):
+  - Board: a real-P/L cell + a visible "PAPER" / entered badge distinguishing held positions from watch-only
+    snapshots, showing fill/entry price, qty, opened-at time, and live unrealized P/L.
+  - StatusBar account chip (book label "Trading Bot", open count, realized P/L).
+  - Symbol drawer: show the bot's actual paper entry (fill price, time, bracket stop/target) when held,
+    separate from the scanner's planned entry.
+  Goal: zero ambiguity between "Tony flagged it", "trigger armed", and "bot is in a paper position".
 - **Scan-coverage ET date fix.** Coverage buckets scan runs by UTC, so after-hours scans (past UTC
   midnight) show `Universe:0/Scored:0` for the ET report date. Make the filter ET-market-date aware.
 

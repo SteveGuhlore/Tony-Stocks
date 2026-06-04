@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from trading_bot.api.live_prices import PriceCache, run_price_poll_loop
 from trading_bot.api.routes import (
-    health, today, picks, outcomes, scan, analytics, events, system, symbols, vault, paper
+    health, today, picks, outcomes, scan, analytics, events, system, symbols, vault, paper,
+    command_center,
 )
 from trading_bot.api.routes import prices as prices_router
 from trading_bot.settings import load_dotenv_if_present
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
 
     app.state.db_path = os.environ.get("DATABASE_PATH", str(_PROJECT_ROOT / "data" / "trading_bot.db"))
     app.state.vault_dir = os.environ.get("VAULT_DIR", str(_PROJECT_ROOT / "vault"))
+    app.state.reports_dir = os.environ.get("REPORTS_DIR", str(_PROJECT_ROOT / "reports"))
 
     live_queue: asyncio.Queue = asyncio.Queue()
     app.state.live_event_queue = live_queue
@@ -73,6 +75,7 @@ for _router in (
     vault.router,
     prices_router.router,
     paper.router,
+    command_center.router,
 ):
     app.include_router(_router, prefix="/api")
 

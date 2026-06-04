@@ -175,9 +175,16 @@ class TestProductionUniverseRotationBudget:
         assert len(core) <= 50, f"watchlist_core count {len(core)} exceeds core_max_symbols=50"
 
     def test_total_non_excluded_fits_within_max_universe_size(self):
+        # Read the cap from config so a staged universe expansion only needs the
+        # filters.max_universe_size bump — not a hardcoded edit here. The invariant
+        # that matters: active symbols must fit so load_universe() never silently
+        # truncates curated names (universe.py returns result[:max_universe_size]).
+        import yaml
+        with open(_REAL_CONFIG, encoding="utf-8") as fh:
+            cap = yaml.safe_load(fh)["filters"]["max_universe_size"]
         meta = load_universe_metadata(_REAL_CONFIG)
         active = [s for s, m in meta.items() if m.universe_role != "excluded_by_default"]
-        assert len(active) <= 350, f"Active symbol count {len(active)} exceeds max_universe_size=350"
+        assert len(active) <= cap, f"Active symbol count {len(active)} exceeds max_universe_size={cap}"
 
     def test_default_config_quarantine_still_excludes_known_symbols_from_real_flow(self):
         settings = load_scanner_settings(_DEFAULT_CONFIG)

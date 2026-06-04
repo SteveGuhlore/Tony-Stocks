@@ -23,7 +23,10 @@ def _et(hour: int, minute: int, *, day: int = 2) -> datetime:
 class TestDueBridgeSlots:
     def test_checkpoint_labels_and_order(self):
         labels = [label for label, _ in BRIDGE_CHECKPOINTS]
-        assert labels == ["1030", "1300", "1530", "eod"]
+        # The 16:00 post-close checkpoint is "1600" (a timestamped intraday-style
+        # drop), NOT "eod" — "eod" reuses the daily-anchor filename YYYY-MM-DD.md
+        # and was silently skipped by the disk-idempotency guard. See test below.
+        assert labels == ["1030", "1300", "1530", "1600"]
 
     def test_before_first_checkpoint_none_due(self):
         assert due_bridge_slots(_et(9, 45), set()) == []
@@ -41,10 +44,10 @@ class TestDueBridgeSlots:
         assert due_bridge_slots(_et(13, 5), {"1030"}) == ["1300"]
 
     def test_eod_due_after_close(self):
-        assert due_bridge_slots(_et(16, 1), set()) == ["1030", "1300", "1530", "eod"]
+        assert due_bridge_slots(_et(16, 1), set()) == ["1030", "1300", "1530", "1600"]
 
     def test_all_emitted_returns_empty(self):
-        assert due_bridge_slots(_et(16, 30), {"1030", "1300", "1530", "eod"}) == []
+        assert due_bridge_slots(_et(16, 30), {"1030", "1300", "1530", "1600"}) == []
 
     def test_weekend_returns_empty(self):
         # 2026-06-06 is a Saturday.
@@ -77,7 +80,16 @@ class TestSlotFilenames:
         assert "export_type: intraday-bridge" in content
         assert "slot: 1300" in content
 
+    def test_1600_slot_uses_timestamped_filename(self, tmp_path):
+        # Regression: the auto 16:00 post-close drop must be timestamped so it never
+        # collides with the morning daily-anchor file (YYYY-MM-DD.md) and gets skipped.
+        path = write_bridge_export("2026-06-02", _eod_result(), tmp_path, snapshots=_snaps(), slot="1600")
+        assert path.name == "2026-06-02T1600.md"
+        assert "export_type: intraday-bridge" in path.read_text(encoding="utf-8")
+        assert "slot: 1600" in path.read_text(encoding="utf-8")
+
     def test_eod_slot_uses_daily_filename(self, tmp_path):
+        # Manual `export-to-vault --slot eod` still writes the canonical daily file.
         path = write_bridge_export("2026-06-02", _eod_result(), tmp_path, snapshots=_snaps(), slot="eod")
         assert path.name == "2026-06-02.md"
         assert "export_type: eod-bridge" in path.read_text(encoding="utf-8")

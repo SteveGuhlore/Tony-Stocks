@@ -3,19 +3,27 @@
 The bot hands Tony's picks to the Command Center several times a day so the CC can
 re-analyze and adjust during the session, not just at EOD. Checkpoints (America/
 New_York): 10:30 (1h post-open), 13:00 (post-lunch), 15:30 (pre-close adjust), and
-16:00 (EOD close). Intraday slots write a timestamped file so they never overwrite
-the canonical daily bridge; the CC dedups on the timestamp.
+16:00 (post-close handoff). Every auto checkpoint — including 16:00 — writes a
+timestamped file (YYYY-MM-DDTHHMM.md) so it never overwrites the canonical daily
+bridge / morning anchor; the CC dedups on the timestamp.
+
+NOTE: the 16:00 slot is labelled "1600", NOT "eod". An "eod" label reuses the
+daily-anchor filename YYYY-MM-DD.md, which the watch loop's disk-idempotency guard
+(``bridge_file.exists()``) then skips — so the post-close handoff was silently
+never emitted. The canonical daily file is still produced by the daily anchor and
+by manual ``export-to-vault --slot eod``.
 """
 from __future__ import annotations
 
 from datetime import datetime, time
 
-#: (slot label, checkpoint time ET). "eod" is the canonical daily drop.
+#: (slot label, checkpoint time ET). All auto slots are timestamped intraday-style
+#: drops; the 16:00 "1600" slot is the post-close handoff.
 BRIDGE_CHECKPOINTS: list[tuple[str, time]] = [
     ("1030", time(10, 30)),
     ("1300", time(13, 0)),
     ("1530", time(15, 30)),
-    ("eod", time(16, 0)),
+    ("1600", time(16, 0)),
 ]
 
 
