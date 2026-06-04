@@ -160,13 +160,14 @@ class TestResultShape:
 
 
 class TestConfigIntegration:
-    def test_default_config_funnel_is_off_and_parses(self):
-        # Safety invariant: the funnel must ship OFF; flipping it on is a deliberate act.
+    def test_default_config_funnel_parses(self):
+        # The funnel was enabled live 2026-06-04 (deliberate). Whatever its on/off
+        # state, the config must parse into a sane FunnelStageConfig.
         from trading_bot.settings import load_scanner_settings
 
         settings = load_scanner_settings("config/default_config.yaml")
         cfg = settings.research_funnel or {}
-        assert cfg.get("enabled") is False
+        assert isinstance(cfg.get("enabled"), bool)
         stage = FunnelStageConfig.from_dict(cfg)
         assert stage.shortlist_size >= 1
         assert stage.min_price > 0

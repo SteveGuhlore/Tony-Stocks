@@ -1264,6 +1264,7 @@ def run_watch(args: argparse.Namespace) -> dict[str, Any]:
                     finnhub=_providers["finnhub"],
                     enrich_limit=int(funnel_cfg.get("enrich_limit", 150)),
                     earnings_blackout_days=int(funnel_cfg.get("earnings_blackout_days", 0)),
+                    use_news_sentiment=bool(funnel_cfg.get("use_news_sentiment", True)),
                 )
                 _core = {s.upper() for s in (rotation_cfg.get("core_symbols") or [])}
                 _funnel = build_funnel(

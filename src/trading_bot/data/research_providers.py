@@ -242,6 +242,7 @@ def gather_funnel_signals(
     finnhub: FinnhubProvider | None = None,
     enrich_limit: int = 150,
     earnings_blackout_days: int = 10,
+    use_news_sentiment: bool = True,
 ) -> dict[str, SymbolSignals]:
     """Assemble per-symbol SymbolSignals.
 
@@ -265,7 +266,8 @@ def gather_funnel_signals(
         base = base_metrics.get(sym, {})
         sentiment = recommendation = None
         if finnhub is not None and finnhub.available and enriched < enrich_limit:
-            sentiment = finnhub.news_sentiment(sym)
+            if use_news_sentiment:  # news-sentiment is a premium Finnhub endpoint (403 on free)
+                sentiment = finnhub.news_sentiment(sym)
             recommendation = finnhub.recommendation(sym)
             enriched += 1
         signals[sym] = SymbolSignals(

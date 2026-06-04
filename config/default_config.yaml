@@ -158,14 +158,15 @@ research_funnel:
   # When enabled, runs ONCE at watch start (after the pre-screener) and feeds the rotator
   # a ranked shortlist. Enrichment feeds are ADVISORY — a missing/failed API never drops a
   # symbol. Needs FMP_API_KEY / FINNHUB_API_KEY in .env to enrich (inert without them).
-  enabled: false
+  enabled: true                  # LIVE 2026-06-04 after close; fail-safe (errors -> pre-screened universe)
   enrich_limit: 150              # cap per-symbol Finnhub calls per run (free-tier safe)
+  use_news_sentiment: false      # Finnhub news-sentiment is premium (403 on free) -> skip; rank by recommendation
   # Stage thresholds (map 1:1 to FunnelStageConfig):
   min_price: 5.0
   max_price: 500.0
   min_dollar_volume: 5000000
   min_relative_strength: null    # null = off
-  earnings_blackout_days: 0      # 0 = off; e.g. 5 drops names reporting within 5 days
+  earnings_blackout_days: 5      # drop names reporting within 5 days (uses FMP /stable earnings calendar)
   sentiment_mode: annotate       # annotate | filter
   min_news_sentiment: -1.0       # used only when sentiment_mode: filter
   min_recommendation: null       # null = off
