@@ -1,8 +1,65 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-04_
+_Last updated: 2026-06-05_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-05 handoff — REAL two-layer tandem-loop test (bot <-> live CC code)
+
+**TL;DR:** New harness `scripts/tandem_loop_test.py` proves the whole layer-1 (bot) <->
+layer-2 (Command Center) loop end to end against the **REAL CC runner code** (not synthetic
+JSON), in one shared throwaway sandbox. **25/25 checks pass** incl. the full **926-test**
+pytest suite, live Gemini narration, and a hard guarantee that **neither live system is
+touched** (real bot reports/DB/vault AND the real CC workspace are byte-for-byte unchanged
+before/after). Read-only on trading; no orders. Uncommitted (1 new file + AGENT_STATE).
+
+### What it actually exercises (the operator's ask: "nothing breaks during live hours")
+- **Layer 1 (bot)** seeds snapshots -> `emit-outcomes` -> writes the daily anchor bridge +
+  4 intraday handoffs (10:30/13:00/15:30/eod) into the sandbox CC bridge dir.
+- **Layer 2 (REAL CC)** — imports and drives the actual Command Center code:
+  `runner.bridge.tony_bridge.scan_and_process()` ingests every handoff and spawns one Tony
+  deep-dive task per bridge (idempotent on re-run); `runner.tools.tony_verdict.write_tony_verdict`
+  writes 2nd-pass verdicts (all 5 enums incl. `close`; bracket-validity guard verified);
+  `runner.ledger.tony_scorecard.write_record()` grades the bot's outcomes -> `record.json`;
+  `tony_outcomes.get_tony_outcomes()` track record.
+- **Back to layer 1** the bot consumes the CC's REAL outputs: `cc_exit_symbols` detects the
+  `close`, `tony-divergence` builds the teaching ledger (4 contract keys), and the
+  `/api/command-center` mappers (`build_record/build_agreement/build_picks`) accept the CC
+  record+verdicts (the head-to-head panel render path). Round-trip continuity asserted.
+- **Nightly handoff** `learn` deterministic + a LIVE Gemini pass.
+
+### How isolation is guaranteed (zero corruption)
+- Bot: sandbox config redirects `database_path` + vault dirs + `command_center_dir`; demo
+  guards flipped so synthetic data is recognized.
+- CC: env (`TONY_*_FILE`/`TONY_BRIDGE_DIR`/`TONY_REPORTS_DIR`, read at CC import time) is set
+  BEFORE importing `runner.*`, AND the non-env CC globals that point at the real workspace
+  (`tony_bridge.TASKS_DIR`/`VAULT_DIR`/`_PROCESSED_LOG`/`BRIDGE_MD_DIR`/`TRADING_REPORTS_DIR`)
+  are monkeypatched to the sandbox after import.
+- Phase 9 fingerprints (sha256) the real bot sinks + the real CC bridge/tasks/processed-log/
+  record/signal-ledger before and after; the run FAILS if any byte changed. (Confirmed clean.)
+
+### The two fixes from the prior unfinished session
+1. **`.env`/LLM key passthrough** — the harness now parses both bot + CC `.env` files and
+   injects the LLM keys into the subprocess env (and os.environ for in-proc CC). bot
+   `GEMINI_API_KEY` wins; also aliased to `GOOGLE_API_KEY` for google-genai.
+2. **Interpreter mismatch (root cause of the old fallback)** — the harness drives bot
+   subprocesses with `.venv\Scripts\python.exe` (what the nightly scheduled task uses); that
+   venv has `google-genai`. A bare `python` does NOT, which is why live narration fell back
+   before. Now `llm=on (gemini-2.5-flash)`.
+
+### Run it
+`$env:PYTHONPATH="src"; python scripts/tandem_loop_test.py` (full, ~5 min incl. pytest).
+`--quick` skips the suite (~30s loop only); `--no-live-llm` skips the paid Gemini pass.
+
+### One honest caveat (minor, tracked)
+The seeded **demo** data was too thin to tier any `[[SYM]]` Tier-1 names into the bridge, so
+the verdict round-trip used a fixed symbol set (NVDA/AMD/AAPL/MSFT/AVGO/BA) rather than
+bot-extracted symbols. The CC ingested the real bot bridges fine (parsed all 4, spawned
+tasks); only the *specific* verdicted symbols were the fallback. During live hours the bridge
+WILL carry Tier-1 wikilinks, so the bot-origin link is exercised then. If desired, enrich the
+sandbox seed (or copy a recent real bridge's body) so Tier-1 extraction yields real symbols.
 
 ---
 
