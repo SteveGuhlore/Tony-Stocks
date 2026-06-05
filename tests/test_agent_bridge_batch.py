@@ -1,0 +1,18 @@
+import trading_bot.agent_bridge as ab
+
+
+def test_batch_append_and_dedup(tmp_path, monkeypatch):
+    f = tmp_path / "agent_insights.json"
+    monkeypatch.setattr(ab, "_INSIGHTS_FILE", f)
+    rows = [{"category": "setup_edge", "insight": "Momentum edge", "confidence": "high", "symbols": []},
+            {"category": "regime", "insight": "3-win streak", "confidence": "low", "symbols": []}]
+    assert ab.record_agent_insights_batch(rows, on_date="2026-06-04") == 2
+    assert len(ab.load_agent_insights()) == 2
+    # re-running the same date+insight must not duplicate
+    assert ab.record_agent_insights_batch(rows, on_date="2026-06-04") == 0
+    assert len(ab.load_agent_insights()) == 2
+    # a new insight on the same date appends
+    assert ab.record_agent_insights_batch(
+        [{"category": "sector_signal", "insight": "energy weak", "confidence": "med", "symbols": []}],
+        on_date="2026-06-04") == 1
+    assert len(ab.load_agent_insights()) == 3
