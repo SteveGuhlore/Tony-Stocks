@@ -1,6 +1,6 @@
 # Execution Parity Contract — Bot vs Command Center (head-to-head)
 
-**Status:** v1 (2026-06-04)
+**Status:** v1.1 (2026-06-05) — adds the B1 conviction-sizing experiment (Section B.1)
 **Purpose:** Make the bot-vs-CC paper-trading experiment *valid*. A head-to-head only
 means something if it has **one independent variable**. We hold the entire "physics of
 trading" identical across both books and vary **only the brain** (how each decides). If
@@ -55,12 +55,44 @@ his **share count differs** from the bot's. **This is correct, not a parity viol
 the *policy* (1% risk) is identical; the *stop level* is his decision. Keep the formula
 fixed; let each agent's chosen stop flow through it.
 
-### What we do NOT vary yet (keep the experiment clean)
-**Conviction-based sizing is deferred.** Tony emits a `confidence` (low/med/high). Sizing
-bigger on high conviction is tempting, but then you're testing *two* hypotheses at once
-(selection quality **and** sizing skill).
-- **Phase 1 (now):** identical fixed-risk sizing → isolates *"does the reasoning pick better?"*
-- **Phase 2 (later, separate experiment):** conviction sizing, once a selection edge is established.
+### What we vary, and when (keep the experiment clean)
+Tony emits a `confidence` (low/med/high). Sizing bigger on high conviction tests a *second*
+hypothesis (sizing skill) on top of selection quality, so it is staged separately:
+- **Phase 1 (B0, baseline):** identical fixed-risk 1% sizing on both books → isolates
+  *"does the reasoning pick better?"* (picking-alpha).
+- **Phase 2 (B1, below):** Tony's book scales size by conviction; **the bot stays flat-1%
+  as the control** → isolates *"does conviction sizing add return on top of selection?"*
+  (sizing-alpha).
+
+---
+
+## B.1 The B1 conviction-sizing experiment (conviction-scaled Tony vs flat-1% bot)
+
+**B1 lives entirely in Tony's book (`alpaca_paper`).** It does *not* change the bot's
+execution. For the head-to-head to stay falsifiable, three things MUST hold on the bot side:
+
+1. **Bot stays flat-1% — it is the control group.** The bot must **not** adopt conviction
+   sizing to "match" Tony. The bot's sizing is `size_position(entry, stop, equity, config)`
+   in `execution/order_router.py` — it has **no** conviction/confidence input by design, and
+   must keep none. This is the single thing the tandem most easily gets wrong; it is locked
+   by a guard test (`tests/test_b1_control_parity.py`). If the bot ever conviction-scales,
+   B1 measures nothing.
+2. **Tolerate an additive `sizing_attribution` key in `record.json`.** When B1 is live, the
+   CC may add an optional `sizing_attribution` block to `tony_stocks_record.json` (e.g.
+   `{"picking_alpha_pct": ..., "sizing_alpha_pct": ...}`). The bot side ingests record.json
+   leniently (`api/routes/command_center.py::build_record` reads only known keys via `.get()`;
+   `CommandCenterRecord` ignores extras) — an unknown key is **ignored, never a strict-schema
+   reject**. Locked by `tests/test_b1_control_parity.py`.
+3. **Report picking-alpha vs sizing-alpha separately.** Because the bot is the flat-1%
+   control and Tony is conviction-scaled, the head-to-head report must decompose Tony's edge
+   into **picking-alpha** (selection quality, comparable to the bot at equal sizing) and
+   **sizing-alpha** (the extra return attributable to conviction sizing). Comparing raw
+   returns alone conflates the two and is not a valid read of either hypothesis.
+
+**Gate rule:** do not flip B1 on until this section is mirrored on **both** sides (bot +
+Command Center) and the CC confirms it emits `sizing_attribution` and a picking/sizing-alpha
+split. Section A (the execution/risk contract) is otherwise unchanged: the bot's 1% risk
+policy and caps remain frozen.
 
 ---
 

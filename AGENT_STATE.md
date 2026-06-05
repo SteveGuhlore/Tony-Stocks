@@ -6,6 +6,51 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-05 handoff — Divergence Calibration (V44 vein) + B1 control-parity guards
+
+**TL;DR:** Shipped **divergence calibration** — the Tony-vs-bot divergence ledger now feeds a
+**human-gated, two-key, bounded retune** of the 5 scanner weights. Plus **B1** control-parity
+guards. Branch `feat/divergence-calibration`. **Full suite green (950+); 49 calibration/activation
++ 5 B1 tests.** Three specialist review agents (python/security/silent-failure) audited it; the
+real CRITICAL (`apply_nudge` bound math) is fixed + stress-tested (30 degenerate cases).
+
+### What it does (spec: `docs/superpowers/specs/2026-06-05-divergence-calibration-design.md`)
+- **Pure core** `analytics/divergence_calibration.py`: per-component outcome **attribution**
+  (does a sub-score separate winners from losers?) AND per-cohort **divergence confirmation**
+  (did Tony correctly override the cohort that sub-score inflates?). A weight nudge fires only
+  when **both agree**; ≤3 weight-pts, clamped [0.05,0.50], renormalized to 1.0, sample-gated.
+- **Key 1 (approve):** proposals ride the existing `approval_package.json` `suggestions` list
+  (kind=`weight_calibration` + `new_weights`); `record-suggestion-decision` records approval
+  unchanged (records ≠ applies).
+- **Key 2 (apply):** new CLI **`activate-strategy-version`** — the SOLE path that writes live
+  weights into `config/scoring_config.yaml`; refuses without an approved proposal; validates the
+  payload (sum≈1.0, 5 keys, bounds) before writing; `--revert`; writes provenance
+  `config/strategy_versions/vNN.yaml` + appends `reports/strategy_versions.json`.
+- **Join:** `repositories.list_snapshot_subscores` (candidate_snapshots ⋈ scan_results on
+  scan_run_id+symbol) recovers sub-scores; `cli._load_pick_records` joins to outcomes on
+  `(symbol, pick_date)`. **Smoke on real data: picks=50, dropped=0** (date-alignment validated).
+- Wired into `after-market-review` (defensive — never breaks the review). Today it correctly
+  prints "No calibration yet — evidence has not converged."
+
+### How to use
+1. `after-market-review` surfaces weight proposals when the ledger converges.
+2. `record-suggestion-decision --index N --status approved` (Key 1).
+3. `activate-strategy-version [--key <suggestion_key>]` (Key 2) → live weights. `--revert` to undo.
+
+### B1 (execution-parity contract) — `docs/CONTRACTS/execution-parity.md` v1.1 §B.1
+B1 = conviction-scaled Tony vs flat-1% bot. Bot-side guards locked by `tests/test_b1_control_parity.py`:
+(1) `order_router.size_position` has NO conviction term (bot stays flat-1% control);
+(2) `record.json` ingestion tolerates an additive `sizing_attribution` key (ignored, never rejected);
+(3) contract amended to require picking-alpha vs sizing-alpha reporting before the gate is flipped on.
+
+### Follow-ups (deliberately out of scope)
+- Tier-3 contract-drift test guard (freeze bridge/verdict/record schemas).
+- Reviewer notes declined as out-of-threat-model for a local single-operator tool (path-root
+  assertions would break tmp_path tests; suggestion_key→weights binding) — payload validation
+  covers the real corruption risk. Calibrate thresholds/sectors later.
+
+---
+
 ## 2026-06-05 handoff — REAL two-layer tandem-loop test (bot <-> live CC code)
 
 **TL;DR:** New harness `scripts/tandem_loop_test.py` proves the whole layer-1 (bot) <->
