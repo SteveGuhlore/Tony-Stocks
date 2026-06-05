@@ -131,7 +131,7 @@ symbols:
     sector: technology
     universe_role: primary_candidate
     demo_profile: steady_mega_cap_trend
-  - symbol: ON
+  - symbol: "ON"
     name: ON Semiconductor
     tags: [mid_cap, semiconductor, ev, pullback_candidate]
     sector: technology
@@ -3342,6 +3342,2912 @@ symbols:
     universe_role: speculative_candidate
     demo_profile: high_volatility_whipsaw
 
+  # ── Staged expansion 2 (2026-06-04): S&P 500 remainder + liquid mid-caps
+  #    + REITs for the rotating discovery pool. primary/speculative only
+  #    (no watchlist_core). Symbols quoted. Research/scanning only.
+  - symbol: "CTSH"
+    name: Cognizant Technology
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "IT"
+    name: Gartner
+    tags: [large_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "AKAM"
+    name: Akamai Technologies
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EPAM"
+    name: EPAM Systems
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CDW"
+    name: CDW Corporation
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PCTY"
+    name: Paylocity
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PCOR"
+    name: Procore Technologies
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BSY"
+    name: Bentley Systems
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "APPN"
+    name: Appian
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "FROG"
+    name: JFrog
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TENB"
+    name: Tenable
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RPD"
+    name: Rapid7
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "QLYS"
+    name: Qualys
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "VRNS"
+    name: Varonis Systems
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TTAN"
+    name: ServiceTitan
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "KVYO"
+    name: Klaviyo
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BRZE"
+    name: Braze
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ASAN"
+    name: Asana
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BOX"
+    name: Box
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DBX"
+    name: Dropbox
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PD"
+    name: PagerDuty
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BMBL"
+    name: Bumble
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "YELP"
+    name: Yelp
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ZG"
+    name: Zillow Group
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CARG"
+    name: CarGurus
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LSCC"
+    name: Lattice Semiconductor
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RMBS"
+    name: Rambus
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SMTC"
+    name: Semtech
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "POWI"
+    name: Power Integrations
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SLAB"
+    name: Silicon Laboratories
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DIOD"
+    name: Diodes Incorporated
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "OLED"
+    name: Universal Display
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ACLS"
+    name: Axcelis Technologies
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "UCTT"
+    name: Ultra Clean Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ICHR"
+    name: Ichor Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "KLIC"
+    name: Kulicke and Soffa
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PI"
+    name: Impinj
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "NVMI"
+    name: Nova
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CAMT"
+    name: Camtek
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AEIS"
+    name: Advanced Energy Industries
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "VSH"
+    name: Vishay Intertechnology
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SANM"
+    name: Sanmina
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FLEX"
+    name: Flex
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CIEN"
+    name: Ciena
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LITE"
+    name: Lumentum Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "VIAV"
+    name: Viavi Solutions
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "EXTR"
+    name: Extreme Networks
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AAOI"
+    name: Applied Optoelectronics
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "INFN"
+    name: Infinera
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DGII"
+    name: Digi International
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "INDI"
+    name: indie Semiconductor
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ARES"
+    name: Ares Management
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CG"
+    name: Carlyle Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "OWL"
+    name: Blue Owl Capital
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SPGI"
+    name: S&P Global
+    tags: [large_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "NDAQ"
+    name: Nasdaq
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CBOE"
+    name: Cboe Global Markets
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WTW"
+    name: Willis Towers Watson
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BRO"
+    name: Brown & Brown
+    tags: [large_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "ACGL"
+    name: Arch Capital Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HIG"
+    name: Hartford Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CINF"
+    name: Cincinnati Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "L"
+    name: Loews
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EG"
+    name: Everest Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BEN"
+    name: Franklin Resources
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "IVZ"
+    name: Invesco
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MOH"
+    name: Molina Healthcare
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "COR"
+    name: Cencora
+    tags: [large_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "STE"
+    name: STERIS
+    tags: [large_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "DGX"
+    name: Quest Diagnostics
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LH"
+    name: Labcorp
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BAX"
+    name: Baxter International
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TFX"
+    name: Teleflex
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PEN"
+    name: Penumbra
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MASI"
+    name: Masimo
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "GKOS"
+    name: Glaukos
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TNDM"
+    name: Tandem Diabetes Care
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SHC"
+    name: Sotera Health
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RPRX"
+    name: Royalty Pharma
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CORT"
+    name: Corcept Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "UTHR"
+    name: United Therapeutics
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EXEL"
+    name: Exelixis
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "JAZZ"
+    name: Jazz Pharmaceuticals
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RVMD"
+    name: Revolution Medicines
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "KRYS"
+    name: Krystal Biotech
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RARE"
+    name: Ultragenyx Pharmaceutical
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "IONS"
+    name: Ionis Pharmaceuticals
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ITCI"
+    name: Intra-Cellular Therapies
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AXSM"
+    name: Axsome Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CRNX"
+    name: Crinetics Pharmaceuticals
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TGTX"
+    name: TG Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DVAX"
+    name: Dynavax Technologies
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GEV"
+    name: GE Vernova
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PNR"
+    name: Pentair
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AOS"
+    name: A.O. Smith
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "IEX"
+    name: IDEX
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NDSN"
+    name: Nordson
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "GGG"
+    name: Graco
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ITT"
+    name: ITT
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CSL"
+    name: Carlisle Companies
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EME"
+    name: EMCOR Group
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ACM"
+    name: AECOM
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "J"
+    name: Jacobs Solutions
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FIX"
+    name: Comfort Systems USA
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "HUBB"
+    name: Hubbell
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CHRW"
+    name: C.H. Robinson Worldwide
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EXPD"
+    name: Expeditors International
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "XPO"
+    name: XPO
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SAIA"
+    name: Saia
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GXO"
+    name: GXO Logistics
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "R"
+    name: Ryder System
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "QSR"
+    name: Restaurant Brands International
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CROX"
+    name: Crocs
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ONON"
+    name: On Holding
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BIRK"
+    name: Birkenstock Holding
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SKX"
+    name: Skechers U.S.A.
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "VFC"
+    name: VF Corporation
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GPS"
+    name: Gap
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ANF"
+    name: Abercrombie & Fitch
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "URBN"
+    name: Urban Outfitters
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FL"
+    name: Foot Locker
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "POOL"
+    name: Pool Corporation
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "GRMN"
+    name: Garmin
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WHR"
+    name: Whirlpool
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "LKQ"
+    name: LKQ
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "APTV"
+    name: Aptiv
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LEA"
+    name: Lear
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BWA"
+    name: BorgWarner
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HOG"
+    name: Harley-Davidson
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TPX"
+    name: Tempur Sealy
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MHK"
+    name: Mohawk Industries
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TOL"
+    name: Toll Brothers
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NVR"
+    name: NVR
+    tags: [large_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "SYY"
+    name: Sysco
+    tags: [large_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "ADM"
+    name: Archer-Daniels-Midland
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BG"
+    name: Bunge Global
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TSN"
+    name: Tyson Foods
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HRL"
+    name: Hormel Foods
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "K"
+    name: Kellanova
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CAG"
+    name: Conagra Brands
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CPB"
+    name: Campbell's
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SJM"
+    name: J.M. Smucker
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MKC"
+    name: McCormick & Company
+    tags: [large_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "CLX"
+    name: Clorox
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CHD"
+    name: Church & Dwight
+    tags: [large_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "EL"
+    name: Estee Lauder
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TAP"
+    name: Molson Coors Beverage
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CASY"
+    name: Casey's General Stores
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FND"
+    name: Floor & Decor Holdings
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HES"
+    name: Hess
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CHK"
+    name: Expand Energy
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SM"
+    name: SM Energy
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CNX"
+    name: CNX Resources
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TPL"
+    name: Texas Pacific Land
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CTVA"
+    name: Corteva
+    tags: [large_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "NTR"
+    name: Nutrien
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FMC"
+    name: FMC Corporation
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "IFF"
+    name: International Flavors & Fragrances
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CE"
+    name: Celanese
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "EMN"
+    name: Eastman Chemical
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AVTR"
+    name: Avantor
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PKG"
+    name: Packaging Corporation of America
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "IP"
+    name: International Paper
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BALL"
+    name: Ball Corporation
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AMCR"
+    name: Amcor
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CRS"
+    name: Carpenter Technology
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ATI"
+    name: ATI
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TMUS"
+    name: T-Mobile US
+    tags: [large_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "NWSA"
+    name: News Corp Class A
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TKO"
+    name: TKO Group Holdings
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WBA"
+    name: Walgreens Boots Alliance
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "IPG"
+    name: Interpublic Group
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PCG"
+    name: PG&E
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NRG"
+    name: NRG Energy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FE"
+    name: FirstEnergy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ES"
+    name: Eversource Energy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DTE"
+    name: DTE Energy
+    tags: [large_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "CMS"
+    name: CMS Energy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CNP"
+    name: CenterPoint Energy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ATO"
+    name: Atmos Energy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LNT"
+    name: Alliant Energy
+    tags: [mid_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AWK"
+    name: American Water Works
+    tags: [large_cap, utilities]
+    sector: utilities
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "EXR"
+    name: Extra Space Storage
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AVB"
+    name: AvalonBay Communities
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EQR"
+    name: Equity Residential
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "IRM"
+    name: Iron Mountain
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SBAC"
+    name: SBA Communications
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WPC"
+    name: W. P. Carey
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "INVH"
+    name: Invitation Homes
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CBRE"
+    name: CBRE Group
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BITF"
+    name: Bitfarms
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CORZ"
+    name: Core Scientific
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "IREN"
+    name: IREN
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BMNR"
+    name: Bitmine Immersion
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GLXY"
+    name: Galaxy Digital
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CRCL"
+    name: Circle Internet Group
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+
+  # ── Staged expansion 3 (2026-06-04): deeper liquid mid/small-caps —
+  #    regional banks, biotech, REITs, semis, transports, energy E&P,
+  #    miners, ADRs. primary/speculative only. Symbols quoted. Research only.
+  - symbol: "PEGA"
+    name: Pegasystems
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MANH"
+    name: Manhattan Associates
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DSGX"
+    name: Descartes Systems
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ALTR"
+    name: Altair Engineering
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BL"
+    name: BlackLine
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ALRM"
+    name: Alarm.com
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NTNX"
+    name: Nutanix
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PSTG"
+    name: Pure Storage
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "QTWO"
+    name: Q2 Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SPSC"
+    name: SPS Commerce
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "INTA"
+    name: Intapp
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AMPL"
+    name: Amplitude
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DV"
+    name: DoubleVerify
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PUBM"
+    name: PubMatic
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RNG"
+    name: RingCentral
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PRO"
+    name: PROS Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "YOU"
+    name: Clear Secure
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AVPT"
+    name: AvePoint
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GDYN"
+    name: Grid Dynamics
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DAVA"
+    name: Endava
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CXM"
+    name: Sprinklr
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "INFA"
+    name: Informatica
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WK"
+    name: Workiva
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FRSH"
+    name: Freshworks
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SUMO"
+    name: Sumo Logic
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "QBTS"
+    name: D-Wave Quantum
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "QUBT"
+    name: Quantum Computing
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "LAES"
+    name: SEALSQ
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AUR"
+    name: Aurora Innovation
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "KSCP"
+    name: Knightscope
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SITM"
+    name: SiTime
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MTSI"
+    name: MACOM Technology
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SYNA"
+    name: Synaptics
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MXL"
+    name: MaxLinear
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CRUS"
+    name: Cirrus Logic
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AOSL"
+    name: Alpha and Omega Semiconductor
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "HIMX"
+    name: Himax Technologies
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "NVTS"
+    name: Navitas Semiconductor
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SGH"
+    name: SMART Global Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PLXS"
+    name: Plexus
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BHE"
+    name: Benchmark Electronics
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "FN"
+    name: Fabrinet
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ZION"
+    name: Zions Bancorporation
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CMA"
+    name: Comerica
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WAL"
+    name: Western Alliance Bancorporation
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EWBC"
+    name: East West Bancorp
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PB"
+    name: Prosperity Bancshares
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CFR"
+    name: Cullen/Frost Bankers
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SNV"
+    name: Synovus Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WBS"
+    name: Webster Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CADE"
+    name: Cadence Bank
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FNB"
+    name: F.N.B. Corporation
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ONB"
+    name: Old National Bancorp
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "COLB"
+    name: Columbia Banking System
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BOKF"
+    name: BOK Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PNFP"
+    name: Pinnacle Financial Partners
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "UMBF"
+    name: UMB Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WTFC"
+    name: Wintrust Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FHN"
+    name: First Horizon
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "VLY"
+    name: Valley National Bancorp
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "OZK"
+    name: Bank OZK
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SSB"
+    name: SouthState
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HWC"
+    name: Hancock Whitney
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FFIN"
+    name: First Financial Bankshares
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TCBI"
+    name: Texas Capital Bancshares
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GBCI"
+    name: Glacier Bancorp
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AMG"
+    name: Affiliated Managers Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "JHG"
+    name: Janus Henderson
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SEIC"
+    name: SEI Investments
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "VOYA"
+    name: Voya Financial
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PFG"
+    name: Principal Financial Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "GL"
+    name: Globe Life
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AIZ"
+    name: Assurant
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RGA"
+    name: Reinsurance Group of America
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RNR"
+    name: RenaissanceRe
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AFG"
+    name: American Financial Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MKL"
+    name: Markel Group
+    tags: [large_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "WRB"
+    name: W. R. Berkley
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "KNSL"
+    name: Kinsale Capital Group
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RLI"
+    name: RLI
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SIGI"
+    name: Selective Insurance
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AXS"
+    name: AXIS Capital Holdings
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ORI"
+    name: Old Republic International
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "XYZ"
+    name: Block
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FIS"
+    name: Fidelity National Information
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "JKHY"
+    name: Jack Henry & Associates
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WEX"
+    name: WEX
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EEFT"
+    name: Euronet Worldwide
+    tags: [mid_cap, financials]
+    sector: financials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PAYO"
+    name: Payoneer Global
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DLO"
+    name: DLocal
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "STNE"
+    name: StoneCo
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "THC"
+    name: Tenet Healthcare
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "UHS"
+    name: Universal Health Services
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DVA"
+    name: DaVita
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CHE"
+    name: Chemed
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EHC"
+    name: Encompass Health
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ENSG"
+    name: Ensign Group
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HQY"
+    name: HealthEquity
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DOCS"
+    name: Doximity
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "OSCR"
+    name: Oscar Health
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ALHC"
+    name: Alignment Healthcare
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PRVA"
+    name: Privia Health
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MEDP"
+    name: Medpace Holdings
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CRL"
+    name: Charles River Laboratories
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RVTY"
+    name: Revvity
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TECH"
+    name: Bio-Techne
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "QGEN"
+    name: Qiagen
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BRKR"
+    name: Bruker
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NVCR"
+    name: NovoCure
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "INSP"
+    name: Inspire Medical Systems
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LNTH"
+    name: Lantheus Holdings
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ICUI"
+    name: ICU Medical
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ATEC"
+    name: Alphatec Holdings
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PACB"
+    name: Pacific Biosciences
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CDNA"
+    name: CareDx
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "VERA"
+    name: Vera Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DNLI"
+    name: Denali Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ARVN"
+    name: Arvinas
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BPMC"
+    name: Blueprint Medicines
+    tags: [mid_cap, healthcare]
+    sector: healthcare
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RYTM"
+    name: Rhythm Pharmaceuticals
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AKRO"
+    name: Akero Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "IMVT"
+    name: Immunovant
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PTCT"
+    name: PTC Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ACLX"
+    name: Arcellx
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "KYMR"
+    name: Kymera Therapeutics
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RCKT"
+    name: Rocket Pharmaceuticals
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RNA"
+    name: Avidity Biosciences
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "NUVL"
+    name: Nuvalent
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MRUS"
+    name: Merus
+    tags: [high_beta, speculative, healthcare]
+    sector: healthcare
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GNRC"
+    name: Generac Holdings
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AYI"
+    name: Acuity
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ALLE"
+    name: Allegion
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MAS"
+    name: Masco
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LII"
+    name: Lennox International
+    tags: [large_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "WSO"
+    name: Watsco
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SSD"
+    name: Simpson Manufacturing
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WTS"
+    name: Watts Water Technologies
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CR"
+    name: Crane
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FLS"
+    name: Flowserve
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DCI"
+    name: Donaldson
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MIDD"
+    name: Middleby
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "OSK"
+    name: Oshkosh
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TXT"
+    name: Textron
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CW"
+    name: Curtiss-Wright
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HEI"
+    name: Heico
+    tags: [large_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "HII"
+    name: Huntington Ingalls Industries
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AVAV"
+    name: AeroVironment
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DRS"
+    name: Leonardo DRS
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CACI"
+    name: CACI International
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SAIC"
+    name: Science Applications International
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LDOS"
+    name: Leidos Holdings
+    tags: [large_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "BAH"
+    name: Booz Allen Hamilton
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AGCO"
+    name: AGCO
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TTC"
+    name: Toro
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LECO"
+    name: Lincoln Electric
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MTZ"
+    name: MasTec
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "STRL"
+    name: Sterling Infrastructure
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PRIM"
+    name: Primoris Services
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "DY"
+    name: Dycom Industries
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ACA"
+    name: Arcosa
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EXP"
+    name: Eagle Materials
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "KNX"
+    name: Knight-Swift Transportation
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WERN"
+    name: Werner Enterprises
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SNDR"
+    name: Schneider National
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HUBG"
+    name: Hub Group
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MATX"
+    name: Matson
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ALK"
+    name: Alaska Air Group
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ZIM"
+    name: ZIM Integrated Shipping
+    tags: [high_beta, speculative, industrials]
+    sector: industrials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GME"
+    name: GameStop
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TSCO"
+    name: Tractor Supply
+    tags: [large_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "WSM"
+    name: Williams-Sonoma
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FIVE"
+    name: Five Below
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BJ"
+    name: BJ's Wholesale Club
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "OLLI"
+    name: Ollie's Bargain Outlet
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ASO"
+    name: Academy Sports and Outdoors
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SFM"
+    name: Sprouts Farmers Market
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "PFGC"
+    name: Performance Food Group
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "USFD"
+    name: US Foods Holding
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CART"
+    name: Maplebear (Instacart)
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CAKE"
+    name: Cheesecake Factory
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EAT"
+    name: Brinker International
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SHAK"
+    name: Shake Shack
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PLAY"
+    name: Dave & Buster's Entertainment
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "WEN"
+    name: Wendy's
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CPRI"
+    name: Capri Holdings
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PVH"
+    name: PVH
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LEVI"
+    name: Levi Strauss
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "COLM"
+    name: Columbia Sportswear
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "KTB"
+    name: Kontoor Brands
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BOOT"
+    name: Boot Barn Holdings
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AEO"
+    name: American Eagle Outfitters
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "FIGS"
+    name: FIGS
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "QS"
+    name: QuantumScape
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "EVGO"
+    name: EVgo
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SEDG"
+    name: SolarEdge Technologies
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "NXT"
+    name: Nextracker
+    tags: [mid_cap, technology]
+    sector: technology
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ARRY"
+    name: Array Technologies
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SHLS"
+    name: Shoals Technologies
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "FLNC"
+    name: Fluence Energy
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MUR"
+    name: Murphy Oil
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CIVI"
+    name: Civitas Resources
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CHRD"
+    name: Chord Energy
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "MGY"
+    name: Magnolia Oil & Gas
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CRGY"
+    name: Crescent Energy
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "RIG"
+    name: Transocean
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "VAL"
+    name: Valaris
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "WFRD"
+    name: Weatherford International
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PTEN"
+    name: Patterson-UTI Energy
+    tags: [high_beta, speculative, energy]
+    sector: energy
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CHX"
+    name: ChampionX
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FTI"
+    name: TechnipFMC
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ET"
+    name: Energy Transfer
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "EPD"
+    name: Enterprise Products Partners
+    tags: [large_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: steady_mega_cap_trend
+  - symbol: "MPLX"
+    name: MPLX
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WES"
+    name: Western Midstream Partners
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DTM"
+    name: DT Midstream
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DINO"
+    name: HF Sinclair
+    tags: [mid_cap, energy]
+    sector: energy
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RPM"
+    name: RPM International
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AXTA"
+    name: Axalta Coating Systems
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "OLN"
+    name: Olin
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CC"
+    name: Chemours
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "HUN"
+    name: Huntsman
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "WLK"
+    name: Westlake
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CBT"
+    name: Cabot
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AVY"
+    name: Avery Dennison
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SEE"
+    name: Sealed Air
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "GPK"
+    name: Graphic Packaging Holding
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "SON"
+    name: Sonoco Products
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ATR"
+    name: AptarGroup
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MTRN"
+    name: Materion
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AEM"
+    name: Agnico Eagle Mines
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "KGC"
+    name: Kinross Gold
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "WPM"
+    name: Wheaton Precious Metals
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FNV"
+    name: Franco-Nevada
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "RGLD"
+    name: Royal Gold
+    tags: [mid_cap, materials]
+    sector: materials
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HL"
+    name: Hecla Mining
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CDE"
+    name: Coeur Mining
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AG"
+    name: First Majestic Silver
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "PAAS"
+    name: Pan American Silver
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BTG"
+    name: B2Gold
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "EGO"
+    name: Eldorado Gold
+    tags: [high_beta, speculative, materials]
+    sector: materials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "NXST"
+    name: Nexstar Media Group
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "WMG"
+    name: Warner Music Group
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FUBO"
+    name: FuboTV
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BILI"
+    name: Bilibili
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "CRTO"
+    name: Criteo
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TRIP"
+    name: Tripadvisor
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ZD"
+    name: Ziff Davis
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CCOI"
+    name: Cogent Communications
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "IRDM"
+    name: Iridium Communications
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "LUMN"
+    name: Lumen Technologies
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "SUI"
+    name: Sun Communities
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "AMH"
+    name: American Homes 4 Rent
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "MAA"
+    name: Mid-America Apartment
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "UDR"
+    name: UDR
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CPT"
+    name: Camden Property Trust
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ESS"
+    name: Essex Property Trust
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ELS"
+    name: Equity LifeStyle Properties
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "REG"
+    name: Regency Centers
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "KIM"
+    name: Kimco Realty
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FRT"
+    name: Federal Realty Investment Trust
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "BXP"
+    name: BXP
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ARE"
+    name: Alexandria Real Estate Equities
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "VTR"
+    name: Ventas
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "DOC"
+    name: Healthpeak Properties
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "OHI"
+    name: Omega Healthcare Investors
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "COLD"
+    name: Americold Realty Trust
+    tags: [high_beta, speculative, real_estate]
+    sector: real_estate
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "REXR"
+    name: Rexford Industrial Realty
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "STAG"
+    name: STAG Industrial
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "CUBE"
+    name: CubeSmart
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "GLPI"
+    name: Gaming and Leisure Properties
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "HST"
+    name: Host Hotels & Resorts
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "ADC"
+    name: Agree Realty
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NNN"
+    name: NNN REIT
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "STWD"
+    name: Starwood Property Trust
+    tags: [mid_cap, real_estate]
+    sector: real_estate
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "NLY"
+    name: Annaly Capital Management
+    tags: [high_beta, speculative, real_estate]
+    sector: real_estate
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "AGNC"
+    name: AGNC Investment
+    tags: [high_beta, speculative, real_estate]
+    sector: real_estate
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "LI"
+    name: Li Auto
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BEKE"
+    name: KE Holdings
+    tags: [high_beta, speculative, real_estate]
+    sector: real_estate
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "TCOM"
+    name: Trip.com Group
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "NTES"
+    name: NetEase
+    tags: [mid_cap, communication]
+    sector: communication
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "TME"
+    name: Tencent Music Entertainment
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "YUMC"
+    name: Yum China Holdings
+    tags: [mid_cap, consumer]
+    sector: consumer
+    universe_role: primary_candidate
+    demo_profile: base_building
+  - symbol: "FUTU"
+    name: Futu Holdings
+    tags: [high_beta, speculative, financials]
+    sector: financials
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "BZ"
+    name: Kanzhun
+    tags: [high_beta, speculative, communication]
+    sector: communication
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "GDS"
+    name: GDS Holdings
+    tags: [high_beta, speculative, technology]
+    sector: technology
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "VIPS"
+    name: Vipshop Holdings
+    tags: [high_beta, speculative, consumer]
+    sector: consumer
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+  - symbol: "ZTO"
+    name: ZTO Express
+    tags: [mid_cap, industrials]
+    sector: industrials
+    universe_role: primary_candidate
+    demo_profile: base_building
+
 csv_path:
 filters:
   min_price: 3
@@ -3349,8 +6255,8 @@ filters:
   min_avg_volume: 300000
   exclude_otc: true
   exclude_missing_data: true
-  # Staged 2026-06-03/04: raised 350 -> 600 to admit the expanded discovery pool
-  # (~548 symbols). This is the TOTAL loaded universe; per-cycle scan stays bounded
-  # by watch_universe_rotation.max_symbols_per_cycle, so rate-limit load is unchanged
-  # — rotation just covers the larger list over more cycles.
-  max_universe_size: 600
+  # Staged 2026-06-04: raised 350 -> 600 -> 1100 to admit the expanded discovery
+  # pool (~1000 symbols). This is the TOTAL loaded universe; per-cycle scan stays
+  # bounded by watch_universe_rotation.max_symbols_per_cycle, so rate-limit load is
+  # unchanged — rotation just covers the larger list over more cycles.
+  max_universe_size: 1100
