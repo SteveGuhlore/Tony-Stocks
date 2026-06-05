@@ -165,6 +165,25 @@ def test_apply_nudge_up_keeps_sum():
     assert applied == 3.0
 
 
+@pytest.mark.parametrize(
+    "weights",
+    [
+        # biggest near the ceiling + several others at the floor (the degenerate case that
+        # could push the residual recipient past 0.50 in a naive single-pass implementation).
+        {"trend_weight": 0.49, "momentum_weight": 0.05, "volume_weight": 0.05, "risk_weight": 0.05, "setup_quality_weight": 0.36},
+        {"trend_weight": 0.50, "momentum_weight": 0.05, "volume_weight": 0.05, "risk_weight": 0.05, "setup_quality_weight": 0.35},
+        {"trend_weight": 0.05, "momentum_weight": 0.05, "volume_weight": 0.05, "risk_weight": 0.35, "setup_quality_weight": 0.50},
+    ],
+)
+@pytest.mark.parametrize("component", ["trend", "momentum", "volume", "risk", "setup_quality"])
+@pytest.mark.parametrize("direction", ["up", "down"])
+def test_apply_nudge_invariants_hold_under_degenerate_weights(weights, component, direction):
+    new, applied = apply_nudge(weights, component, direction, max_delta_pts=3.0)
+    assert abs(sum(new.values()) - 1.0) < 1e-9, f"sum broke: {new}"
+    assert all(0.05 - 1e-9 <= v <= 0.50 + 1e-9 for v in new.values()), f"bound broke: {new}"
+    assert applied <= 3.0 + 1e-9
+
+
 def test_apply_nudge_clamps_at_floor():
     w = {
         "trend_weight": 0.06,

@@ -233,21 +233,42 @@ def apply_nudge(
     applied = moved - target  # actual signed delta after clamp
     w[key] = moved
 
+    # Distribute -applied across the other weights *proportional to their available room*
+    # in the needed direction, so no weight is ever pushed past [floor, ceil]. Iterating a
+    # few times absorbs any capacity a single pass could not (e.g. a weight near a bound).
     others = [k for k in w if k != key]
-    other_total = sum(w[k] for k in others)
-    if other_total > 0:
+    to_distribute = -applied  # added to the others; keeps the total constant
+    for _ in range(16):
+        if abs(to_distribute) <= 1e-12:
+            break
+        if to_distribute < 0:
+            capacity = {k: w[k] - _WEIGHT_FLOOR for k in others}  # room to decrease
+        else:
+            capacity = {k: _WEIGHT_CEIL - w[k] for k in others}  # room to increase
+        total_cap = sum(c for c in capacity.values() if c > 0)
+        if total_cap <= 1e-12:
+            break
+        moved_any = False
         for k in others:
-            w[k] -= applied * (w[k] / other_total)
-    for k in others:
-        w[k] = _clamp(w[k], _WEIGHT_FLOOR, _WEIGHT_CEIL)
-
-    biggest = max(others, key=lambda k: w[k]) if others else key
-    residual = 1.0 - sum(w.values())
-    w[biggest] = w[biggest] + residual
+            cap = capacity[k]
+            if cap <= 0:
+                continue
+            share = to_distribute * (cap / total_cap)
+            share = max(share, -cap) if to_distribute < 0 else min(share, cap)
+            w[k] += share
+            to_distribute -= share
+            moved_any = True
+        if not moved_any:
+            break
 
     w = {k: round(v, 4) for k, v in w.items()}
+    # Absorb residual rounding drift onto the first weight that still has bounded room.
     drift = round(1.0 - sum(w.values()), 4)
-    w[biggest] = round(w[biggest] + drift, 4)
+    if abs(drift) >= 1e-9:
+        for k in sorted(others, key=lambda k: -w[k]):
+            if _WEIGHT_FLOOR <= round(w[k] + drift, 4) <= _WEIGHT_CEIL:
+                w[k] = round(w[k] + drift, 4)
+                break
     return w, round(abs(applied) * 100.0, 4)
 
 

@@ -2374,6 +2374,9 @@ def _ny_market_date(ts: Any) -> str:
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(ZoneInfo("America/New_York")).date().isoformat()
     except (ValueError, TypeError):
+        # Unparseable timestamp -> the raw slice may be a wrong (UTC) join key; warn so a
+        # systematic drop (e.g. a schema/format change) is visible rather than silent.
+        print(f"  [calibration] WARNING: could not parse snapshot_time {ts!r} as ISO; join may be off.")
         return str(ts)[:10]
 
 
@@ -2385,10 +2388,13 @@ def _load_pick_records(outcomes_path: str, repo: ScannerRepository) -> tuple[lis
     """
     path = Path(outcomes_path)
     if not path.exists():
+        print(f"  [calibration] outcomes file not found: {path} — no picks to calibrate on.")
         return [], 0
     try:
         outcomes = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as exc:
+        # A corrupt outcomes file must NOT masquerade as "no data yet" — surface it loudly.
+        print(f"  [calibration] WARNING: could not read outcomes file {path}: {exc}")
         return [], 0
 
     sub = repo.list_snapshot_subscores()
@@ -2396,7 +2402,9 @@ def _load_pick_records(outcomes_path: str, repo: ScannerRepository) -> tuple[lis
     if not sub.empty:
         for row in sub.to_dict("records"):
             key = (str(row.get("symbol") or "").upper(), _ny_market_date(row.get("snapshot_time")))
-            sub_map.setdefault(key, row)  # ordered snapshot_time DESC -> latest snapshot wins
+            # First row wins; the query's ORDER BY snapshot_time DESC means the most-recent
+            # snapshot for a (symbol, date) is encountered first. Do not drop the ORDER BY.
+            sub_map.setdefault(key, row)
 
     picks: list[PickRecord] = []
     dropped = 0
@@ -2438,11 +2446,19 @@ def _build_weight_proposals(args: argparse.Namespace, strategy_version: str) -> 
             if ledger_path.exists()
             else {"records": []}
         )
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as exc:
+        # A corrupt teaching ledger silently yields zero divergence evidence (no proposals
+        # forever) — surface it so the operator knows the calibrator is starved, not quiet.
+        print(f"  [calibration] WARNING: could not read teaching ledger {ledger_path}: {exc}")
         ledger = {"records": []}
     weights = asdict(load_scoring_config(settings.scoring_config_path).weights)
     report = build_divergence_calibration(picks, ledger, weights, strategy_version=strategy_version)
     print(f"  Calibration: {report.headline} (picks={len(picks)}, dropped={dropped})")
+    if dropped > 0 and not picks:
+        print(
+            f"  [calibration] WARNING: all {dropped} resolved outcome(s) dropped at the "
+            "sub-score join — check snapshot coverage or snapshot_time format."
+        )
 
     suggestions: list[dict[str, Any]] = []
     for p in report.proposals:
@@ -2466,9 +2482,14 @@ def _load_strategy_versions(output_dir: str) -> list[dict[str, Any]]:
         return []
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as exc:
+        # This is the live-write path; losing ledger continuity here resets version lineage.
+        print(f"  [calibration] WARNING: strategy_versions.json unreadable ({path}): {exc}")
         return []
+    if not isinstance(data, list):
+        print(f"  [calibration] WARNING: {path} is valid JSON but not a list ({type(data).__name__}); treating as empty.")
+        return []
+    return data
 
 
 def _next_strategy_version(ledger: list[dict[str, Any]]) -> str:
@@ -2480,13 +2501,51 @@ def _next_strategy_version(ledger: list[dict[str, Any]]) -> str:
     return f"v{(max(nums) if nums else 1) + 1}"
 
 
+_WEIGHT_KEY_SET = {
+    "trend_weight",
+    "momentum_weight",
+    "volume_weight",
+    "risk_weight",
+    "setup_quality_weight",
+}
+
+
+def _validate_weight_set(weights: dict[str, Any]) -> str | None:
+    """Return an error string if ``weights`` is unsafe to write to live config, else None.
+
+    The pure calibration core already guarantees valid weights, but activation reads the
+    payload from JSON on disk (the approval package), so this is the trust-boundary check
+    that prevents a malformed or hand-edited package from corrupting the scoring weights.
+    """
+    if set(weights) != _WEIGHT_KEY_SET:
+        return f"unexpected weight keys: {sorted(weights)} (expected {sorted(_WEIGHT_KEY_SET)})"
+    try:
+        vals = [float(v) for v in weights.values()]
+    except (TypeError, ValueError):
+        return "non-numeric weight value"
+    if any(v < 0.05 - 1e-9 or v > 0.50 + 1e-9 for v in vals):
+        return "a weight is outside the allowed [0.05, 0.50] range"
+    if abs(sum(vals) - 1.0) > 1e-6:
+        return f"weights sum to {sum(vals):.4f}, not 1.0"
+    return None
+
+
 def _write_scoring_weights(scoring_path: Path, weights: dict[str, float]) -> None:
-    """Write only the ``weights:`` block of scoring_config.yaml, preserving everything else."""
+    """Write only the ``weights:`` block of scoring_config.yaml, preserving everything else.
+
+    Caller MUST validate ``weights`` with ``_validate_weight_set`` first; this raises on an
+    invalid set as a defense-in-depth guard so a bad payload is never partially written.
+    """
     import yaml
 
+    err = _validate_weight_set(weights)
+    if err:
+        raise ValueError(f"refusing to write invalid scoring weights: {err}")
     raw: dict[str, Any] = {}
     if scoring_path.exists():
         raw = yaml.safe_load(scoring_path.read_text(encoding="utf-8")) or {}
+    else:
+        print(f"  [calibration] WARNING: {scoring_path} did not exist; writing a weights-only config.")
     raw["weights"] = {k: float(v) for k, v in weights.items()}
     scoring_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
 
@@ -2511,6 +2570,10 @@ def run_activate_strategy_version(args: argparse.Namespace) -> dict[str, Any]:
         prev_w = tail.get("previous_weights") or {}
         if not prev_w:
             return {"error": "no_previous_weights"}
+        err = _validate_weight_set(prev_w)
+        if err:
+            print(f"Refusing to revert — recorded predecessor weights are invalid: {err}")
+            return {"error": "invalid_weight_payload", "detail": err}
         _write_scoring_weights(scoring_path, prev_w)
         entry = {
             "version": _next_strategy_version(ledger),
@@ -2559,7 +2622,15 @@ def run_activate_strategy_version(args: argparse.Namespace) -> dict[str, Any]:
         return {"error": "ambiguous", "keys": list(candidates)}
 
     chosen_key, suggestion = next(iter(candidates.items()))
-    new_w = {k: float(v) for k, v in suggestion["new_weights"].items()}
+    try:
+        new_w = {k: float(v) for k, v in suggestion["new_weights"].items()}
+    except (TypeError, ValueError, AttributeError):
+        print("Approved proposal has a malformed new_weights payload — refusing to activate.")
+        return {"error": "invalid_weight_payload", "detail": "new_weights not a numeric mapping"}
+    err = _validate_weight_set(new_w)
+    if err:
+        print(f"Approved proposal's weights are invalid — refusing to activate: {err}")
+        return {"error": "invalid_weight_payload", "detail": err}
 
     if ledger and ledger[-1].get("weights") == new_w and ledger[-1].get("proposal_key") == chosen_key:
         print(f"Already active: {ledger[-1]['version']}. No change.")
@@ -2991,8 +3062,12 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     try:
         weight_proposals = _build_weight_proposals(args, sv)
     except Exception as exc:  # noqa: BLE001 - isolate the review from any calibration fault
+        import traceback
+
         weight_proposals = []
-        print(f"  Divergence calibration skipped after error: {exc}")
+        # Non-breaking by design, but keep the stack so a permanently-broken calibrator is
+        # diagnosable rather than a silent one-line "skipped".
+        print(f"  Divergence calibration skipped after error: {exc}\n{traceback.format_exc()}")
     if weight_proposals:
         suggestions = list(suggestions) + weight_proposals
 
