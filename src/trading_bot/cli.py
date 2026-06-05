@@ -3429,6 +3429,11 @@ def run_learn(args: argparse.Namespace) -> int:
         update_knowledge,
     )
     from trading_bot.analytics.learning_narrator import narrate  # noqa: PLC0415
+    from trading_bot.analytics.llm_clients import (  # noqa: PLC0415
+        make_llm_client,
+        model_for,
+        resolve_provider,
+    )
     from trading_bot.vault.learning_writer import (  # noqa: PLC0415
         write_learning_note,
         write_knowledge_page,
@@ -3446,7 +3451,8 @@ def run_learn(args: argparse.Namespace) -> int:
     use_llm = (not args.no_llm) and bool(lcfg.get("use_llm", True))
     min_sample = args.min_sample if getattr(args, "min_sample", None) is not None else int(lcfg.get("min_sample", 5))
     history_cap = int(lcfg.get("knowledge_history_cap", 30))
-    model = str(lcfg.get("model", "claude-sonnet-4-6"))
+    provider = resolve_provider(lcfg.get("provider")) if use_llm else "none"
+    model = model_for(provider, lcfg)
 
     print("Nightly learning - research only. Read-only on trading; never edits config/risk.")
 
@@ -3470,13 +3476,7 @@ def run_learn(args: argparse.Namespace) -> int:
                                 as_of=as_of, min_sample=min_sample)
     kb = update_knowledge(prior_kb, facts, history_cap=history_cap)
 
-    client = None
-    if use_llm:
-        try:
-            import anthropic  # noqa: PLC0415
-            client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
-        except Exception:  # pragma: no cover - missing key/sdk -> template fallback
-            client = None
+    client = make_llm_client(provider) if use_llm and provider != "none" else None
     narration = narrate(facts, kb, prior_note, client=client, use_llm=use_llm, model=model)
 
     for label, fn in (
