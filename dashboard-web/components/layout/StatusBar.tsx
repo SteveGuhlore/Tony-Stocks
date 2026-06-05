@@ -9,6 +9,7 @@ import { scanAgeLabel } from "@/lib/format"
 
 const NAV = [
   { href: "/", label: "Board" },
+  { href: "/paper", label: "Paper" },
   { href: "/record", label: "Track Record" },
 ]
 
