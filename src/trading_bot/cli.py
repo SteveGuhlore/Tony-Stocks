@@ -278,6 +278,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tony_divergence.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
 
+    learn_p = subparsers.add_parser(
+        "learn",
+        help="Nightly self-learning pass: grade outcomes, evolve knowledge, narrate, bridge to CC. Read-only on trading.",
+    )
+    learn_p.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    learn_p.add_argument("--date", default=None, help="ET date YYYY-MM-DD (default today).")
+    learn_p.add_argument("--days", type=int, default=120, help="Lookback window (days) for outcomes/funnel.")
+    learn_p.add_argument("--min-sample", type=int, default=None, dest="min_sample",
+                         help="Per-dimension sample floor (overrides config learning.min_sample).")
+    learn_p.add_argument("--no-llm", action="store_true", help="Force deterministic templates (no Claude call).")
+    learn_p.add_argument("--no-bridge", action="store_true", help="Skip pushing the brief to the Command Center.")
+    learn_p.add_argument("--reports-dir", default="reports", help="Directory holding outcomes/teaching/funnel JSON.")
+    learn_p.add_argument("--vault-dir", default=None, help="Override vault dir (default from config vault.vault_dir).")
+    learn_p.add_argument("--command-center-dir", default=None, help="Override CC dir (default from config vault.command_center_dir).")
+
     paper_status = subparsers.add_parser("paper-status", help="Show paper-trading account/positions status. Read-only.")
     paper_status.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
 
@@ -3397,6 +3412,103 @@ def run_tony_divergence(args: argparse.Namespace) -> dict[str, Any]:
     return ledger.to_dict()
 
 
+def run_learn(args: argparse.Namespace) -> int:
+    """Nightly self-learning pass. Reads resolved outcomes + teaching ledger + funnel
+    eval, grades them across dimensions, evolves the running knowledge base, narrates
+    the lessons (Claude, falling back to deterministic templates), and writes four
+    sinks: the dated vault note, the living _knowledge.md, the dashboard insights, and
+    the Command Center bridge brief. READ-ONLY on all trading surfaces; fail-quiet per
+    step so a 1:30am scheduled run always exits 0. See design spec
+    docs/superpowers/specs/2026-06-04-nightly-self-learning-design.md.
+    """
+    from datetime import date as _date  # noqa: PLC0415
+
+    from trading_bot.analytics.nightly_learning import build_nightly_facts  # noqa: PLC0415
+    from trading_bot.analytics.learning_knowledge import (  # noqa: PLC0415
+        knowledge_from_dict,
+        update_knowledge,
+    )
+    from trading_bot.analytics.learning_narrator import narrate  # noqa: PLC0415
+    from trading_bot.vault.learning_writer import (  # noqa: PLC0415
+        write_learning_note,
+        write_knowledge_page,
+        write_cc_learning_bridge,
+    )
+    from trading_bot.agent_bridge import record_agent_insights_batch  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    lcfg = getattr(settings, "learning", None) or {}
+    vault_cfg = getattr(settings, "vault", None) or {}
+    as_of = args.date or str(_date.today())
+    reports = Path(args.reports_dir)
+    vault_dir = args.vault_dir or vault_cfg.get("vault_dir", "vault")
+    cc_dir = args.command_center_dir or vault_cfg.get("command_center_dir")
+    use_llm = (not args.no_llm) and bool(lcfg.get("use_llm", True))
+    min_sample = args.min_sample if getattr(args, "min_sample", None) is not None else int(lcfg.get("min_sample", 5))
+    history_cap = int(lcfg.get("knowledge_history_cap", 30))
+    model = str(lcfg.get("model", "claude-sonnet-4-6"))
+
+    print("Nightly learning - research only. Read-only on trading; never edits config/risk.")
+
+    def _read_json(name: str, default: Any) -> Any:
+        try:
+            return json.loads((reports / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return default
+
+    outcomes = _read_json("tony_stocks_outcomes.json", [])
+    teaching = _read_json("tony_teaching_log.json", None)
+    funnel = _read_json("funnel_eval.json", None)
+    prior_kb = knowledge_from_dict(_read_json("learning_knowledge.json", None))
+    try:
+        notes = sorted((Path(vault_dir) / "learning").glob("20*.md"))
+        prior_note = notes[-1].read_text(encoding="utf-8") if notes else None
+    except OSError:
+        prior_note = None
+
+    facts = build_nightly_facts(outcomes, teaching, funnel, None,
+                                as_of=as_of, min_sample=min_sample)
+    kb = update_knowledge(prior_kb, facts, history_cap=history_cap)
+
+    client = None
+    if use_llm:
+        try:
+            import anthropic  # noqa: PLC0415
+            client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
+        except Exception:  # pragma: no cover - missing key/sdk -> template fallback
+            client = None
+    narration = narrate(facts, kb, prior_note, client=client, use_llm=use_llm, model=model)
+
+    for label, fn in (
+        ("vault note", lambda: write_learning_note(vault_dir, facts, narration)),
+        ("knowledge page", lambda: write_knowledge_page(vault_dir, kb)),
+        ("knowledge json", lambda: _write_knowledge_json(reports, kb)),
+        ("dashboard insights", lambda: record_agent_insights_batch(
+            narration.insights, on_date=as_of, path=reports / "agent_insights.json")),
+    ):
+        try:
+            fn()
+        except Exception as exc:  # pragma: no cover - defensive, keep run alive
+            print(f"[learn] sink error ({label}): {exc}")
+
+    if cc_dir and not args.no_bridge and lcfg.get("bridge_to_cc", True):
+        try:
+            write_cc_learning_bridge(cc_dir, facts, kb, narration)
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"[learn] bridge error: {exc}")
+
+    llm_state = "fallback" if narration.template_fallback else f"on ({model})"
+    print(f"[learn] {as_of}: graded {facts.summary['trades']} trades, "
+          f"{len(kb.items)} knowledge items, llm={llm_state}")
+    return 0
+
+
+def _write_knowledge_json(reports: Path, kb: Any) -> None:
+    reports.mkdir(parents=True, exist_ok=True)
+    (reports / "learning_knowledge.json").write_text(
+        json.dumps(kb.to_dict(), indent=2), encoding="utf-8")
+
+
 def run_paper_status(args: argparse.Namespace) -> dict[str, Any]:
     """Print paper-trading account/positions status. Read-only."""
     from trading_bot.execution import load_paper_trading_config  # noqa: PLC0415
@@ -3781,6 +3893,8 @@ def main() -> None:
         run_funnel_eval(args)
     elif args.command == "tony-divergence":
         run_tony_divergence(args)
+    elif args.command == "learn":
+        run_learn(args)
     elif args.command == "paper-status":
         run_paper_status(args)
     elif args.command == "paper-flatten":

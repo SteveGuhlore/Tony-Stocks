@@ -42,12 +42,19 @@ def _load_all() -> list[dict]:
         return []
 
 
-def record_agent_insights_batch(rows: list[dict], on_date: Optional[str] = None) -> int:
+def record_agent_insights_batch(rows: list[dict], on_date: Optional[str] = None,
+                                path: Optional[object] = None) -> int:
     """Append many insights at once, deduped by (date, insight). Returns the number
     actually added. Used by the nightly learner to publish its lesson lines without
-    creating duplicates on re-runs of the same date."""
+    creating duplicates on re-runs of the same date. ``path`` overrides the default
+    insights file (defaults to reports/agent_insights.json — what the dashboard reads)."""
+    from pathlib import Path as _Path
+    target = _Path(path) if path is not None else _INSIGHTS_FILE
+    try:
+        entries = json.loads(target.read_text(encoding="utf-8")) if target.exists() else []
+    except (json.JSONDecodeError, OSError):
+        entries = []
     d = on_date or str(date.today())
-    entries = _load_all()
     existing = {(e.get("date"), e.get("insight")) for e in entries}
     added = 0
     for r in rows:
@@ -65,6 +72,6 @@ def record_agent_insights_batch(rows: list[dict], on_date: Optional[str] = None)
         existing.add((d, text))
         added += 1
     if added:
-        _INSIGHTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _INSIGHTS_FILE.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(entries, indent=2), encoding="utf-8")
     return added

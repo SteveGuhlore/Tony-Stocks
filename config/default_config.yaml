@@ -230,6 +230,20 @@ vault:
   command_center_dir: C:/Users/alexa/Downloads/AI Operations Command Center
   bridge_enabled: true
 
+# Nightly self-learning loop (read-only on trading; design:
+# docs/superpowers/specs/2026-06-04-nightly-self-learning-design.md). Grades resolved
+# outcomes across dimensions, evolves vault/learning/_knowledge.md, narrates with Claude
+# (falls back to deterministic templates without ANTHROPIC_API_KEY), and bridges a brief
+# to the Command Center. Never edits config/thresholds/risk.
+learning:
+  enabled: true
+  model: claude-sonnet-4-6
+  use_llm: true            # false => deterministic templates only
+  min_sample: 5            # per-dimension sample floor before a confident verdict
+  lookback_days: 120
+  knowledge_history_cap: 30
+  bridge_to_cc: true
+
 # Paper-trading execution (Alpaca paper account). OFF by default and INDEPENDENT
 # of live_trading_enabled (which stays false and blocks any real-money path).
 # A misconfigured-but-enabled block fails closed (treated as disabled). See
