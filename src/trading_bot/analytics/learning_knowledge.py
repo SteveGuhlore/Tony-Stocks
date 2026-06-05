@@ -108,9 +108,10 @@ def update_knowledge(prior: KnowledgeBase | None, facts: NightlyFacts,
     seen: dict[str, KnowledgeItem] = {}
     for c in _candidates(facts):
         old = prior_items.get(c["key"])
-        history = (old.history if old else []) + [
-            {"date": facts.as_of, "win_rate": c["win_rate"], "n": c["n"]}
-        ]
+        # drop any prior point for tonight's date so re-running a date is idempotent
+        # (and a re-grade overwrites rather than duplicates)
+        history = [h for h in (old.history if old else []) if h.get("date") != facts.as_of]
+        history = history + [{"date": facts.as_of, "win_rate": c["win_rate"], "n": c["n"]}]
         history = history[-history_cap:]
         cum_n = sum(int(h.get("n") or 0) for h in history)
         seen[c["key"]] = KnowledgeItem(
