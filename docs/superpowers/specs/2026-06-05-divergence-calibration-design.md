@@ -88,7 +88,7 @@ class PickRecord:
     result: str | None          # target_hit | stop_hit | failed_setup | closed | expired | None
     return_pct: float | None
     setup_category: str
-    score_band: str             # reuse score_bucket(): "0-40"/"40-60"/"60-80"/"80-100"
+    score_band: str             # reuse score_bucket(): "90-100"/"80-89"/"70-79"/"60-69"/"below 60"
     trend_score: float
     momentum_score: float
     volume_score: float
@@ -229,21 +229,26 @@ headline when nothing clears the gate.
   key alongside `rule_suggestions`. Surfaced in `after-market-review` and `eod-report` markdown:
   each proposal prints component, direction, old→new weights, both evidence blocks, confidence, and
   a `build_replay_summary` delta computed under `new_weights`.
-- **Key 1 (reuse, no change):** `record-suggestion-decision` already records approve/reject keyed by
-  `(suggestion, strategy_version)`. The proposal's `suggestion` string is its `rationale`. **On
-  approval, materialize the artifact** `config/strategy_versions/vNN.yaml` containing the full
-  weight-set + provenance (cohort, both evidence blocks, the approval record, predecessor version).
-  Materialization is a deterministic write triggered by the approve path; it does **not** touch live
-  config.
-- **Key 2 (new command):** `activate-strategy-version --version vNN`
-  - Refuses unless `config/strategy_versions/vNN.yaml` exists **and** its originating proposal is
-    `approved` in `suggestion_decisions.json`.
-  - Backs up current `config/scoring_config.yaml` weights into the ledger, writes the new `weights:`
-    block into `config/scoring_config.yaml` (only the `weights:` mapping; thresholds/roles untouched),
-    appends an activation entry to `reports/strategy_versions.json`
-    (`{version, activated_at, weights, predecessor, proposal_key}`).
-  - `--revert` convenience: re-activates the predecessor recorded in the ledger.
-  - Prints a clear diff and a reminder that the next scan will use the new weights.
+- **Key 1 (reuse, NO code change):** weight proposals ride in the **same** `approval_package.json`
+  `suggestions` list that `_build_approval_package` already produces, each carrying a
+  `kind: "weight_calibration"` marker plus the `new_weights` / `target_component` payload (extra keys
+  are ignored by the existing gate). `record-suggestion-decision --index N --status approved` records
+  approval keyed by `_suggestion_key(suggestion, strategy_version)` into `suggestion_decisions.json`
+  exactly as today — still **records ≠ applies**, no modification to that command.
+- **Key 2 (new command, the SOLE apply path):** `activate-strategy-version`
+  - Scans `suggestion_decisions.json` for records with `status == "approved"`, cross-references the
+    persisted `approval_package.json` to recover the matching `kind == "weight_calibration"` proposal
+    (and its `new_weights`). Refuses if no approved weight-calibration proposal is found.
+  - `--key <suggestion_key>` selects a specific approved proposal when more than one exists; otherwise
+    if exactly one is approved-and-not-yet-activated it is used.
+  - Computes the next version id from `reports/strategy_versions.json` (baseline is `v1`; first
+    activation → `v2`, etc.). Writes a provenance snapshot `config/strategy_versions/vNN.yaml`
+    (new weights + cohort + both evidence blocks + predecessor + proposal_key) **at activation time**,
+    writes the new `weights:` block into `config/scoring_config.yaml` (only the `weights:` mapping;
+    thresholds/roles untouched), and appends an activation entry to `reports/strategy_versions.json`
+    (`{version, activated_at, weights, predecessor, proposal_key, rationale}`).
+  - `--revert` re-activates the predecessor weights recorded in the ledger.
+  - Prints a clear weight diff and a reminder that the next scan will use the new weights.
 
 ### 5.3 Version ledger — `reports/strategy_versions.json`
 
@@ -261,10 +266,10 @@ records the realized lineage.
    `Momentum Continuation` cohort has `net_override=+3` (Tony correctly closed them, med conf) with
    momentum the top-elevated component → one **down** proposal on `momentum_weight`, −3 pts,
    redistributed, confidence `medium`. Replay shows ranking deltas.
-4. Human reviews → `record-suggestion-decision --index N --decision approved` → `v_next.yaml`
-   materialized.
-5. Human runs `activate-strategy-version --version v_next` → `scoring_config.yaml` weights updated,
-   ledger appended. Next scan uses new weights.
+4. Human reviews → `record-suggestion-decision --index N --status approved` → approval recorded in
+   `suggestion_decisions.json` (nothing applied yet).
+5. Human runs `activate-strategy-version` → recovers the approved proposal, writes provenance
+   `v_next.yaml`, updates `scoring_config.yaml` weights, appends the ledger. Next scan uses new weights.
 6. Regret → `activate-strategy-version --revert`.
 
 ## 7. Testing (pure core ⇒ exhaustive, fast unit tests)
@@ -288,13 +293,14 @@ records the realized lineage.
 - **T9 confidence mapping:** `med`→`medium`; `insufficient` suppressed.
 
 `tests/test_activate_strategy_version.py`:
-- **A1 refuses** activation when the proposal is not `approved`.
-- **A2 refuses** activation when the version artifact is missing.
+- **A1 refuses** activation when no weight-calibration proposal is `approved`.
+- **A2 refuses** activation when an approved proposal cannot be matched back to a package payload
+  (no `new_weights` recoverable).
 - **A3 applies** the right weights to `scoring_config.yaml`; thresholds/roles untouched; sum 1.0.
-- **A4 ledger** appended with predecessor lineage.
+- **A4 ledger** appended with predecessor lineage; version id increments (`v1`→`v2`→…).
 - **A5 revert** re-activates the predecessor weights.
-- **A6 artifact materialization** on approval writes `vNN.yaml` with full provenance and does not
-  touch live config.
+- **A6 provenance** snapshot `vNN.yaml` written at activation time with full evidence; idempotent
+  re-activation of an already-active version is a no-op (not a double-append).
 
 Run via `scripts\run_tests.ps1`. Target: all green; no regression in existing suite.
 
