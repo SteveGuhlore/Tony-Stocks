@@ -23,6 +23,6 @@ def test_default_config_has_learning_block():
     s = load_scanner_settings("config/default_config.yaml")
     assert s.learning is not None
     assert s.learning["provider"] == "auto"
-    assert s.learning["gemini_model"] == "gemini-2.0-flash"
+    assert s.learning["gemini_model"] == "gemini-2.5-flash"
     assert s.learning["anthropic_model"] == "claude-sonnet-4-6"
     assert s.learning["bridge_to_cc"] is True

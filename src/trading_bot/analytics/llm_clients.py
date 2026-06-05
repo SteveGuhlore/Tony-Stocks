@@ -72,14 +72,22 @@ class _GeminiClient:
             user = "\n\n".join(
                 str(m.get("content", "")) for m in messages if m.get("role") == "user"
             )
+            # gemini-2.5+ "thinking" tokens count against max_output_tokens, which can
+            # starve/truncate the JSON answer. Disable thinking for this summarization
+            # task and give the output room so the JSON always completes.
+            cfg_kwargs: dict[str, Any] = dict(
+                system_instruction=system,
+                max_output_tokens=max(int(max_tokens), 2048),
+                response_mime_type="application/json",
+            )
+            try:
+                cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=0)
+            except Exception:  # older SDK / model without thinking support
+                pass
             resp = self._client.models.generate_content(
                 model=model,
                 contents=user,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    max_output_tokens=max_tokens,
-                    response_mime_type="application/json",
-                ),
+                config=types.GenerateContentConfig(**cfg_kwargs),
             )
             # Normalize to the Anthropic Messages shape the narrator expects.
             return SimpleNamespace(content=[SimpleNamespace(text=resp.text or "")])
@@ -88,5 +96,5 @@ class _GeminiClient:
 def model_for(provider: str, lcfg: Mapping[str, Any]) -> str:
     """Pick the model id for the resolved provider from the learning config."""
     if provider == "gemini":
-        return str(lcfg.get("gemini_model") or "gemini-2.0-flash")
+        return str(lcfg.get("gemini_model") or "gemini-2.5-flash")
     return str(lcfg.get("anthropic_model") or lcfg.get("model") or "claude-sonnet-4-6")

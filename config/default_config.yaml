@@ -238,7 +238,7 @@ vault:
 learning:
   enabled: true
   provider: auto           # auto | gemini | anthropic | none. auto picks by which API key is set.
-  gemini_model: gemini-2.0-flash      # used when provider resolves to gemini (GEMINI_API_KEY/GOOGLE_API_KEY)
+  gemini_model: gemini-2.5-flash      # used when provider resolves to gemini (GEMINI_API_KEY/GOOGLE_API_KEY)
   anthropic_model: claude-sonnet-4-6  # used when provider resolves to anthropic (ANTHROPIC_API_KEY)
   use_llm: true            # false => deterministic templates only
   min_sample: 5            # per-dimension sample floor before a confident verdict

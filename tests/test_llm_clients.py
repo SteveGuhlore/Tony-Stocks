@@ -17,10 +17,10 @@ def test_resolve_provider_auto_prefers_gemini():
 
 
 def test_model_for_picks_per_provider():
-    lcfg = {"gemini_model": "gemini-2.0-flash", "anthropic_model": "claude-sonnet-4-6"}
-    assert model_for("gemini", lcfg) == "gemini-2.0-flash"
+    lcfg = {"gemini_model": "gemini-2.5-flash", "anthropic_model": "claude-sonnet-4-6"}
+    assert model_for("gemini", lcfg) == "gemini-2.5-flash"
     assert model_for("anthropic", lcfg) == "claude-sonnet-4-6"
-    assert model_for("gemini", {}) == "gemini-2.0-flash"        # default
+    assert model_for("gemini", {}) == "gemini-2.5-flash"        # default
     assert model_for("anthropic", {}) == "claude-sonnet-4-6"    # default
 
 
