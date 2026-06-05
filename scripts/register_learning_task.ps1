@@ -12,8 +12,7 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
-$python = Join-Path $repo ".venv\Scripts\python.exe"
-if (-not (Test-Path $python)) { $python = "python" }
+$launcher = Join-Path $repo "scripts\run_nightly_learning.cmd"
 
 if ($Remove) {
   schtasks /Delete /TN $TaskName /F 2>$null
@@ -21,10 +20,10 @@ if ($Remove) {
   return
 }
 
-$inner = "`$env:PYTHONPATH='src'; & '$python' -m trading_bot.cli learn --config config/default_config.yaml *>> logs\learning.err"
-$action = "powershell.exe -ExecutionPolicy Bypass -NoProfile -Command `"Set-Location '$repo'; $inner`""
+if (-not (Test-Path $launcher)) { throw "Launcher not found: $launcher" }
 
-schtasks /Create /TN $TaskName /SC DAILY /ST $Time /F /TR $action /RL LIMITED | Out-Null
+# Point the task at a launcher .cmd — schtasks mangles nested-quoted inline commands.
+schtasks /Create /TN $TaskName /SC DAILY /ST $Time /F /TR "$launcher" /RL LIMITED | Out-Null
 Write-Host "Registered '$TaskName' daily at $Time."
 Write-Host "  Disable:  schtasks /Change /TN $TaskName /DISABLE"
 Write-Host "  Run now:  schtasks /Run /TN $TaskName"
