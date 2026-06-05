@@ -1,7 +1,8 @@
 "use client"
 import { scaleY } from "@/lib/chart"
 import { useCommandCenter } from "@/lib/hooks/useCommandCenter"
-import { usePaperEquityCurve } from "@/lib/hooks/usePaper"
+import { usePaper, usePaperEquityCurve } from "@/lib/hooks/usePaper"
+import { useLivePrices } from "@/lib/hooks/useLivePrices"
 
 /**
  * Normalized head-to-head equity: the bot's paper book (orange) vs the Command
@@ -13,8 +14,30 @@ import { usePaperEquityCurve } from "@/lib/hooks/usePaper"
 export function HeadToHeadEquity() {
   const bot = usePaperEquityCurve()
   const cc = useCommandCenter()
+  const paper = usePaper()
+  const quotes = useLivePrices()
 
+  // Realized series (closed trades, indexed to 100) published by the backend...
   const botSeries = bot.points.map((p) => p.index)
+  // ...plus a live MARKED-TO-MARKET "now" point so the head-to-head is symmetric with
+  // the Command Center, which marks its book to live prices. Without this the bot's open
+  // winners/losers wouldn't count and the comparison would understate us.
+  if (bot.base_equity > 0 && paper.open.length > 0) {
+    const lastEquity = bot.points.length ? bot.points[bot.points.length - 1].equity : bot.base_equity
+    let unrealized = 0
+    let haveMark = false
+    for (const p of paper.open) {
+      const last = quotes[p.symbol]?.price
+      if (p.entry_price != null && last != null) {
+        unrealized += (last - p.entry_price) * p.qty
+        haveMark = true
+      }
+    }
+    if (haveMark) {
+      if (botSeries.length === 0) botSeries.push(100) // baseline so the live mark draws a line
+      botSeries.push(((lastEquity + unrealized) / bot.base_equity) * 100)
+    }
+  }
   const tonySeries = cc.record?.equity_curve ?? []
 
   if (botSeries.length < 2 && tonySeries.length < 2) {
@@ -57,7 +80,7 @@ export function HeadToHeadEquity() {
         <span style={{ color: "var(--cyan)" }}>
           ● Tony <b>{fmt(tonyRet)}</b>
         </span>
-        <span style={{ color: "var(--text-tertiary)", marginLeft: "auto" }}>indexed to 100 · research only</span>
+        <span style={{ color: "var(--text-tertiary)", marginLeft: "auto" }}>indexed to 100 · open marked to live · research only</span>
       </div>
     </div>
   )
