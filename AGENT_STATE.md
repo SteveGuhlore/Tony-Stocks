@@ -1,8 +1,67 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-03_
+_Last updated: 2026-06-04_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-04 (late session) handoff — Nightly self-learning loop SHIPPED + Paper Trades tab
+
+**TL;DR:** On branch `feat/nightly-self-learning` (off `main`). Two things shipped, both
+**read-only on trading** (no orders, no config/threshold/risk edits, no watch restart).
+Full suite **922 passed**. NOT merged, NOT pushed, no scheduled task registered yet.
+
+### 1. Nightly self-learning "brain" (the big one)
+A nightly loop that grades the bot's own resolved trades, evolves a knowledge base, and
+teaches both the dashboard and the Command Center. Design spec
+`docs/superpowers/specs/2026-06-04-nightly-self-learning-design.md`, plan
+`docs/superpowers/plans/2026-06-04-nightly-self-learning.md`.
+- **`analytics/nightly_learning.py`** (pure) — `build_nightly_facts` across 9 dimensions
+  (setup edge, sector signal+streaks, score calibration, R-multiple/expectancy, hold-time,
+  exit mix, regime/streak, funnel value, Tony divergence), all sample-size gated.
+- **`analytics/learning_knowledge.py`** (pure) — `update_knowledge`: a living `KnowledgeBase`
+  that promotes/demotes claims on CUMULATIVE evidence + week-over-week trend; idempotent
+  per-date history. This is the "evolve" — lessons compound, don't reset.
+- **`analytics/learning_narrator.py`** — Claude (`claude-sonnet-4-6`) writes the prose from
+  VERIFIED facts only (never raw rows); falls back to deterministic templates on any error
+  or missing `ANTHROPIC_API_KEY`, so the run never fails on the LLM.
+- **Sinks:** `vault/learning/<date>.md` + `vault/learning/_knowledge.md` (Obsidian memory),
+  `reports/agent_insights.json` (dashboard mailbox, via `agent_bridge.record_agent_insights_batch`,
+  deduped), and the CC bridge `{cc}/bridge/tony-stocks/learning/<date>.md` (contract:
+  `docs/CONTRACTS/self-learning-bridge.md`). `vault/learning_writer.py`.
+- **CLI:** `python -m trading_bot.cli learn --config config/default_config.yaml`
+  (`--date --min-sample --no-llm --no-bridge --reports-dir --vault-dir --command-center-dir`).
+  `run_learn` is fail-quiet per sink → always exits 0. Config block `learning:` in
+  `default_config.yaml` (+ `ScannerSettings.learning`).
+- **Tests:** `test_nightly_learning` (18), `test_learning_knowledge` (4), `test_learning_narrator`
+  (4), `test_learning_writer` (3), `test_agent_bridge_batch` (1), `test_learning_config` (2),
+  `test_learning_cli` (2), `test_learning_e2e` (2 — full tandem incl. evolution + CC bytes).
+
+**To activate (attended):**
+1. `powershell -ExecutionPolicy Bypass -File .\scripts\register_learning_task.ps1` → registers
+   the `TradingBot-NightlyLearning` task at 1:30am (before CC's 2am). Read-only → safe unattended.
+2. Ensure `ANTHROPIC_API_KEY` in `.env` for the LLM narrative (else clean template fallback).
+3. **CC-side (their workspace, NOT this repo):** point the CC self-learning script at
+   `{cc}/bridge/tony-stocks/learning/` — same wiring pattern as `TONY_OUTCOMES_FILE`.
+4. Dress rehearsal anytime (throwaway temp sandbox): `.\scripts\mock_learning_e2e.ps1`.
+
+### 2. Paper Trades dashboard tab
+New `/paper` tab in `dashboard-web` (StatusBar nav) — full mirror of the CC reference:
+KPI strip, head-to-head equity curve, OPEN positions table (live LAST + live $/% P/L via
+`useLivePrices`), CLOSED trades table. `components/paper/PaperBook.tsx` + `app/paper/page.tsx`.
+tsc clean, verified live (31 open positions render). These paper-tab files are uncommitted on
+the working tree — commit separately if desired.
+
+### Tandem with CC (from operator's CC update this session)
+- CC's learning is wired via its runner's daily hook + a "Flash can't strip Tony's guardrails"
+  safety net. Our bot learner is INDEPENDENT and feeds CC one-way through the bridge file — no
+  collision; pure separation holds.
+- **OPEN tandem item — head-to-head fairness:** CC now `mark_live()`s its Paper Book + equity
+  curve to live prices. The bot's `/api/paper/equity-curve` is still realized-only, so the
+  head-to-head is asymmetric (our open winners/losers aren't marked). **Next task:** mark the
+  bot's open positions to live in the equity curve's latest point for symmetry. Tracked in
+  `KNOWN_BACKLOG.md`.
 
 ---
 

@@ -4,6 +4,18 @@ _Last updated: 2026-05-19_
 
 ## Immediate
 
+- **(2026-06-04) Head-to-head equity fairness — mark the bot's OPEN positions to live.** The Command
+  Center now `mark_live()`s its Paper Book + equity curve to live prices; the bot's
+  `/api/paper/equity-curve` (`analytics/equity_curve.py`) is still realized-only, so the head-to-head
+  overlay understates the bot's open winners/losers (the same asymmetry that had Tony showing −$58 when
+  he was actually +$142 before CC's fix). **Task:** add the unrealized P/L of open paper positions
+  (marked to the live price cache / `/api/prices`) into the latest equity-curve point so both sides
+  compare like-for-like. Display-only; no trading impact. Pairs with the new `/paper` tab.
+- **(2026-06-04) Nightly self-learning follow-ups.** (a) The learner reads `reports/funnel_eval.json`
+  if present — wire `funnel-eval --save-report` into the nightly task (or accept it stays advisory/empty).
+  (b) Optionally extend `_candidates` in `learning_knowledge.py` beyond setup/sector (e.g. score buckets)
+  once those have sustained samples. (c) Register the 1:30am task + set `ANTHROPIC_API_KEY` to light up
+  the LLM narrative (see AGENT_STATE late-session handoff).
 - **(Item 2, 2026-06-04) Scan-coverage ET-date bucketing is verified ET-correct and locked** by
   `tests/test_scan_coverage_et_date.py` (after-hours 02:00 UTC scan buckets to the prior ET day). The
   original UTC-bucketing bug was already fixed via `market_date_mask` (V16A); the new tests guard it.
