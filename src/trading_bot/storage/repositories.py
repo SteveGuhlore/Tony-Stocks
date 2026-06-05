@@ -566,6 +566,37 @@ class ScannerRepository:
             ).fetchall()
         return pd.DataFrame([dict(row) for row in rows])
 
+    def list_snapshot_subscores(self, limit: int = 10000) -> pd.DataFrame:
+        """Join candidate snapshots to their scan_results sub-scores.
+
+        The five component sub-scores (trend/momentum/volume/risk/setup_quality) live only
+        in ``scan_results``; ``candidate_snapshots`` keeps the blended ``total_score``. This
+        join — on ``(scan_run_id, symbol)`` — recovers the sub-scores per snapshot for
+        divergence-calibration attribution. Read-only.
+        """
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    cs.symbol AS symbol,
+                    cs.snapshot_time AS snapshot_time,
+                    cs.setup_category AS setup_category,
+                    cs.total_score AS total_score,
+                    sr.trend_score AS trend_score,
+                    sr.momentum_score AS momentum_score,
+                    sr.volume_score AS volume_score,
+                    sr.risk_score AS risk_score,
+                    sr.setup_quality_score AS setup_quality_score
+                FROM candidate_snapshots cs
+                JOIN scan_results sr
+                    ON sr.scan_run_id = cs.scan_run_id AND sr.symbol = cs.symbol
+                ORDER BY cs.snapshot_time DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return pd.DataFrame([dict(row) for row in rows])
+
     def latest_candidate_snapshots(self, limit: int = 100) -> pd.DataFrame:
         """Return recent candidate snapshots."""
         return self.list_candidate_snapshots(limit=limit)

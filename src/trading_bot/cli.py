@@ -70,6 +70,9 @@ from trading_bot.snapshots.seeding import build_demo_seed_snapshots
 from trading_bot.strategies import MovingAverageCrossoverStrategy
 from trading_bot.storage.repositories import ScannerRepository
 from trading_bot.settings import load_scanner_settings, real_data_only_enabled, resolve_effective_provider
+from trading_bot.analytics.divergence_calibration import PickRecord, build_divergence_calibration
+from trading_bot.analytics.outcomes import score_bucket
+from trading_bot.analytics.tony_divergence import teaching_log_path
 from trading_bot.tony import TonyStocksService
 from trading_bot.tony.analysis import TONY_ANALYSIS_VERSION, MarketContext, analyze_candidates
 from trading_bot.utils.time_utils import utc_now_iso
@@ -245,6 +248,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     record_decision.add_argument("--note", default="", help="Optional human note about this decision.")
     record_decision.add_argument("--output-dir", default="reports", help="Base directory where reports are saved (default: reports/).")
+
+    activate_version = subparsers.add_parser(
+        "activate-strategy-version",
+        help="Key 2: apply an APPROVED weight-calibration proposal to the live scoring weights. Refuses without an approved proposal.",
+    )
+    activate_version.add_argument("--date", default=None, help="America/New_York market date (YYYY-MM-DD) whose approval package to read. Defaults to today.")
+    activate_version.add_argument("--key", default=None, help="suggestion_key of the approved calibration to activate (required only when more than one is approved).")
+    activate_version.add_argument("--revert", action="store_true", help="Revert the live weights to the predecessor of the most recent activation.")
+    activate_version.add_argument("--output-dir", default="reports", help="Base directory holding reports + suggestion_decisions.json (default: reports/).")
+    activate_version.add_argument("--config-dir", default="config", help="Directory holding scoring_config.yaml (default: config/).")
 
     export_vault = subparsers.add_parser(
         "export-to-vault",
@@ -2340,6 +2353,255 @@ def run_record_suggestion_decision(args: argparse.Namespace) -> dict[str, Any]:
     return {"suggestion_key": key, "status": status, "suggestion": s["suggestion"], "not_applied": True}
 
 
+# --------------------------------------------------------------------------- #
+# Divergence calibration (research-only; two-key human gate)                   #
+# --------------------------------------------------------------------------- #
+def _cal_float(value: Any) -> float | None:
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return None
+    return None if f != f else f  # drop NaN
+
+
+def _ny_market_date(ts: Any) -> str:
+    """Convert an ISO snapshot timestamp to its America/New_York calendar date (YYYY-MM-DD)."""
+    if not ts:
+        return ""
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(ZoneInfo("America/New_York")).date().isoformat()
+    except (ValueError, TypeError):
+        return str(ts)[:10]
+
+
+def _load_pick_records(outcomes_path: str, repo: ScannerRepository) -> tuple[list[PickRecord], int]:
+    """Join resolved outcomes with snapshot sub-scores into PickRecords.
+
+    Returns ``(picks, dropped)``. ``dropped`` counts resolved outcomes with no matching
+    snapshot sub-score row (e.g. outcomes predating sub-score persistence).
+    """
+    path = Path(outcomes_path)
+    if not path.exists():
+        return [], 0
+    try:
+        outcomes = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return [], 0
+
+    sub = repo.list_snapshot_subscores()
+    sub_map: dict[tuple[str, str], dict[str, Any]] = {}
+    if not sub.empty:
+        for row in sub.to_dict("records"):
+            key = (str(row.get("symbol") or "").upper(), _ny_market_date(row.get("snapshot_time")))
+            sub_map.setdefault(key, row)  # ordered snapshot_time DESC -> latest snapshot wins
+
+    picks: list[PickRecord] = []
+    dropped = 0
+    for o in outcomes or []:
+        sym = str(o.get("symbol") or "").upper()
+        date = str(o.get("pick_date") or "")
+        row = sub_map.get((sym, date))
+        if not sym or not date or row is None:
+            dropped += 1
+            continue
+        picks.append(
+            PickRecord(
+                symbol=sym,
+                pick_date=date,
+                result=o.get("result"),
+                return_pct=_cal_float(o.get("return_pct")),
+                setup_category=str(row.get("setup_category") or ""),
+                score_band=score_bucket(_cal_float(row.get("total_score")) or 0.0),
+                trend_score=float(row.get("trend_score") or 0.0),
+                momentum_score=float(row.get("momentum_score") or 0.0),
+                volume_score=float(row.get("volume_score") or 0.0),
+                risk_score=float(row.get("risk_score") or 0.0),
+                setup_quality_score=float(row.get("setup_quality_score") or 0.0),
+            )
+        )
+    return picks, dropped
+
+
+def _build_weight_proposals(args: argparse.Namespace, strategy_version: str) -> list[dict[str, Any]]:
+    """Run divergence calibration; return gate-ready weight-proposal suggestion dicts."""
+    settings = load_scanner_settings(args.config)
+    repo = ScannerRepository(settings.database_path)
+    outcomes_path = os.environ.get("TONY_OUTCOMES_FILE") or "reports/tony_stocks_outcomes.json"
+    picks, dropped = _load_pick_records(outcomes_path, repo)
+    ledger_path = teaching_log_path()
+    try:
+        ledger = (
+            json.loads(ledger_path.read_text(encoding="utf-8"))
+            if ledger_path.exists()
+            else {"records": []}
+        )
+    except (json.JSONDecodeError, OSError):
+        ledger = {"records": []}
+    weights = asdict(load_scoring_config(settings.scoring_config_path).weights)
+    report = build_divergence_calibration(picks, ledger, weights, strategy_version=strategy_version)
+    print(f"  Calibration: {report.headline} (picks={len(picks)}, dropped={dropped})")
+
+    suggestions: list[dict[str, Any]] = []
+    for p in report.proposals:
+        d = p.to_dict()
+        d["reason"] = (
+            f"net_override {p.divergence_evidence['net_override']:+d} on "
+            f"{p.cohort_dimension}='{p.cohort}'; separation "
+            f"{p.attribution_evidence['separation']} (n={p.attribution_evidence['n']})"
+        )
+        suggestions.append(d)
+    return suggestions
+
+
+def _strategy_versions_path(output_dir: str) -> Path:
+    return Path(output_dir) / "strategy_versions.json"
+
+
+def _load_strategy_versions(output_dir: str) -> list[dict[str, Any]]:
+    path = _strategy_versions_path(output_dir)
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def _next_strategy_version(ledger: list[dict[str, Any]]) -> str:
+    nums = [
+        int(str(e.get("version") or "")[1:])
+        for e in ledger
+        if str(e.get("version") or "").startswith("v") and str(e.get("version") or "")[1:].isdigit()
+    ]
+    return f"v{(max(nums) if nums else 1) + 1}"
+
+
+def _write_scoring_weights(scoring_path: Path, weights: dict[str, float]) -> None:
+    """Write only the ``weights:`` block of scoring_config.yaml, preserving everything else."""
+    import yaml
+
+    raw: dict[str, Any] = {}
+    if scoring_path.exists():
+        raw = yaml.safe_load(scoring_path.read_text(encoding="utf-8")) or {}
+    raw["weights"] = {k: float(v) for k, v in weights.items()}
+    scoring_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+
+def run_activate_strategy_version(args: argparse.Namespace) -> dict[str, Any]:
+    """Key 2 — the SOLE path that writes live scanner weights. Refuses without an approved proposal."""
+    import yaml
+
+    output_dir = getattr(args, "output_dir", "reports")
+    config_dir = getattr(args, "config_dir", "config")
+    report_date = getattr(args, "date", None) or new_york_market_date()
+    key = getattr(args, "key", None)
+    revert = bool(getattr(args, "revert", False))
+    scoring_path = Path(config_dir) / "scoring_config.yaml"
+    ledger = _load_strategy_versions(output_dir)
+
+    if revert:
+        if not ledger:
+            print("Nothing to revert — no strategy version has been activated.")
+            return {"error": "nothing_to_revert"}
+        tail = ledger[-1]
+        prev_w = tail.get("previous_weights") or {}
+        if not prev_w:
+            return {"error": "no_previous_weights"}
+        _write_scoring_weights(scoring_path, prev_w)
+        entry = {
+            "version": _next_strategy_version(ledger),
+            "activated_at": datetime.now(tz=ZoneInfo("America/New_York")).isoformat(),
+            "weights": prev_w,
+            "previous_weights": tail.get("weights"),
+            "predecessor": tail.get("version"),
+            "proposal_key": None,
+            "rationale": f"Revert of {tail.get('version')}",
+        }
+        ledger.append(entry)
+        _strategy_versions_path(output_dir).write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+        print(f"Reverted live weights to the predecessor of {tail.get('version')}.")
+        return {"version": entry["version"], "reverted": True, "weights": prev_w}
+
+    decisions = _load_suggestion_decisions(output_dir)
+    approved = [d for d in decisions.values() if d.get("status") == "approved"]
+    candidates: dict[str, dict[str, Any]] = {}
+    for d in approved:
+        pkg_path = Path(output_dir) / (d.get("date") or report_date) / "approval_package.json"
+        if not pkg_path.exists():
+            continue
+        try:
+            pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        for s in pkg.get("suggestions") or []:
+            if s.get("kind") != "weight_calibration" or not s.get("new_weights"):
+                continue
+            skey = _suggestion_key(s["suggestion"], s.get("strategy_version", "v1"))
+            if skey == d.get("suggestion_key"):
+                candidates[skey] = s
+
+    if not candidates:
+        print("No approved weight-calibration proposal found.")
+        print("Approve one first: record-suggestion-decision --index N --status approved")
+        return {"error": "no_approved_calibration"}
+    if key:
+        candidates = {k: v for k, v in candidates.items() if k == key}
+        if not candidates:
+            return {"error": "key_not_found", "key": key}
+    if len(candidates) > 1:
+        print("Multiple approved calibrations — pass --key to choose one:")
+        for k in candidates:
+            print(f"  {k}")
+        return {"error": "ambiguous", "keys": list(candidates)}
+
+    chosen_key, suggestion = next(iter(candidates.items()))
+    new_w = {k: float(v) for k, v in suggestion["new_weights"].items()}
+
+    if ledger and ledger[-1].get("weights") == new_w and ledger[-1].get("proposal_key") == chosen_key:
+        print(f"Already active: {ledger[-1]['version']}. No change.")
+        return {"version": ledger[-1]["version"], "noop": True}
+
+    old_w = asdict(load_scoring_config(scoring_path).weights)
+    predecessor = ledger[-1]["version"] if ledger else "v1"
+    version = _next_strategy_version(ledger)
+
+    _write_scoring_weights(scoring_path, new_w)
+    versions_dir = Path(config_dir) / "strategy_versions"
+    versions_dir.mkdir(parents=True, exist_ok=True)
+    provenance = {
+        "version": version,
+        "predecessor": predecessor,
+        "weights": new_w,
+        "previous_weights": old_w,
+        "proposal_key": chosen_key,
+        "target_component": suggestion.get("target_component"),
+        "cohort": suggestion.get("cohort"),
+        "rationale": suggestion.get("rationale") or suggestion.get("suggestion"),
+        "attribution_evidence": suggestion.get("attribution_evidence"),
+        "divergence_evidence": suggestion.get("divergence_evidence"),
+    }
+    (versions_dir / f"{version}.yaml").write_text(yaml.safe_dump(provenance, sort_keys=False), encoding="utf-8")
+    entry = {
+        "version": version,
+        "activated_at": datetime.now(tz=ZoneInfo("America/New_York")).isoformat(),
+        "weights": new_w,
+        "previous_weights": old_w,
+        "predecessor": predecessor,
+        "proposal_key": chosen_key,
+        "rationale": provenance["rationale"],
+    }
+    ledger.append(entry)
+    _strategy_versions_path(output_dir).write_text(json.dumps(ledger, indent=2), encoding="utf-8")
+    print(f"Activated {version} (was {predecessor}). The next scan uses the new weights.")
+    for k in new_w:
+        print(f"  {k}: {old_w.get(k)} -> {new_w[k]}")
+    return {"version": version, "weights": new_w, "predecessor": predecessor}
+
+
 def _build_approval_package(
     report_date: str,
     suggestions: list[dict[str, Any]],
@@ -2722,6 +2984,18 @@ def run_after_market_review(args: argparse.Namespace) -> dict[str, Any]:
     sr = eod_result.get("tony_self_review") or {}
     suggestions = sr.get("rule_suggestions") or []
     sv = (eod_result.get("strategy_version_report") or {}).get("current_version", CURRENT_STRATEGY_VERSION)
+
+    # Divergence calibration — append confidence-tagged weight proposals to the gate.
+    # Wrapped defensively: calibration is research-only and must never break the daily review.
+    print("\n--- Divergence Calibration (research only) ---")
+    try:
+        weight_proposals = _build_weight_proposals(args, sv)
+    except Exception as exc:  # noqa: BLE001 - isolate the review from any calibration fault
+        weight_proposals = []
+        print(f"  Divergence calibration skipped after error: {exc}")
+    if weight_proposals:
+        suggestions = list(suggestions) + weight_proposals
+
     decisions = _load_suggestion_decisions(getattr(args, "output_dir", "reports"))
     approval = _build_approval_package(report_date, suggestions, sv, decisions=decisions)
 
@@ -3881,6 +4155,8 @@ def main() -> None:
         run_after_market_review(args)
     elif args.command == "record-suggestion-decision":
         run_record_suggestion_decision(args)
+    elif args.command == "activate-strategy-version":
+        run_activate_strategy_version(args)
     elif args.command == "data-check":
         run_data_check(args)
     elif args.command == "provider-health":
