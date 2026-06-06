@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from trading_bot.analytics.equity_curve import build_paper_equity_curve
@@ -125,19 +125,55 @@ class PaperEquityResponse(BaseModel):
     research_only: bool = True
 
 
+def _live_prices_for(request: Request, open_rows: list[dict[str, Any]]) -> dict[str, float]:
+    """Best-effort live price map for the open paper symbols, from the PriceCache.
+
+    Fail-quiet: returns {} when there is no cache, no keys, or no quotes (no keys /
+    market closed / not yet polled) so the curve degrades to realized-only.
+    """
+    try:
+        cache = request.app.state.price_cache
+        if cache is None or not cache.has_keys():
+            return {}
+        prices: dict[str, float] = {}
+        for r in open_rows:
+            symbol = str(r.get("symbol", "")).upper()
+            if not symbol or symbol in prices:
+                continue
+            quote = cache.get(symbol)
+            if quote is not None and quote.price:
+                prices[symbol] = float(quote.price)
+        return prices
+    except Exception:
+        return {}
+
+
 @router.get("/paper/equity-curve", response_model=PaperEquityResponse)
 def get_paper_equity_curve(
+    request: Request,
     base_equity: float = Query(100_000.0, gt=0, description="Paper account base equity to index to 100."),
     repo: ScannerRepository = Depends(get_repo),
 ) -> PaperEquityResponse:
-    """The bot's realized paper-equity series, indexed to 100 for a normalized
-    head-to-head against the Command Center's Tony curve. Read-only; realized only
-    (the live marked-to-market point is added client-side from live prices).
+    """The bot's paper-equity series, indexed to 100 for a normalized head-to-head
+    against the Command Center's Tony curve. Read-only.
+
+    Realized closed-trade series, plus — when live prices are available from the
+    PriceCache — the unrealized P/L of OPEN positions (marked to live) folded into the
+    latest point so both sides compare like-for-like. Fails quiet to realized-only when
+    prices are unavailable (no keys / market closed).
     """
     enabled, _reason, label = _paper_config()
     rows = repo.list_paper_positions(limit=1000)
     closed_rows = [r for r in rows if r.get("status") == "closed"]
-    curve = build_paper_equity_curve(closed_rows, base_equity=base_equity, label=label or "bot")
+    open_rows = [r for r in rows if r.get("status") == "open"]
+    live_prices = _live_prices_for(request, open_rows)
+    curve = build_paper_equity_curve(
+        closed_rows,
+        base_equity=base_equity,
+        label=label or "bot",
+        open_positions=open_rows,
+        live_prices=live_prices,
+    )
     return PaperEquityResponse(
         enabled=enabled,
         label=curve.label,
