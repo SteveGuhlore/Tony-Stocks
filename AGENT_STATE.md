@@ -1,8 +1,76 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-05_
+_Last updated: 2026-06-06_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-06 handoff — main merge + 3 shipped items; OFF-HOURS ENGINE planned, NOT built (next task)
+
+**TL;DR:** `feat/divergence-calibration` was **merged to main** (985 tests verified green first). Then three
+independent backlog items shipped and were merged into branch **`feat/off-hours-research`** (off main).
+The big new initiative — the **Off-Hours Research Engine** — has a committed **design spec + 12-task
+interface-locked implementation plan but ZERO implementation code yet**. That is the next session's job
+(GateGuard is now OFF user-wide, so agents can run unthrottled by the fact-forcing gate). Nothing pushed.
+
+### What is DONE and committed on `feat/off-hours-research`
+1. **main = `a963419`** (divergence-calibration fast-forward merged; 985 green at merge time).
+2. **Tier-3 contract-drift guard** (merge `0768b12`) — `tests/test_contract_drift.py`, **18 tests**.
+   Freezes the 5 bot↔CC schemas (outcomes JSON, bridge markdown sections, verdicts JSON, record JSON,
+   divergence teaching-log) with explicit `contract: key X ...` drift messages. **Honest gap found:**
+   `docs/CONTRACTS/self-learning-bridge.md` documents a `learning/<date>.md` brief with NO producer in
+   code — that contract is unimplemented (backlog it; not a blocker).
+3. **Equity-curve fairness** (merge `ff78cb0`) — `analytics/equity_curve.py` + `api/routes/paper.py`,
+   **16 tests**. `build_paper_equity_curve` now accepts `open_positions` + injected `live_prices` and folds
+   open-position unrealized P/L into the LATEST point only (mark-to-live for a fair head-to-head with the
+   CC). Fail-quiet: no keys / market closed / `live_prices` None → byte-identical realized-only. Pure core
+   (prices injected, no network). Display-only; no orders.
+4. **Nightly funnel-eval wiring** (merge `f468440`) — `cli.py` + `scripts/run_nightly_learning.cmd`,
+   **37 tests**. Fixed a real path-mismatch bug: the learner reads `reports/funnel_eval.json` but
+   `funnel-eval --save-report` wrote `reports/<date>/funnel_eval.json`. `run_learn` now refreshes
+   `reports/funnel_eval.json` (fail-quiet) before reading it; the 1:30am task runs `funnel-eval` then `learn`.
+   Broken/missing funnel_eval.json → learner returns rc 0 (covered by test).
+
+> **Verification status:** B/C/D each ran their own suites green (18/16/37). The FULL integrated suite was
+> re-launched at handoff time — **the next session MUST run `scripts\run_tests.ps1` first to confirm the
+> integrated count is green** before building on top. (Pre-merge baseline was 985.)
+
+### THE NEXT TASK — build the Off-Hours Research Engine
+- **Spec:** `docs/superpowers/specs/2026-06-06-off-hours-research-engine-design.md`
+- **Plan (execute this):** `docs/superpowers/plans/2026-06-06-off-hours-research-engine.md` — 12 TDD tasks,
+  fully interface-locked (the Interface Contract block is the cross-task glue; do NOT rename fields).
+- **What it is:** a read-only off-hours engine (weekdays 16:30→09:00 ET + weekends) that prepares a ranked,
+  catalyst-aware, recalibrated **Morning Watchlist + plan** for the next open. Inverse-watch loop
+  (`off-hours-watch`) + one-shot `off-hours-prep` CLI. Four fail-quiet sinks: `reports/morning_prep/<date>.json`,
+  `vault/morning_prep/<date>.md`, CC bridge `morning-prep/<date>.md`, and `GET /api/morning-prep` + a Next.js
+  `/morning` tab. Pluggable pre-market provider seam stubbed (NullPreMarketProvider now).
+- **HARD INVARIANT #1 — no off-hours auto-entry, EVER.** The engine prepares plans only; it must never
+  import/call the paper engine, broker, or order submission. Task 8 has a guard test enforcing this. Entries
+  fire ONLY during market hours via the existing live watch loop. (This was the operator's explicit
+  requirement: paper trades auto-enter, and off-hours it legit can't / with real money it can't.)
+- **Verified column-name note for the executor:** `candidate_snapshots` exposes `total_score` (0–100, divide
+  by 100 for the 0–1 conviction bands), `setup_category`, `planned_entry_price`, and `stop`/`target` (NOT the
+  `stop_price`/`target_price` suffixes used as placeholders in the plan contract). Map to the real names; keep
+  the public dataclass field names from the contract. Confirm against `storage/repositories.py`.
+- **How to execute (next session, GateGuard now off):** `git checkout feat/off-hours-research`; run the full
+  suite to confirm green; then execute the plan task-by-task with TDD (subagent-driven-development is ideal
+  now that the fact-forcing gate is off). Scoped `git add` ONLY — the working tree has ~128 modified
+  `vault/*.md` + ~89 untracked LIVE-DATA files that must NEVER be staged (`git add <specific paths>`, never
+  `-A`/`.`/`vault/`). When green end-to-end (incl. `cd dashboard-web; npx tsc --noEmit`), merge
+  `feat/off-hours-research` → main.
+
+### Housekeeping / loose ends
+- **Stale worktrees to prune** (already merged): `git worktree remove` the three under
+  `.claude/worktrees/agent-a222f2554d9727518`, `agent-a226cb8b01b516c5c`, `agent-a38ebdcbdab1f79de`
+  (branches `worktree-agent-*`). Agent A's research-only run wrote no code (nothing to recover).
+- **GateGuard:** now disabled user-wide via `~/.claude/settings.json` `env.ECC_GATEGUARD=off`. NOTE this does
+  NOT disable the separate harness-level **cost-warning hook** (that is what made one background agent pause
+  mid-task last session) — be aware sub-agents may still pause on cost.
+- **Nothing pushed.** main is ahead of origin by the divergence-calibration merge; `feat/off-hours-research`
+  is local only. Push only when the operator asks.
+- Backlog to add: the unimplemented `self-learning-bridge.md` `learning/<date>.md` producer (found by the
+  contract-drift guard).
 
 ---
 
