@@ -2,6 +2,11 @@
 # Registers a nightly (default 1:30am) self-learning run. The job is READ-ONLY on all
 # trading surfaces (no orders, no config edits) so it is safe to run unattended.
 #
+# The task points at scripts\run_nightly_learning.cmd, which runs two read-only steps
+# via .venv\Scripts\python.exe: (1) funnel-eval --save-report to refresh the funnel
+# evaluation, then (2) learn, which self-refreshes reports\funnel_eval.json and grades
+# outcomes. Both steps are fail-quiet so the 1:30am run always completes.
+#
 #   Register:  powershell -ExecutionPolicy Bypass -File .\scripts\register_learning_task.ps1
 #   Retime:    ... -Time 02:15
 #   Remove:    ... -Remove

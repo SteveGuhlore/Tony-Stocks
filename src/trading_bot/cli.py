@@ -3314,10 +3314,11 @@ def _funnel_eval_signals_from_snapshots(snapshots: Any) -> dict[str, dict[str, A
     return out
 
 
-def run_funnel_eval(args: argparse.Namespace) -> dict[str, Any]:
-    """Research-only funnel evaluation: per funnel stage, does the screen separate
-    winning picks from losing ones in the stored outcome history? No trading, no
-    scoring changes, no profitability claim.
+def _compute_funnel_eval_report(settings: Any, *, days: int, min_sample: int):
+    """Pure-ish compute step shared by the ``funnel-eval`` CLI and the nightly learner.
+
+    Reads stored outcomes + snapshot-derived signals and evaluates every funnel stage.
+    Returns ``(report, outcomes_path, n_outcomes, n_picks)``. No printing, no file writes.
     """
     from trading_bot.analytics.funnel_eval import (  # noqa: PLC0415
         build_evaluated_picks,
@@ -3325,10 +3326,7 @@ def run_funnel_eval(args: argparse.Namespace) -> dict[str, Any]:
     )
     from trading_bot.data.research_funnel import FunnelStageConfig  # noqa: PLC0415
 
-    print("Funnel evaluation - research only. Measures stage selectivity over stored outcomes; no edge claim.")
-    settings = load_scanner_settings(args.config)
     repo = ScannerRepository(settings.database_path)
-
     outcomes_path = os.environ.get("TONY_OUTCOMES_FILE") or "reports/tony_stocks_outcomes.json"
     try:
         outcomes = json.loads(Path(outcomes_path).read_text(encoding="utf-8"))
@@ -3337,16 +3335,48 @@ def run_funnel_eval(args: argparse.Namespace) -> dict[str, Any]:
     if not isinstance(outcomes, list):
         outcomes = []
 
-    days = int(getattr(args, "days", None) or 120)
     snapshots = repo.list_snapshots_for_analytics(days=days)
     signals = _funnel_eval_signals_from_snapshots(snapshots)
     picks = build_evaluated_picks(outcomes, signals)
 
     cfg = FunnelStageConfig.from_dict(settings.research_funnel or {})
-    min_sample = int(getattr(args, "min_sample", None) or 5)
     report = evaluate_funnel_stages(picks, cfg, min_sample=min_sample)
+    return report, outcomes_path, len(outcomes), len(picks)
 
-    print(f"Outcomes file: {outcomes_path} ({len(outcomes)} records -> {len(picks)} evaluable picks)")
+
+def _refresh_funnel_eval_for_learning(reports: Path, config_path: str, *, days: int,
+                                      min_sample: int) -> bool:
+    """Produce/refresh ``<reports>/funnel_eval.json`` so the nightly learner can consume
+    it. Fail-quiet: any error (bad config, DB, I/O) is swallowed so ``learn`` still
+    completes. Returns True if the file was written. Read-only on trading surfaces.
+    """
+    try:
+        settings = load_scanner_settings(config_path)
+        report, _path, _n, _picks = _compute_funnel_eval_report(
+            settings, days=days, min_sample=min_sample)
+        reports.mkdir(parents=True, exist_ok=True)
+        (reports / "funnel_eval.json").write_text(
+            json.dumps(report.to_dict(), indent=2), encoding="utf-8")
+        return True
+    except Exception as exc:  # pragma: no cover - defensive, must never break learning
+        print(f"[learn] funnel-eval refresh skipped: {exc}")
+        return False
+
+
+def run_funnel_eval(args: argparse.Namespace) -> dict[str, Any]:
+    """Research-only funnel evaluation: per funnel stage, does the screen separate
+    winning picks from losing ones in the stored outcome history? No trading, no
+    scoring changes, no profitability claim.
+    """
+    print("Funnel evaluation - research only. Measures stage selectivity over stored outcomes; no edge claim.")
+    settings = load_scanner_settings(args.config)
+
+    days = int(getattr(args, "days", None) or 120)
+    min_sample = int(getattr(args, "min_sample", None) or 5)
+    report, outcomes_path, n_outcomes, n_picks = _compute_funnel_eval_report(
+        settings, days=days, min_sample=min_sample)
+
+    print(f"Outcomes file: {outcomes_path} ({n_outcomes} records -> {n_picks} evaluable picks)")
     print(f"Signals: price/dollar-volume from snapshots; recommendation/earnings/RS not persisted historically.")
     print(f"{'Stage':<26}{'kept (win%)':<16}{'dropped (win%)':<18}{'d win%':<10}{'verdict'}")
     print("-" * 86)
@@ -3461,6 +3491,13 @@ def run_learn(args: argparse.Namespace) -> int:
             return json.loads((reports / name).read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return default
+
+    # Self-contained nightly: produce/refresh reports/funnel_eval.json before building
+    # facts so the funnel evaluation always feeds the learner. Fail-quiet — a bad
+    # funnel-eval never stops the learning run (read-only on trading surfaces).
+    _refresh_funnel_eval_for_learning(
+        reports, args.config, days=int(getattr(args, "days", None) or 120),
+        min_sample=min_sample)
 
     outcomes = _read_json("tony_stocks_outcomes.json", [])
     teaching = _read_json("tony_teaching_log.json", None)
