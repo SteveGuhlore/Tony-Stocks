@@ -6,11 +6,18 @@ a pure % return — the same normalization the Command Center curve uses. Resear
 """
 from __future__ import annotations
 
-from trading_bot.analytics.equity_curve import build_paper_equity_curve
+from trading_bot.analytics.equity_curve import (
+    build_paper_equity_curve,
+    open_positions_unrealized_pl,
+)
 
 
 def _closed(symbol, closed_at, realized_pl):
     return {"symbol": symbol, "status": "closed", "closed_at": closed_at, "realized_pl": realized_pl}
+
+
+def _open(symbol, qty, entry_price):
+    return {"symbol": symbol, "status": "open", "qty": qty, "entry_price": entry_price}
 
 
 def test_empty_history_has_no_points():
@@ -68,3 +75,80 @@ def test_base_equity_scales_percent_not_absolute():
     big = build_paper_equity_curve([_closed("A", "t1", 1000.0)], base_equity=1_000_000)
     assert small.return_pct == 1.0
     assert big.return_pct == 0.1
+
+
+# --- head-to-head fairness: mark OPEN positions to live on the latest point only ---
+
+def test_open_position_marked_up_raises_latest_point():
+    closed = [_closed("AAA", "2026-06-04T15:00:00Z", 1000.0)]  # +1.0% realized
+    open_pos = [_open("BBB", 100, 50.0)]  # 100 sh, fill 50
+    base = build_paper_equity_curve(closed, base_equity=100_000)
+    marked = build_paper_equity_curve(
+        closed, base_equity=100_000, open_positions=open_pos, live_prices={"BBB": 60.0}
+    )
+    # unrealized = 100 * (60 - 50) = +1000 -> latest point gains another +1.0%
+    assert marked.points[-1].equity == base.points[-1].equity + 1000.0
+    assert marked.points[-1].index == 102.0
+    assert marked.return_pct == 2.0
+    # earlier points are untouched (only the latest is marked)
+    assert marked.points[:-1] == base.points[:-1]
+
+
+def test_open_position_marked_down_lowers_latest_point():
+    closed = [_closed("AAA", "2026-06-04T15:00:00Z", 1000.0)]
+    open_pos = [_open("BBB", 100, 50.0)]
+    marked = build_paper_equity_curve(
+        closed, base_equity=100_000, open_positions=open_pos, live_prices={"BBB": 45.0}
+    )
+    # unrealized = 100 * (45 - 50) = -500 -> 100_000 + 1000 - 500 = 100_500
+    assert marked.points[-1].equity == 100_500.0
+    assert marked.return_pct == 0.5
+
+
+def test_no_live_prices_is_identical_to_realized_only():
+    closed = [_closed("AAA", "2026-06-04T15:00:00Z", 1000.0)]
+    open_pos = [_open("BBB", 100, 50.0)]
+    realized = build_paper_equity_curve(closed, base_equity=100_000)
+    none_prices = build_paper_equity_curve(
+        closed, base_equity=100_000, open_positions=open_pos, live_prices=None
+    )
+    empty_prices = build_paper_equity_curve(
+        closed, base_equity=100_000, open_positions=open_pos, live_prices={}
+    )
+    assert none_prices.points == realized.points
+    assert empty_prices.points == realized.points
+    assert none_prices.return_pct == realized.return_pct == 1.0
+
+
+def test_closed_only_book_unchanged_even_with_prices():
+    # No open positions -> nothing to mark, curve is the realized series.
+    closed = [_closed("AAA", "2026-06-04T15:00:00Z", 1000.0)]
+    realized = build_paper_equity_curve(closed, base_equity=100_000)
+    marked = build_paper_equity_curve(
+        closed, base_equity=100_000, open_positions=[], live_prices={"BBB": 999.0}
+    )
+    assert marked.points == realized.points
+    assert marked.return_pct == 1.0
+
+
+def test_open_symbol_without_live_price_contributes_zero():
+    closed = [_closed("AAA", "2026-06-04T15:00:00Z", 1000.0)]
+    open_pos = [_open("BBB", 100, 50.0), _open("CCC", 10, 20.0)]
+    # only BBB is priced; CCC has no quote -> contributes 0
+    marked = build_paper_equity_curve(
+        closed, base_equity=100_000, open_positions=open_pos, live_prices={"BBB": 55.0}
+    )
+    assert marked.points[-1].equity == 100_000 + 1000 + 500.0
+
+
+def test_unrealized_helper_sums_and_skips_unusable_rows():
+    rows = [
+        _open("BBB", 100, 50.0),                 # +1000 at 60
+        _open("CCC", 10, 20.0),                  # no price -> 0
+        {"symbol": "DDD", "qty": None, "entry_price": 10.0},  # bad qty -> 0
+        {"symbol": "EEE", "qty": 5},             # no entry_price -> 0
+    ]
+    total = open_positions_unrealized_pl(rows, {"bbb": 60.0})  # case-insensitive symbols
+    assert total == 1000.0
+    assert open_positions_unrealized_pl(rows, None) == 0.0
+    assert open_positions_unrealized_pl(rows, {}) == 0.0

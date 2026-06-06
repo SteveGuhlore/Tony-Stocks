@@ -53,17 +53,51 @@ def _to_float(value: Any) -> float | None:
     return None if f != f else f
 
 
+def open_positions_unrealized_pl(
+    open_positions: list[dict[str, Any]],
+    live_prices: dict[str, float] | None,
+) -> float:
+    """Sum the mark-to-market unrealized P/L of OPEN paper positions.
+
+    Pure: prices are injected (no network). For each open row with a usable qty,
+    fill price (``entry_price``), and a live price for its symbol, add
+    ``qty * (live - fill)``. Rows missing any of those — or whose symbol has no live
+    price — contribute 0. Returns 0.0 when ``live_prices`` is None/empty.
+    """
+    if not live_prices:
+        return 0.0
+    prices = {str(s).upper(): p for s, p in live_prices.items()}
+    total = 0.0
+    for r in open_positions:
+        symbol = str(r.get("symbol", "")).upper()
+        live = _to_float(prices.get(symbol))
+        qty = _to_float(r.get("qty"))
+        fill = _to_float(r.get("entry_price"))
+        if live is None or qty is None or fill is None:
+            continue
+        total += qty * (live - fill)
+    return total
+
+
 def build_paper_equity_curve(
     closed_positions: list[dict[str, Any]],
     *,
     base_equity: float,
     label: str = "bot",
+    open_positions: list[dict[str, Any]] | None = None,
+    live_prices: dict[str, float] | None = None,
 ) -> EquityCurve:
     """Build a normalized realized-equity curve from closed paper positions.
 
     Rows missing ``closed_at`` or ``realized_pl`` are skipped. Points are emitted in
     ascending close-time order, prefixed with a baseline point at index 100. With no
     valid closed trades the curve is empty (the frontend shows "collecting…").
+
+    When ``open_positions`` and a non-empty ``live_prices`` map are supplied, the
+    unrealized P/L of the open book (each position marked to its live price) is folded
+    into the LATEST point only — so the bot's curve compares like-for-like against the
+    Command Center, which marks its open positions live. When ``live_prices`` is
+    None/empty the result is unchanged (realized-only). Pure: prices are injected.
     """
     rows = [
         r for r in closed_positions
@@ -85,5 +119,16 @@ def build_paper_equity_curve(
             equity=round(equity, 2),
             index=round(equity / base_equity * 100.0, 4),
         ))
+
+    unrealized = open_positions_unrealized_pl(open_positions or [], live_prices)
+    if unrealized:
+        last = points[-1]
+        equity = base_equity + cumulative + unrealized
+        points[-1] = EquityPoint(
+            t=last.t,
+            equity=round(equity, 2),
+            index=round(equity / base_equity * 100.0, 4),
+        )
+
     return_pct = round(points[-1].index - 100.0, 4)
     return EquityCurve(label=label, base_equity=base_equity, points=points, return_pct=return_pct)
