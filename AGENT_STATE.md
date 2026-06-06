@@ -32,9 +32,9 @@ interface-locked implementation plan but ZERO implementation code yet**. That is
    `reports/funnel_eval.json` (fail-quiet) before reading it; the 1:30am task runs `funnel-eval` then `learn`.
    Broken/missing funnel_eval.json → learner returns rc 0 (covered by test).
 
-> **Verification status:** B/C/D each ran their own suites green (18/16/37). The FULL integrated suite was
-> re-launched at handoff time — **the next session MUST run `scripts\run_tests.ps1` first to confirm the
-> integrated count is green** before building on top. (Pre-merge baseline was 985.)
+> **Verification status:** B/C/D each ran their own suites green (18/16/37), AND the FULL integrated suite
+> after all three merges is **GREEN: 1014 passed** (up from the 985 pre-merge baseline; 1 harmless websockets
+> deprecation warning). Confirmed `scripts\run_tests.ps1` at handoff. Safe to build on top.
 
 ### THE NEXT TASK — build the Off-Hours Research Engine
 - **Spec:** `docs/superpowers/specs/2026-06-06-off-hours-research-engine-design.md`
