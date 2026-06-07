@@ -8,8 +8,6 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-import pytest
-
 from trading_bot.analytics.off_hours_window import (
     Phase,
     current_phase,

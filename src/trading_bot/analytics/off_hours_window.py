@@ -15,9 +15,8 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from enum import Enum
-from zoneinfo import ZoneInfo
 
-_ET = ZoneInfo("America/New_York")
+__all__ = ["Phase", "is_off_hours", "current_phase", "next_market_open"]
 
 _MARKET_OPEN = time(9, 30)
 _MARKET_CLOSE = time(16, 0)
@@ -84,15 +83,13 @@ def next_market_open(now_et: datetime) -> datetime:
     """
     candidate = now_et.replace(hour=9, minute=30, second=0, microsecond=0)
 
-    # Advance by one day if candidate is not strictly after now_et, or if we
-    # land on a weekend.
+    # Advance by one day if candidate is not strictly after now_et. The time
+    # component stays pinned at 09:30, so adding whole days preserves it.
     if candidate <= now_et:
         candidate += timedelta(days=1)
-        candidate = candidate.replace(hour=9, minute=30, second=0, microsecond=0)
 
     # Skip weekends
     while candidate.weekday() in _WEEKEND:
         candidate += timedelta(days=1)
-        candidate = candidate.replace(hour=9, minute=30, second=0, microsecond=0)
 
     return candidate
