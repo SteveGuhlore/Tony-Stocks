@@ -28,7 +28,15 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
   best-effort runtime resolver. **8 unit tests** in `tests/test_env_fence.py`.
 - **`src/trading_bot/api/schemas.py`** — `CandidateSnapshotRow` extended (additive, Codex #3): current_price,
   research_unrealized_pl_pct, reassessment_label, time_active_minutes, original_entry/stop/target.
-- **Verified:** `pytest tests/test_env_fence.py tests/test_api_smoke.py tests/test_api_command_center.py` → **34 passed**.
+- **`src/trading_bot/api/routes/cockpit.py`** — `GET /api/cockpit` aggregate (Codex #6): pure `build_cockpit_rows`
+  (snapshots ⋈ subscores ⋈ CC picks ⋈ live price → one symbol view-model) + route; wired in `main.py`. Status
+  derivation (near/triggered/watching), distance-to-entry, price_status (live/delayed/unavailable), verdict
+  passthrough, NaN coercion. **10 tests** in `tests/test_api_cockpit.py`. (sparkline=[] until `intraday_bars`.)
+- **Verified:** env-fence + cockpit + api-smoke + command-center → **all green (29 + 34 runs)**.
+
+### NEXT immediate brick
+Chart endpoint + `intraday_bars` SQLite table (Codex #5) → then paper marks (Codex #4) → control endpoints +
+cross-process lock/preconditions + fence wiring → personalization tables. THEN frontend (Phase B).
 
 ### NEXT (PLAN.md order — Phase A backend, then B frontend, then C gates)
 A) remaining backend (additive; verify method names against `storage/repositories.py`):
