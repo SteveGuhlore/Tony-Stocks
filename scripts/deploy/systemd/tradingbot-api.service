@@ -1,0 +1,17 @@
+[Unit]
+Description=Trading Bot — FastAPI dashboard backend (localhost only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__RUN_USER__
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+Environment=PYTHONPATH=src
+ExecStart=/opt/trading-bot/.venv/bin/uvicorn trading_bot.api.main:app --host 127.0.0.1 --port 8001
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

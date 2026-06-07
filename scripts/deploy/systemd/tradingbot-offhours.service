@@ -1,0 +1,17 @@
+[Unit]
+Description=Trading Bot — off-hours research engine (read-only, no orders)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__RUN_USER__
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+Environment=PYTHONPATH=src
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli off-hours-watch --config config/default_config.yaml
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

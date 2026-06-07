@@ -125,6 +125,14 @@ _Last updated: 2026-06-06_
 - Emergency stop verification.
 - Tony paper-trader mode only after explicit paper-entry rules and tests exist.
 
+## Future deployment hardening (GCP VM co-host — v1 shipped 2026-06-06)
+
+- Secret Manager for keys instead of on-VM `.env` + mounted service-account key.
+- Cloud Scheduler to trigger off-hours-prep / nightly-learning (currently self-scheduling loops).
+- Container / Cloud Run packaging; CI/CD for the VM.
+- Public ingress + TLS (currently SSH-tunnel only) if remote access is ever needed.
+- Multi-VM HA / managed DB. See `docs/DEPLOYMENT.md` and the deploy spec/plan.
+
 ## Do not do yet
 
 - Do not enable live trading.

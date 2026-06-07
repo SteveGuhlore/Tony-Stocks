@@ -1,0 +1,17 @@
+[Unit]
+Description=Trading Bot — Next.js dashboard (localhost only; optional)
+After=network-online.target tradingbot-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__RUN_USER__
+WorkingDirectory=/opt/trading-bot/dashboard-web
+EnvironmentFile=/opt/trading-bot/.env
+# Requires `npm run build` to have been run first (setup_vm.sh does this).
+ExecStart=/usr/bin/npm start -- --hostname 127.0.0.1 --port 3000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
