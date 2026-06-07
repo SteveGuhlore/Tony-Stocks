@@ -1,5 +1,5 @@
 [Unit]
-Description=Command Center — agent task runner loop
+Description=Command Center — full launcher (dashboard :8765 + agent cron loop)
 After=network-online.target
 Wants=network-online.target
 
@@ -8,9 +8,11 @@ Type=simple
 User=__RUN_USER__
 WorkingDirectory=/opt/command-center
 EnvironmentFile=/opt/command-center/.env
-ExecStart=/opt/command-center/.venv/bin/python -m runner.main
+# launch.py runs the dashboard AND the cron runner loop (paced by --interval),
+# matching how it's run locally. Do NOT also run cc-dashboard (port-guard conflict).
+ExecStart=/opt/command-center/.venv/bin/python scripts/launch.py --interval 180
 Restart=always
-RestartSec=10
+RestartSec=15
 
 [Install]
 WantedBy=multi-user.target
