@@ -70,7 +70,9 @@ def _compute_rr(
     if entry is None or stop is None or target is None:
         return None
     risk = entry - stop
-    if risk == 0:
+    if risk <= 0:
+        # Zero or negative risk (stop at/above entry) is a data error, not a
+        # tradeable setup — degrade to None rather than emit a meaningless R:R.
         return None
     return round((target - entry) / risk, 4)
 
@@ -91,10 +93,10 @@ class PrepCandidate:
     target: float | None
     rr: float | None
     conviction: str        # "high" | "medium" | "low" (post-blackout-downgrade)
-    catalysts: dict        # CatalystTags.to_dict() or {} if not present
-    warnings: list[str]    # human-readable; includes "earnings blackout" when relevant
+    catalysts: dict[str, Any]  # CatalystTags.to_dict() or {} if not present
+    warnings: list[str]        # human-readable; includes "earnings blackout" when relevant
 
-    def _asdict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "symbol": self.symbol,
             "score": self.score,
@@ -126,7 +128,7 @@ class MorningPrep:
             "generated_at": self.generated_at,
             "et_date": self.et_date,
             "phase": self.phase,
-            "shortlist": [c._asdict() for c in self.shortlist],
+            "shortlist": [c.to_dict() for c in self.shortlist],
             "what_changed_overnight": self.what_changed_overnight,
             "plan_for_open": self.plan_for_open,
         }
@@ -142,8 +144,8 @@ def _build_what_changed(learning_facts: dict | None) -> str:
     Assumptions on learning_facts structure (keys used with safe defaults):
       - ``dimensions``: list of dimension dicts — len() = number of "lessons" produced.
       - ``summary``: dict potentially containing ``win_rate`` (float) used to infer
-        calibration state.  We derive a simple "predictive" / "unclear" label from
-        whether win_rate is present and above 0.5.
+        calibration state — "on-track" when win_rate >= 0.5, "needs-review" when
+        below, "unknown" when absent.
     """
     if not learning_facts:
         return "No overnight changes."

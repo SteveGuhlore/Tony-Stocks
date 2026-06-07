@@ -293,6 +293,17 @@ class TestRiskReward:
         )
         assert prep.shortlist[0].rr is None
 
+    def test_rr_none_when_stop_above_entry(self):
+        # stop above entry → negative risk → meaningless R:R, degrade to None
+        row = _make_row("X", 75.0, planned_entry_price=100.0, stop_price=105.0, target_price=115.0)
+        prep = build_morning_prep(
+            scored_rows=[row],
+            catalyst_tags={},
+            now_et=_now_et(),
+            phase="pre_open",
+        )
+        assert prep.shortlist[0].rr is None
+
 
 # ---------------------------------------------------------------------------
 # Test: to_dict round-trip
