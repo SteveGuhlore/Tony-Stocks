@@ -6,6 +6,60 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-07 handoff — Kinetic Tape dashboard: DESIGN LOCKED + Codex-APPROVED, build STARTED
+
+**Branch:** `feat/kinetic-dashboard` (off `main`; legacy frontend tagged `dashboard-web-legacy`).
+**Operator mandate:** full autonomy — "don't ask, build in one pass until done, best dashboard ever." Cost-no-object.
+
+### Design is locked & build-ready (do NOT re-litigate)
+- Spec: `docs/superpowers/specs/2026-06-07-kinetic-tape-dashboard-design.md`
+- Plan (Rev 5, **Codex APPROVED after 5 rounds**): `PLAN.md` · transcript `PLAN-REVIEW-LOG.md`
+- **Visual contract = 11 approved HTML mockups** in `.superpowers/brainstorm/9752-1780851075/content/`
+  (esp. `08-kinetic-system.html`, `09-enriched-row.html`, `11-symbol-drawer-v2.html`). Their CSS/tokens/SVG
+  lift DIRECTLY into code — they ARE the spec. Memory: `project_kinetic_dashboard.md`.
+- Theme "Kinetic Tape": Space Grotesk + Space Mono; `#0a0c0b` bg, lime `#c4f042` accent, **cyan `#37e0ff`=BOT**,
+  **amber `#ff9e2c`=Tony/2nd-pass**, pos `#46d39a` neg `#ff5d73` warn `#ffce4a`. IA = One Cockpit (morph
+  Prep/Live/Review + rail + dual-source slide-over + ⌘K + mobile reflow). Stack: Next16/React19/TS/Tailwind4/
+  motion(react)/lightweight-charts/Pixi.js; drop Recharts.
+
+### DONE this session (verified)
+- **`src/trading_bot/api/env_fence.py`** — fail-closed money-action fence (Codex #1/#2): money POSTs allowed
+  ONLY when `ENV_ROLE=prod` AND live broker account id == `TRADINGBOT_PROD_ACCOUNT_ID`. Pure decision fn +
+  best-effort runtime resolver. **8 unit tests** in `tests/test_env_fence.py`.
+- **`src/trading_bot/api/schemas.py`** — `CandidateSnapshotRow` extended (additive, Codex #3): current_price,
+  research_unrealized_pl_pct, reassessment_label, time_active_minutes, original_entry/stop/target.
+- **Verified:** `pytest tests/test_env_fence.py tests/test_api_smoke.py tests/test_api_command_center.py` → **34 passed**.
+
+### NEXT (PLAN.md order — Phase A backend, then B frontend, then C gates)
+A) remaining backend (additive; verify method names against `storage/repositories.py`):
+  - populate the new CandidateSnapshotRow fields in `picks._snap` from repo rows (cols exist in `candidate_snapshots`).
+  - **`GET /api/cockpit`** aggregate view-model (Codex #6): one row per symbol = scan score+5 sub-scores+setup+
+    levels + tracking live fields + day-change (prices) + Tony verdict+score (command_center) + status + sparkline
+    series + RVOL + per-symbol agreement. Read-optimized; every field awaiting-safe.
+  - **chart endpoint + new `intraday_bars` SQLite table** (Codex #5, 10-trading-day retention, fed by price-poll/
+    watch cycle; daily from stored snapshots; explicit unavailable/stale; NO hot-path yfinance).
+  - enrich `/api/paper/positions` with marked-to-live unrealized P/L + protection(OCO) status (Codex #4).
+  - **control POST endpoints** (stop-watch, pause/resume-paper, flatten-all/one, re-protect, trigger-scan,
+    export-bridge, ack-alert) guarded by `env_fence.assert_money_action_allowed` + PIN + Origin allowlist + nonce
+    + idempotency + `action_audit` row + **cross-process lock (shared SQLite advisory lock/lockfile honored by
+    API+watch+paper)** + per-action preconditions (trigger-scan 409 if scan running; flatten/re-protect require
+    position version match). Personalization tables: pins/notes/presets/journal/call_ratings/price_alerts.
+B) frontend: wipe `dashboard-web/` frontend (legacy already tagged), tokens→globals.css+tailwind+lib/tokens.ts,
+   signature components (score glyph, plan-rail, sparkline, verdict pill, Pixi universe field) component-first +
+   visual-diff vs mockups, data layer (verdict=string normalized once; stale/503 fallbacks; SSE backoff+rehydrate,
+   polling=truth), cockpit shell, **virtualized** tape + per-row price store, dual-source drawer, rail views,
+   prep/review, wire actions AFTER read-only parity proven.
+C) gates: prod-shaped degraded-data E2E (empty CC files/stale watch/503 prices/env drift) + visual-diff
+   (gan-design/browser-qa/Playwright) + `tsc`/`next build`/vitest/Playwright green. Deploy: Node 20 LTS on VM,
+   `update_vm.sh`, alongside CC, Tailscale + action token + Telegram env.
+
+### Invariants
+No scanner/scoring/strategy decision-logic changes (only additive API + minimal watch/paper concurrency hooks).
+No new-entry placement from UI. Local dev (ENV_ROLE unset/dev) physically can't trade the VM account.
+Scoped `git add` only — NEVER stage `vault/`, `data/`, `logs/` (live data churn in tree).
+
+---
+
 ## 2026-06-06 handoff — Off-Hours Research Engine COMPLETE (Tasks 1–12)
 
 **Commit:** `chore(off-hours): scheduled-task registration + docs` on branch `feat/off-hours-research`

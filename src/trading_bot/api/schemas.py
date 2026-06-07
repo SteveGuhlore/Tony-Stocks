@@ -58,6 +58,15 @@ class CandidateSnapshotRow(BaseModel):
     tony_hypothesis: str | None
     entry_triggered: bool
     entry_triggered_at: str | None
+    # ── Additive live-tracking fields (columns already exist in storage; Codex #3) ──
+    # All optional/default-None so existing producers stay backward-compatible.
+    current_price: float | None = None
+    research_unrealized_pl_pct: float | None = None
+    reassessment_label: str | None = None
+    time_active_minutes: float | None = None
+    original_entry: float | None = None
+    original_stop: float | None = None
+    original_target: float | None = None
 
 
 class TonyEventRow(BaseModel):
