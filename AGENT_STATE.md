@@ -6,6 +6,48 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-06 handoff — Task 8 DONE: off-hours-prep + off-hours-watch CLI + no-execution guard
+
+**Commit:** `00d31f9` on branch `feat/off-hours-research`
+**Suite:** 1181 passed (up from 1014 baseline; +23 new tests from this task). Zero failures.
+
+### What was built (Task 8 of the Off-Hours Research Engine plan)
+
+**`src/trading_bot/cli.py`** additions:
+- `_now_et()` — clock helper extracted for monkeypatching in tests (returns current `America/New_York` datetime)
+- `_OFF_HOURS_STOP_FILE` / `_OFF_HOURS_STATE_FILE` — module-level patchable paths for stop file + idempotency state
+- `_off_hours_prep_already_run(et_date, phase)` / `_mark_off_hours_prep_run(et_date, phase)` — disk-idempotent `<date>:<phase>` key set (JSON, under `data/`, mirrors `_emit_due_bridges` style)
+- `run_off_hours_prep(args)` — full prep orchestration: clock → scan DB rows → catalyst enrichment (FMP/Finnhub, budgeted, degrade gracefully) → OVERNIGHT extras (funnel_eval refresh + load learning_facts) → optional narrative → NullPreMarketProvider seam → `build_morning_prep` → 3 fail-quiet sinks (report json+md, vault note, CC bridge). Returns `{phase, et_date, shortlist_size, sinks_written, errors}`.
+- `run_off_hours_watch(args)` — inverse watch loop: MARKET_HOURS → sleep+continue (NO prep); off-hours → prep once per `<date>:<phase>` (idempotent); honors `data/STOP_OFF_HOURS` stop file and `--max-cycles` for testing. Exits 0.
+- Subparsers: `off-hours-prep` (`--config --phase --reports-dir --vault-dir --command-center-dir`) and `off-hours-watch` (`--config --max-cycles --cadence-minutes`). Dispatched in `main()`.
+
+**Real scored-row field names and remap written:**
+- `candidate_snapshots` table columns: `total_score`, `setup_category`, `planned_entry_price`, `stop`, `target`
+- Contract keys expected by `build_morning_prep`: `total_score`, `setup_category`, `planned_entry_price`, `stop_price`, `target_price`
+- Remap applied in `run_off_hours_prep`: `stop → stop_price`, `target → target_price`; `total_score`, `setup_category`, `planned_entry_price` pass through unchanged
+
+**Optional reuse wired vs skipped:**
+- WIRED: `ScannerRepository.list_candidate_snapshots` (DB scan rows), `FmpProvider.earnings_calendar`, `FinnhubProvider.recommendation`, `build_catalyst_tags`, `build_morning_prep`, `write_morning_prep_{report,note,bridge}`, `_refresh_funnel_eval_for_learning` (for OVERNIGHT phase), `NullPreMarketProvider` seam
+- SKIPPED (risky/unclear): `run_learn` full invocation (circular scope risk; learning_facts loaded from JSON instead), tony-divergence/calibration calls (out of scope — the plan marks these as optional for OVERNIGHT), narrative wiring (coded with LLM gate but left minimal to avoid key dependency in tests)
+
+**Safety guard (hard invariant):**
+- `inspect.getsource(run_off_hours_prep)` and `inspect.getsource(run_off_hours_watch)` contain ZERO occurrences of: `run_paper_cycle`, `paper_engine`, `submit_bracket`, `broker` — tested by `test_off_hours_no_execution.py::TestNoExecutionTokens` (8 tests, all pass)
+
+**Test files:**
+- `tests/test_off_hours_cli.py` — 10 tests: happy-path (returns dict, writes JSON, et_date, phase_override, sinks_written list, shortlist_size) + fail-quiet (sink raises → no exception, error recorded, multi-sink all-fail)
+- `tests/test_off_hours_no_execution.py` — 13 tests: 8 source-inspection guards + 5 watch-loop behavioral (MARKET_HOURS no-prep, PRE_OPEN calls prep, exit via max_cycles, stop file halts, idempotency prevents double-prep)
+
+### Remaining tasks in the Off-Hours Research Engine plan
+Tasks 1–7 (analytics modules, sinks) were already committed on `feat/off-hours-research` prior to this session. Task 8 (this task) is now done. Tasks 9–12 (API endpoint, Next.js `/morning` tab, full E2E, merge) remain.
+
+### How to execute next tasks
+- `git checkout feat/off-hours-research` (already on this branch)
+- Run `python -m pytest -q` to confirm green (1181 passed)
+- Continue with Task 9: `GET /api/morning-prep` FastAPI endpoint
+- **Scoped git add only** — never stage `vault/`, `data/`, `logs/` (live data)
+
+---
+
 ## 2026-06-06 handoff — main merge + 3 shipped items; OFF-HOURS ENGINE planned, NOT built (next task)
 
 **TL;DR:** `feat/divergence-calibration` was **merged to main** (985 tests verified green first). Then three
