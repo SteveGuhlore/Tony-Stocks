@@ -18,7 +18,9 @@ echo "Mapping tailnet https://<this-host>:${PORT}/  -> 127.0.0.1:${WEB_PORT} (da
 echo "       tailnet https://<this-host>:${PORT}/api -> 127.0.0.1:${API_PORT} (API)"
 
 # API first so /api is matched before the catch-all /.
-sudo tailscale serve --bg --https="${PORT}" --set-path=/api "http://127.0.0.1:${API_PORT}"
+# tailscale serve STRIPS the --set-path prefix before proxying, so the /api target
+# MUST include /api (else :8443/api/cockpit -> :8001/cockpit -> 404).
+sudo tailscale serve --bg --https="${PORT}" --set-path=/api "http://127.0.0.1:${API_PORT}/api"
 sudo tailscale serve --bg --https="${PORT}" --set-path=/     "http://127.0.0.1:${WEB_PORT}"
 
 echo

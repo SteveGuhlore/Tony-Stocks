@@ -38,19 +38,21 @@ The bot dashboard uses its own HTTPS port (`:8443`) so it does **not** collide w
 
 | Environment | `NEXT_PUBLIC_API_URL` |
 |---|---|
-| Local dev (`npm run dev`) | `http://localhost:8001/api` |
-| VM build (served over Tailscale) | `/api`  ← relative, same-origin |
+| Local dev (`npm run dev`) | `http://localhost:8001` (client appends `/api/...`) |
+| VM build (served over Tailscale) | **empty** ← relative same-origin; client requests `/api/...` |
 
-`scripts/deploy/update_vm.sh` should export `NEXT_PUBLIC_API_URL=/api` before `npm run build` on the VM.
-If the dashboard's API client hardcodes `http://localhost:8001`, that's a remote-access bug — it must read
-`process.env.NEXT_PUBLIC_API_URL` and default to `/api`. **(Integration checkpoint — verify before deploy.)**
+`deploy_kinetic.sh` writes `NEXT_PUBLIC_API_URL=` (empty) into `.env.production.local` before `npm run build`.
+The API client (`lib/api.ts`) prepends `API_BASE` to paths that already start with `/api`, so the VM value must
+be **empty** (not `/api`, which would double to `/api/api/...`). **Verified working over the tailnet 2026-06-07.**
 
 ## Commands (run on the VM, attended, after close)
 
 ```bash
 # Expose the bot dashboard + API same-origin on :8443 (tailnet HTTPS).
 # --bg persists across reboots (stored in tailscaled state).
-sudo tailscale serve --bg --https=8443 --set-path=/api  http://127.0.0.1:8001
+# IMPORTANT: tailscale serve STRIPS the matched --set-path prefix, so the /api
+# target MUST include /api (else :8443/api/cockpit -> :8001/cockpit -> 404).
+sudo tailscale serve --bg --https=8443 --set-path=/api  http://127.0.0.1:8001/api
 sudo tailscale serve --bg --https=8443 --set-path=/      http://127.0.0.1:3000
 
 # Verify (read-only):

@@ -38,7 +38,9 @@ sleep 5
 printf "tradingbot-web: "; systemctl is-active tradingbot-web || true
 
 echo "[5/6] tailscale serve :8443 same-origin (dashboard + /api)"
-sudo tailscale serve --bg --https=8443 --set-path=/api http://127.0.0.1:8001
+# NOTE: tailscale serve STRIPS the matched --set-path prefix before proxying, so the
+# /api target MUST include /api or requests hit :8001/cockpit (404). Keep the suffix.
+sudo tailscale serve --bg --https=8443 --set-path=/api http://127.0.0.1:8001/api
 sudo tailscale serve --bg --https=8443 --set-path=/     http://127.0.0.1:3000
 
 echo "[6/6] verify"
