@@ -13,6 +13,8 @@ set -euo pipefail
 BOT_REPO="${BOT_REPO:?set BOT_REPO=<trading-bot git url>}"
 CC_REPO="${CC_REPO:?set CC_REPO=<command-center git url>}"
 BRANCH="${BRANCH:-main}"
+BOT_BRANCH="${BOT_BRANCH:-$BRANCH}"
+CC_BRANCH="${CC_BRANCH:-master}"   # CC repo's default branch is master, not main
 RUN_USER="${RUN_USER:-$USER}"
 BOT_DIR="/opt/trading-bot"
 CC_DIR="/opt/command-center"
@@ -27,17 +29,17 @@ sudo mkdir -p "$BOT_DIR" "$CC_DIR"
 sudo install -d -m 700 -o "$RUN_USER" -g "$RUN_USER" "$SECRETS_DIR"
 sudo chown -R "$RUN_USER:$RUN_USER" "$BOT_DIR" "$CC_DIR"
 
-clone_or_pull() {  # $1=url $2=dir
+clone_or_pull() {  # $1=url $2=dir $3=branch
   if [ -d "$2/.git" ]; then
-    git -C "$2" fetch --all && git -C "$2" checkout "$BRANCH" && git -C "$2" pull
+    git -C "$2" fetch --all && git -C "$2" checkout "$3" && git -C "$2" pull
   else
-    git clone --branch "$BRANCH" "$1" "$2"
+    git clone --branch "$3" "$1" "$2"
   fi
 }
 
-echo ">> Cloning repos (branch $BRANCH)..."
-clone_or_pull "$BOT_REPO" "$BOT_DIR"
-clone_or_pull "$CC_REPO" "$CC_DIR"
+echo ">> Cloning repos (bot:$BOT_BRANCH  cc:$CC_BRANCH)..."
+clone_or_pull "$BOT_REPO" "$BOT_DIR" "$BOT_BRANCH"
+clone_or_pull "$CC_REPO" "$CC_DIR" "$CC_BRANCH"
 
 echo ">> Building trading-bot venv..."
 python3 -m venv "$BOT_DIR/.venv"
