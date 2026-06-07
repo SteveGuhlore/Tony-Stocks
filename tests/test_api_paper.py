@@ -96,3 +96,39 @@ def test_equity_curve_marks_open_to_live_when_cache_has_prices(client):
     # realized +1000 plus unrealized 50*(110-100)=+500 -> 101_500 / 100_000 = 101.5
     assert data["points"][-1]["equity"] == 101_500.0
     assert data["return_pct"] == 1.5
+
+
+def test_position_live_marks_none_without_keys(client):
+    # No keys -> fail-quiet: open position carries no live mark.
+    c, db = client
+    _seed_one_open_one_closed(db)
+    data = c.get("/api/paper/positions").json()
+    zeta = next(p for p in data["open"] if p["symbol"] == "ZETA")
+    assert zeta["last_price"] is None
+    assert zeta["unrealized_pl"] is None
+    assert zeta["unrealized_pl_pct"] is None
+    # ZETA was opened with stop+target -> protection armed.
+    assert zeta["protection_status"] == "armed"
+
+
+def test_position_live_marks_when_cache_has_prices(client):
+    from datetime import datetime, timezone
+
+    from trading_bot.api.live_prices import LiveQuote
+
+    c, db = client
+    _seed_one_open_one_closed(db)
+    cache = c.app.state.price_cache
+    cache._api_key = "k"
+    cache._api_secret = "s"
+    cache._quotes["ZETA"] = LiveQuote(
+        symbol="ZETA", price=110.0, bid=None, ask=None, prev_close=100.0,
+        change_pct=0.1, day_open=100.0, day_high=110.0, day_low=100.0, day_volume=1.0,
+        asof=datetime.now(timezone.utc), is_live=True,
+    )
+    data = c.get("/api/paper/positions").json()
+    zeta = next(p for p in data["open"] if p["symbol"] == "ZETA")
+    # 50 sh, entry 100, live 110 -> +500 / +10%
+    assert zeta["last_price"] == 110.0
+    assert zeta["unrealized_pl"] == 500.0
+    assert zeta["unrealized_pl_pct"] == 10.0

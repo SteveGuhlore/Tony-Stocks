@@ -30,6 +30,12 @@ class PaperPosition(BaseModel):
     account_label: str | None = None
     opened_at: str | None = None
     closed_at: str | None = None
+    # Kinetic Tape (Codex #4): marked-to-live unrealized P/L + protection status.
+    # All None when no keys / market closed / position closed — fail-quiet.
+    last_price: float | None = None
+    unrealized_pl: float | None = None
+    unrealized_pl_pct: float | None = None
+    protection_status: str = "unknown"  # "armed" | "unknown"
 
 
 class PaperSummary(BaseModel):
@@ -63,29 +69,55 @@ def _paper_config() -> tuple[bool, str | None, str]:
         return False, None, "tony"
 
 
-def _to_position(row: dict[str, Any]) -> PaperPosition:
+def _to_position(row: dict[str, Any], live_price: float | None = None) -> PaperPosition:
+    status = row.get("status", "")
+    entry = row.get("entry_price")
+    qty = int(row.get("qty") or 0)
+
+    last_price = None
+    unrealized_pl = None
+    unrealized_pl_pct = None
+    # Mark OPEN positions to live (Codex #4). Closed positions keep realized P/L only.
+    if status == "open" and live_price is not None and entry not in (None, "", 0):
+        try:
+            entry_f = float(entry)
+            last_price = float(live_price)
+            if entry_f:
+                unrealized_pl = round((last_price - entry_f) * qty, 2)
+                unrealized_pl_pct = round((last_price / entry_f - 1.0) * 100.0, 3)
+        except (TypeError, ValueError, ZeroDivisionError):
+            last_price = unrealized_pl = unrealized_pl_pct = None
+
+    # Protection (OCO bracket) is armed when the position carries a stop AND target.
+    protection_status = "armed" if (status == "open" and row.get("stop") and row.get("target")) else "unknown"
+
     return PaperPosition(
         symbol=row.get("symbol", ""),
-        qty=int(row.get("qty") or 0),
-        entry_price=row.get("entry_price"),
+        qty=qty,
+        entry_price=entry,
         stop=row.get("stop"),
         target=row.get("target"),
-        status=row.get("status", ""),
+        status=status,
         result=row.get("result"),
         exit_price=row.get("exit_price"),
         realized_pl=row.get("realized_pl"),
         account_label=row.get("account_label"),
         opened_at=row.get("opened_at"),
         closed_at=row.get("closed_at"),
+        last_price=last_price,
+        unrealized_pl=unrealized_pl,
+        unrealized_pl_pct=unrealized_pl_pct,
+        protection_status=protection_status,
     )
 
 
 @router.get("/paper/positions", response_model=PaperResponse)
-def get_paper_positions(repo: ScannerRepository = Depends(get_repo)) -> PaperResponse:
+def get_paper_positions(request: Request, repo: ScannerRepository = Depends(get_repo)) -> PaperResponse:
     enabled, reason, label = _paper_config()
     rows = repo.list_paper_positions(limit=500)
     open_rows = [r for r in rows if r.get("status") == "open"]
     closed_rows = [r for r in rows if r.get("status") == "closed"]
+    live_prices = _live_prices_for(request, open_rows)
 
     target_hits = sum(1 for r in closed_rows if r.get("result") == "target_hit")
     stop_hits = sum(1 for r in closed_rows if r.get("result") == "stop_hit")
@@ -97,7 +129,7 @@ def get_paper_positions(repo: ScannerRepository = Depends(get_repo)) -> PaperRes
         enabled=enabled,
         disabled_reason=reason,
         account_label=label,
-        open=[_to_position(r) for r in open_rows],
+        open=[_to_position(r, live_prices.get(str(r.get("symbol", "")).upper())) for r in open_rows],
         closed=[_to_position(r) for r in closed_rows],
         summary=PaperSummary(
             open_count=len(open_rows),
