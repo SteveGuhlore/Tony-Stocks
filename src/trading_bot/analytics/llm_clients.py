@@ -18,6 +18,14 @@ from typing import Any, Mapping
 _GEMINI_KEYS = ("GEMINI_API_KEY", "GOOGLE_API_KEY")
 _ANTHROPIC_KEYS = ("ANTHROPIC_API_KEY",)
 
+_VERTEX_FLAG = "GOOGLE_GENAI_USE_VERTEXAI"
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _vertex_enabled(env: Mapping[str, str]) -> bool:
+    """True when the operator has opted into Vertex AI via the env flag."""
+    return str(env.get(_VERTEX_FLAG, "")).strip().lower() in _TRUTHY
+
 
 def resolve_provider(configured: str | None, *, env: Mapping[str, str] | None = None) -> str:
     """Decide the LLM provider. Explicit config wins; ``auto`` picks by which key is set
@@ -42,10 +50,16 @@ def make_llm_client(provider: str, *, env: Mapping[str, str] | None = None) -> A
             import anthropic  # noqa: PLC0415
             return anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
         if provider == "gemini":
+            if _vertex_enabled(env):
+                project = env.get("GOOGLE_CLOUD_PROJECT")
+                location = env.get("GOOGLE_CLOUD_LOCATION") or "us-central1"
+                if not project:
+                    return None  # Vertex needs a project; degrade to templates
+                return _GeminiClient(vertex=True, project=project, location=location)
             api_key = next((env.get(k) for k in _GEMINI_KEYS if env.get(k)), None)
             if not api_key:
                 return None
-            return _GeminiClient(api_key)
+            return _GeminiClient(api_key=api_key)
     except Exception:
         return None
     return None
@@ -55,10 +69,16 @@ class _GeminiClient:
     """Adapter: exposes ``.messages.create(...)`` over the google-genai SDK so the
     Anthropic-shaped narrator works unchanged with Gemini (Flash/Pro) keys."""
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, *, api_key: str | None = None, vertex: bool = False,
+                 project: str | None = None, location: str | None = None) -> None:
         from google import genai  # noqa: PLC0415  (pip install google-genai)
         self._genai = genai
-        self._client = genai.Client(api_key=api_key)
+        if vertex:
+            # Vertex AI: uses Application Default Credentials / the service-account
+            # key in GOOGLE_APPLICATION_CREDENTIALS — no api_key.
+            self._client = genai.Client(vertexai=True, project=project, location=location)
+        else:
+            self._client = genai.Client(api_key=api_key)
         self.messages = self._Messages(self._client, genai)
 
     class _Messages:
