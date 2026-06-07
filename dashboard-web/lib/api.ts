@@ -45,4 +45,5 @@ export const api = {
   paper: () => get<import("./types").PaperResponse>("/api/paper/positions"),
   paperEquityCurve: (base_equity?: number) =>
     get<import("./types").PaperEquityCurve>("/api/paper/equity-curve", { base_equity }),
+  morningPrep: () => get<import("./types").MorningPrepResponse>("/api/morning-prep"),
 }

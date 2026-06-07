@@ -127,6 +127,28 @@ export interface PaperResponse {
   closed: PaperPosition[]
   summary: PaperSummary
 }
+// Morning Prep (GET /api/morning-prep)
+export interface PrepCandidate {
+  symbol: string
+  score: number
+  setup: string
+  entry: number | null
+  stop: number | null
+  target: number | null
+  rr: number | null
+  conviction: string
+  catalysts: Record<string, unknown>
+  warnings: string[]
+}
+export interface MorningPrepResponse {
+  generated_at: string
+  et_date: string
+  phase: string
+  shortlist: PrepCandidate[]
+  what_changed_overnight: string
+  plan_for_open: string
+}
+
 export interface PaperEquityPoint { t: string; equity: number; index: number }
 export interface PaperEquityCurve {
   enabled: boolean
