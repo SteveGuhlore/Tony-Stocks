@@ -306,6 +306,30 @@ def build_parser() -> argparse.ArgumentParser:
     learn_p.add_argument("--vault-dir", default=None, help="Override vault dir (default from config vault.vault_dir).")
     learn_p.add_argument("--command-center-dir", default=None, help="Override CC dir (default from config vault.command_center_dir).")
 
+    off_hours_prep = subparsers.add_parser(
+        "off-hours-prep",
+        help="Off-hours research prep: scan + enrich + build morning watchlist. Research only; never trades.",
+    )
+    off_hours_prep.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    off_hours_prep.add_argument("--phase", default=None,
+                                help="Override phase (overnight/pre_open/post_close/weekend). Default: derived from clock.")
+    off_hours_prep.add_argument("--reports-dir", default="reports", dest="reports_dir",
+                                help="Directory for morning_prep report output.")
+    off_hours_prep.add_argument("--vault-dir", default=None, dest="vault_dir",
+                                help="Vault dir override (default from config vault.vault_dir).")
+    off_hours_prep.add_argument("--command-center-dir", default=None, dest="command_center_dir",
+                                help="CC dir override (default from config vault.command_center_dir).")
+
+    off_hours_watch = subparsers.add_parser(
+        "off-hours-watch",
+        help="Inverse watch loop: runs off-hours prep once per phase per ET day; skips during market hours. Research only.",
+    )
+    off_hours_watch.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    off_hours_watch.add_argument("--max-cycles", type=int, default=None, dest="max_cycles",
+                                 help="Maximum loop iterations (for testing / one-shot runs).")
+    off_hours_watch.add_argument("--cadence-minutes", type=float, default=None, dest="cadence_minutes",
+                                 help="Sleep interval between cycles in minutes (overrides config off_hours.cadence_minutes).")
+
     paper_status = subparsers.add_parser("paper-status", help="Show paper-trading account/positions status. Read-only.")
     paper_status.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
 
@@ -3895,6 +3919,362 @@ def _write_knowledge_json(reports: Path, kb: Any) -> None:
         json.dumps(kb.to_dict(), indent=2), encoding="utf-8")
 
 
+# ---------------------------------------------------------------------------
+# Off-hours research engine — CLI helpers + guards
+# ---------------------------------------------------------------------------
+
+# Stop file path (mirrors run_watch pattern; patchable in tests)
+_OFF_HOURS_STOP_FILE = Path("data/STOP_OFF_HOURS")
+
+# Idempotency state file (persists across restarts; mirrors _emit_due_bridges style)
+_OFF_HOURS_STATE_FILE = Path("data/off_hours_prep_state.json")
+
+
+def _now_et() -> datetime:
+    """Return current datetime in America/New_York. Extracted for easy monkeypatching in tests."""
+    return datetime.now(tz=ZoneInfo("America/New_York"))
+
+
+def _off_hours_prep_already_run(et_date: str, phase: str) -> bool:
+    """Return True if this <et_date>:<phase> key has already been run (disk-idempotent).
+
+    Mirrors _emit_due_bridges idempotency: keyed by '<date>:<phase>' in a JSON set.
+    """
+    state_file = _OFF_HOURS_STATE_FILE
+    if not state_file.is_absolute():
+        state_file = Path.cwd() / state_file
+    try:
+        data = json.loads(state_file.read_text(encoding="utf-8"))
+        already_run: set[str] = set(data.get("run_keys", []))
+    except (OSError, ValueError, KeyError):
+        already_run = set()
+    return f"{et_date}:{phase}" in already_run
+
+
+def _mark_off_hours_prep_run(et_date: str, phase: str) -> None:
+    """Persist the <et_date>:<phase> key so subsequent watch cycles skip the prep."""
+    state_file = _OFF_HOURS_STATE_FILE
+    if not state_file.is_absolute():
+        state_file = Path.cwd() / state_file
+    try:
+        data = json.loads(state_file.read_text(encoding="utf-8"))
+        run_keys: list[str] = data.get("run_keys", [])
+    except (OSError, ValueError):
+        run_keys = []
+    key = f"{et_date}:{phase}"
+    if key not in run_keys:
+        run_keys.append(key)
+    # Trim to last 500 entries to prevent unbounded growth
+    run_keys = run_keys[-500:]
+    try:
+        state_file.parent.mkdir(parents=True, exist_ok=True)
+        state_file.write_text(json.dumps({"run_keys": run_keys}, indent=2), encoding="utf-8")
+    except OSError:
+        pass  # state file write failure is non-fatal
+
+
+def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
+    """Off-hours research prep: scan → enrich → build morning watchlist → write sinks.
+
+    READ-ONLY on all trading surfaces. Zero execution path: no orders are placed
+    off-hours. Fail-quiet per sink (exit 0). Mirrors run_learn for its
+    error-collection pattern.
+
+    Returns a summary dict with keys: phase, et_date, shortlist_size, sinks_written,
+    errors.
+    """
+    from trading_bot.analytics.off_hours_window import Phase, current_phase  # noqa: PLC0415
+    from trading_bot.analytics.catalyst_enrichment import build_catalyst_tags, CatalystTags  # noqa: PLC0415
+    from trading_bot.analytics.morning_prep import build_morning_prep  # noqa: PLC0415
+    from trading_bot.vault.morning_prep_writer import (  # noqa: PLC0415
+        write_morning_prep_report,
+        write_morning_prep_note,
+        write_morning_prep_bridge,
+    )
+    from trading_bot.data.premarket_provider import NullPreMarketProvider  # noqa: PLC0415
+    from datetime import date as _date  # noqa: PLC0415
+
+    errors: list[str] = []
+    sinks_written: list[str] = []
+
+    # --- 1. Clock / phase ---
+    now_et = _now_et()
+    et_date = now_et.strftime("%Y-%m-%d")
+
+    phase_override = getattr(args, "phase", None)
+    if phase_override:
+        phase_str = str(phase_override)
+    else:
+        phase_str = current_phase(now_et).value
+
+    # --- 2. Settings + dirs ---
+    settings = load_scanner_settings(args.config)
+    off_cfg = getattr(settings, "off_hours", None) or {}
+    vault_cfg = getattr(settings, "vault", None) or {}
+
+    shortlist_size = int(off_cfg.get("shortlist_size", 20))
+    blackout_days = int(off_cfg.get("earnings_blackout_days", 5))
+    enrich_budget = int(off_cfg.get("enrich_budget", 25))
+
+    reports_dir_str = getattr(args, "reports_dir", None) or "reports"
+    vault_dir_str = (getattr(args, "vault_dir", None)
+                     or vault_cfg.get("vault_dir", "vault"))
+    cc_dir_str = (getattr(args, "command_center_dir", None)
+                  or vault_cfg.get("command_center_dir") or None)
+
+    reports_dir = Path(reports_dir_str)
+
+    # --- 3. Scan: load recent scored rows from DB (no new scan needed for off-hours) ---
+    scored_rows: list[dict[str, Any]] = []
+    try:
+        repo = ScannerRepository(settings.database_path)
+        df = repo.list_candidate_snapshots(limit=500)
+        if not df.empty:
+            for _, row in df.iterrows():
+                scored_rows.append({
+                    "symbol": row.get("symbol", ""),
+                    # candidate_snapshots uses: total_score, setup_category,
+                    # planned_entry_price, stop, target
+                    # Remap to the contract names expected by build_morning_prep:
+                    # total_score -> total_score (already correct)
+                    # setup_category -> setup_category (already correct)
+                    # planned_entry_price -> planned_entry_price (already correct)
+                    # stop -> stop_price
+                    # target -> target_price
+                    "total_score": row.get("total_score"),
+                    "setup_category": row.get("setup_category", ""),
+                    "planned_entry_price": row.get("planned_entry_price"),
+                    "stop_price": row.get("stop"),
+                    "target_price": row.get("target"),
+                })
+    except Exception as exc:
+        errors.append(f"scan/db: {exc}")
+
+    # --- 4. Catalyst enrichment (budgeted; degrade to empty tags in demo mode) ---
+    catalyst_tags: dict[str, CatalystTags] = {}
+    if enrich_budget > 0 and scored_rows:
+        try:
+            # Use research_providers if keys available; degrade gracefully if not
+            from trading_bot.data.research_providers import FmpProvider, FinnhubProvider  # noqa: PLC0415
+            import os as _os  # noqa: PLC0415
+            fmp = FmpProvider(api_key=_os.getenv("FMP_API_KEY", ""))
+            finnhub = FinnhubProvider(api_key=_os.getenv("FINNHUB_API_KEY", ""))
+
+            today = now_et.date()
+            # One bulk earnings calendar call if FMP available
+            earnings_map: dict[str, _date] = {}
+            if fmp.available:
+                try:
+                    from datetime import timedelta as _td  # noqa: PLC0415
+                    earnings_map = fmp.earnings_calendar(today, today + _td(days=30))
+                except Exception:
+                    pass
+
+            top_symbols = [r["symbol"] for r in scored_rows[:enrich_budget] if r.get("symbol")]
+            for sym in top_symbols:
+                try:
+                    rec = None
+                    if finnhub.available:
+                        rec_score = finnhub.recommendation(sym)
+                        if rec_score is not None:
+                            rec = {"buy": max(0, int(rec_score * 10)), "sell": 0,
+                                   "strongBuy": 0, "strongSell": 0}
+                    catalyst_tags[sym] = build_catalyst_tags(
+                        sym,
+                        earnings_date=earnings_map.get(sym),
+                        today=today,
+                        blackout_days=blackout_days,
+                        recommendation_now=rec,
+                    )
+                except Exception:
+                    # Per-symbol failure: degrade to empty tag for that symbol
+                    catalyst_tags[sym] = build_catalyst_tags(sym, today=today)
+        except Exception as exc:
+            errors.append(f"catalyst_enrichment: {exc}")
+
+    # --- 5. OVERNIGHT phase: optional run_learn equivalent (each wrapped, fail-quiet) ---
+    learning_facts: dict | None = None
+    if phase_str == Phase.OVERNIGHT.value:
+        # Refresh funnel_eval (reuse existing helper)
+        try:
+            _refresh_funnel_eval_for_learning(
+                reports_dir, args.config,
+                days=120, min_sample=5)
+        except Exception as exc:
+            errors.append(f"funnel_eval_refresh: {exc}")
+
+        # Load existing learning facts from reports (if available)
+        try:
+            facts_path = reports_dir / "learning_knowledge.json"
+            learning_facts = json.loads(facts_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            learning_facts = None
+
+    # --- 6. Optional narrative (from learning_narrator if API key available) ---
+    narrative: str | None = None
+    try:
+        from trading_bot.analytics.learning_narrator import narrate  # noqa: PLC0415
+        from trading_bot.analytics.llm_clients import (  # noqa: PLC0415
+            make_llm_client, model_for, resolve_provider,
+        )
+        from trading_bot.analytics.learning_knowledge import knowledge_from_dict  # noqa: PLC0415
+        import os as _os2  # noqa: PLC0415
+
+        if _os2.getenv("ANTHROPIC_API_KEY") or _os2.getenv("GEMINI_API_KEY"):
+            _lcfg = getattr(settings, "learning", None) or {}
+            _provider = resolve_provider(_lcfg.get("provider"))
+            _model = model_for(_provider, _lcfg)
+            _client = make_llm_client(_provider) if _provider != "none" else None
+            if _client is not None:
+                _kb = knowledge_from_dict(None)
+                narration = narrate({}, _kb, None,  # type: ignore[arg-type]
+                                    client=_client, use_llm=True, model=_model)
+                if narration and not narration.template_fallback:
+                    narrative = str(narration)
+    except Exception as exc:
+        errors.append(f"narrative: {exc}")
+
+    # --- 7. Premarket provider (null by default; wiring exists for future real providers) ---
+    _pm_provider_name = off_cfg.get("premarket_provider", "null")
+    _pm_provider = NullPreMarketProvider()  # noqa: F841  — seam exists; premarket=None to assembler
+
+    # --- 8. Build the morning prep package ---
+    try:
+        prep = build_morning_prep(
+            scored_rows=scored_rows,
+            catalyst_tags=catalyst_tags,
+            learning_facts=learning_facts,
+            now_et=now_et,
+            phase=phase_str,
+            shortlist_size=shortlist_size,
+        )
+    except Exception as exc:
+        errors.append(f"build_morning_prep: {exc}")
+        # Return minimal summary even if the assembler fails
+        return {
+            "phase": phase_str,
+            "et_date": et_date,
+            "shortlist_size": shortlist_size,
+            "sinks_written": sinks_written,
+            "errors": errors,
+        }
+
+    # --- 9. Write all four sinks, each in its own try/except (fail-quiet) ---
+    for label, fn in (
+        ("report (json+md)", lambda: str(write_morning_prep_report(
+            prep, reports_dir=reports_dir))),
+        ("vault note", lambda: str(write_morning_prep_note(
+            prep, vault_dir=vault_dir_str, narrative=narrative))),
+        ("cc bridge", lambda: str(write_morning_prep_bridge(
+            prep, command_center_dir=cc_dir_str, narrative=narrative))),
+    ):
+        try:
+            path = fn()
+            if path and path != "None":
+                sinks_written.append(path)
+        except Exception as exc:
+            errors.append(f"sink({label}): {exc}")
+            print(f"[off-hours-prep] sink error ({label}): {exc}")
+
+    print(
+        f"[off-hours-prep] {et_date} phase={phase_str}: "
+        f"{len(prep.shortlist)} candidates, "
+        f"{len(sinks_written)} sinks written, "
+        f"{len(errors)} error(s)"
+    )
+    return {
+        "phase": phase_str,
+        "et_date": et_date,
+        "shortlist_size": shortlist_size,
+        "sinks_written": sinks_written,
+        "errors": errors,
+    }
+
+
+def run_off_hours_watch(args: argparse.Namespace) -> dict[str, Any]:
+    """Inverse watch loop: runs off-hours prep once per ET date+phase; skips during
+    market hours. Honors a stop file and --max-cycles for clean termination.
+
+    ZERO execution path: no paper trades, no order submission, no live trading.
+    All prep runs are read-only research only.
+    """
+    from trading_bot.analytics.off_hours_window import Phase, current_phase  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    off_cfg = getattr(settings, "off_hours", None) or {}
+
+    cadence_override = getattr(args, "cadence_minutes", None)
+    cadence_minutes = float(cadence_override or off_cfg.get("cadence_minutes", 30))
+    cadence_seconds = max(0, int(cadence_minutes * 60))
+
+    max_cycles_val = getattr(args, "max_cycles", None)
+    max_cycles: int | None = int(max_cycles_val) if max_cycles_val is not None else None
+
+    stop_file = _OFF_HOURS_STOP_FILE
+    if not stop_file.is_absolute():
+        stop_file = Path.cwd() / stop_file
+
+    print("Off-Hours Watch Mode — research only. No paper trades, no order submission, no live trading.")
+    print(f"Config: {args.config}")
+    print(f"Cadence: {cadence_minutes:g} minutes")
+    print(f"Max cycles: {max_cycles if max_cycles is not None else 'unlimited'}")
+    print(f"Stop file: {stop_file}")
+
+    cycle = 0
+    prep_args = SimpleNamespace(
+        config=args.config,
+        phase=None,
+        reports_dir=None,
+        vault_dir=None,
+        command_center_dir=None,
+    )
+
+    while True:
+        # --- Stop file check (mirror run_watch) ---
+        if stop_file.exists():
+            print(f"[off-hours-watch] stop file detected ({stop_file}); exiting.")
+            break
+
+        # --- Max-cycles check ---
+        if max_cycles is not None and cycle >= max_cycles:
+            break
+
+        now_et = _now_et()
+        et_date = now_et.strftime("%Y-%m-%d")
+        phase = current_phase(now_et)
+
+        if phase == Phase.MARKET_HOURS:
+            # Market hours: NO prep — just sleep and continue
+            LOGGER.debug("off-hours-watch: MARKET_HOURS — skipping prep this tick")
+            cycle += 1
+            if cadence_seconds > 0 and (max_cycles is None or cycle < max_cycles):
+                time.sleep(cadence_seconds)
+            continue
+
+        phase_str = phase.value
+
+        # --- Idempotency: only run prep once per <et_date>:<phase> ---
+        if _off_hours_prep_already_run(et_date, phase_str):
+            cycle += 1
+            if cadence_seconds > 0 and (max_cycles is None or cycle < max_cycles):
+                time.sleep(cadence_seconds)
+            continue
+
+        # --- Run the prep ---
+        try:
+            prep_args.phase = phase_str
+            run_off_hours_prep(prep_args)
+            _mark_off_hours_prep_run(et_date, phase_str)
+        except Exception as exc:  # pragma: no cover - run_off_hours_prep is itself fail-quiet
+            LOGGER.warning("off-hours-watch: prep error (phase=%s): %s", phase_str, exc)
+
+        cycle += 1
+        if cadence_seconds > 0 and (max_cycles is None or cycle < max_cycles):
+            time.sleep(cadence_seconds)
+
+    return {"cycles_completed": cycle, "stopped_by": "max_cycles" if max_cycles is not None else "stop_file"}
+
+
 def run_paper_status(args: argparse.Namespace) -> dict[str, Any]:
     """Print paper-trading account/positions status. Read-only."""
     from trading_bot.execution import load_paper_trading_config  # noqa: PLC0415
@@ -4283,6 +4663,10 @@ def main() -> None:
         run_tony_divergence(args)
     elif args.command == "learn":
         run_learn(args)
+    elif args.command == "off-hours-prep":
+        run_off_hours_prep(args)
+    elif args.command == "off-hours-watch":
+        run_off_hours_watch(args)
     elif args.command == "paper-status":
         run_paper_status(args)
     elif args.command == "paper-flatten":
