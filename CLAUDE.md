@@ -70,6 +70,19 @@ Claude must produce:
 - test checklist,
 - a clear prompt for the next agent if the user switches.
 
+## Deployment (test-before-deploy — applies to bot AND Command Center)
+
+See `docs/DEPLOY_RULES.md`. Hard rule, mirrored from the CC:
+
+- **Never deploy untested code to the VM**, and never treat `main`/`master` as deployable unless
+  the test gate is green (unit suite, plus the tandem sandbox test
+  `scripts/full_e2e_sync_test.py --quick`). Quarantine unrelated pre-existing reds; don't normalize red.
+- Deploy via the **tandem-safe ritual**: dev in the correct repo/session → push (bot=`main`,
+  CC=`master`) → on the VM `bash scripts/deploy/update_vm.sh` → **verify before trusting** (tandem
+  test + `systemctl is-active` + a real `/explain`/API hit) → only then resume live.
+- Bot and CC must use **different Alpaca paper accounts**; only one operator home runs live at a time
+  (VM = production, local = dev).
+
 ## Guardrails
 
 - Do not claim profitability.
