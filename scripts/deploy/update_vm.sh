@@ -17,9 +17,14 @@ git -C "$BOT_DIR" pull --ff-only
 "$BOT_DIR/.venv/bin/pip" install -q -r "$BOT_DIR/requirements.txt" || true
 "$BOT_DIR/.venv/bin/pip" install -q "google-genai>=1.0.0" || true
 if [ -d "$BOT_DIR/dashboard-web" ]; then
-  echo ">> Rebuilding dashboard..."
-  ( cd "$BOT_DIR/dashboard-web" && npm install --silent && npm run build ) \
-    || echo "   (dashboard build skipped/failed — API still updates)"
+  node_major="$(node -v 2>/dev/null | sed 's/v\([0-9]*\).*/\1/')"
+  if [ "${node_major:-0}" -ge 20 ]; then
+    echo ">> Rebuilding dashboard..."
+    ( cd "$BOT_DIR/dashboard-web" && npm install --silent && npm run build ) \
+      || echo "   (dashboard build failed — API still updates)"
+  else
+    echo ">> Skipping Next.js dashboard build (needs Node 20; have $(node -v 2>/dev/null || echo none))."
+  fi
 fi
 
 if [ -d "$CC_DIR/.git" ]; then
