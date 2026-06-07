@@ -6,6 +6,63 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-06 handoff — Off-Hours Research Engine COMPLETE (Tasks 1–12)
+
+**Commit:** `chore(off-hours): scheduled-task registration + docs` on branch `feat/off-hours-research`
+**Suite:** All tests from Tasks 1–11 remain green (no code changes in Task 12 — docs/script only).
+
+### What was built (full engine, Tasks 1–12)
+
+The **Off-Hours Research Engine** is a read-only inverse watch loop that runs during weekday
+off-hours (16:30→09:00 ET) and weekends. It assembles a ranked, catalyst-aware **Morning Watchlist
++ plan** for the next open. All 12 tasks are committed and green on `feat/off-hours-research`.
+
+**Key components:**
+- Window guard (`analytics/off_hours_window.py`) + PreMarket seam (`NullPreMarketProvider`)
+- Catalyst enrichment (FMP/Finnhub, budgeted, fail-quiet)
+- Morning-prep assembler (`analytics/morning_prep.py`, `build_morning_prep`)
+- Four fail-quiet sinks: `reports/morning_prep/<date>.json`, `vault/morning_prep/<date>.md`,
+  CC bridge `morning-prep/<date>.md`, `GET /api/morning-prep`
+- Next.js `/morning` tab in `dashboard-web/`
+- CLI commands: `off-hours-prep` (one-shot) and `off-hours-watch` (inverse loop)
+- Scheduled task launcher: `scripts/run_off_hours_watch.cmd` + `scripts/register_off_hours_task.ps1`
+
+### How to activate
+
+1. **Enable in config** — set `off_hours.enabled: true` in `config/default_config.yaml`
+   (currently default OFF; the engine is a no-op while disabled).
+2. **Register the scheduled task** (runs daily at 16:35 ET, unattended):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\scripts\register_off_hours_task.ps1
+   ```
+3. **Or run manually** (one-shot, any time off-hours):
+   ```powershell
+   $env:PYTHONPATH = "src"
+   python -m trading_bot.cli off-hours-prep --config config/default_config.yaml
+   ```
+4. **Stop the watch loop** at any time by creating `data/STOP_OFF_HOURS` (kill file).
+
+### No-auto-entry guarantee (hard invariant)
+
+The engine **places ZERO trades and fires ZERO orders** during off-hours. This is a hard
+architectural invariant, not a config toggle:
+- The off-hours code paths contain no imports or calls to `run_paper_cycle`, `paper_engine`,
+  `submit_bracket`, or `broker`.
+- This is enforced by **`tests/test_off_hours_no_execution.py`** (source-inspection + behavioral
+  tests), which will fail the suite if any execution token is ever introduced.
+- Entries fire ONLY during market hours (09:30–16:00 ET) via the existing `watch` loop.
+
+### What to do next
+
+- **Merge to main** when ready: `git checkout main && git merge feat/off-hours-research`
+  (run `python -m pytest -q` on the branch first to confirm green).
+- **Push** when the operator asks (branch is local only).
+- **Activate** by following the steps above (attended, after close).
+- The Next.js `/morning` tab is wired and ready; it populates once `off-hours-prep` has run
+  at least once and `GET /api/morning-prep` returns data.
+
+---
+
 ## 2026-06-06 handoff — Task 8 DONE: off-hours-prep + off-hours-watch CLI + no-execution guard
 
 **Commit:** `00d31f9` on branch `feat/off-hours-research`

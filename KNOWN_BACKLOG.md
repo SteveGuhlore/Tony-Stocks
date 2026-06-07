@@ -1,8 +1,16 @@
 # Trading Bot Project - Known Backlog
 
-_Last updated: 2026-05-19_
+_Last updated: 2026-06-06_
 
 ## Immediate
+
+- **(2026-06-06) Async hygiene — sync route handlers on the event loop (project-wide cleanup).** The
+  read-only API route handlers `get_morning_prep` (`routes/morning_prep.py`) and `get_command_center`
+  (`routes/command_center.py`) are synchronous `def` functions performing small blocking file reads on
+  the FastAPI/uvicorn event loop. `get_command_center` is pre-existing; `get_morning_prep` follows the
+  same pattern. Consider converting both (and any other sync file-reading handlers) to `async def` with
+  `asyncio.get_event_loop().run_in_executor` or `anyio.to_thread.run_sync` for threaded I/O. Low urgency
+  for a single-operator local tool, but correct hygiene before any concurrent-load scenario.
 
 - **(2026-06-04) Head-to-head equity fairness — mark the bot's OPEN positions to live.** The Command
   Center now `mark_live()`s its Paper Book + equity curve to live prices; the bot's

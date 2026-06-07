@@ -1,10 +1,18 @@
 # Trading Bot Project — Roadmap
 
-_Last updated: 2026-06-03_
+_Last updated: 2026-06-06_
 
 ---
 
 ## Planned — next sessions
+
+- ✅ **DONE (2026-06-06) — Off-Hours Research Engine (Tasks 1–12, complete).** Read-only inverse
+  watch loop (`off-hours-watch` CLI) + one-shot `off-hours-prep` CLI that assembles a ranked,
+  catalyst-aware Morning Watchlist plan each off-hours window (weekdays 16:30→09:00 ET + weekends).
+  Four fail-quiet sinks: `reports/morning_prep/<date>.json`, `vault/morning_prep/<date>.md`, CC
+  bridge `morning-prep/<date>.md`, and `GET /api/morning-prep` + Next.js `/morning` tab. Hard
+  invariant: ZERO execution path off-hours; enforced by `tests/test_off_hours_no_execution.py`.
+  Default OFF (`off_hours.enabled: false`). Scheduled via `scripts/register_off_hours_task.ps1`.
 
 - ✅ **DONE (2026-06-04 eve session) — Funnel enrichment scaling.** Daily `RecommendationCache`
   (`reports/finnhub_reco_cache.json`) + per-cycle budget (`enrich_per_run`): the funnel now ranks the
