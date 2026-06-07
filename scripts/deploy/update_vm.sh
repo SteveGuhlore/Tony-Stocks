@@ -35,10 +35,19 @@ if [ -d "$CC_DIR/.git" ]; then
 fi
 
 echo ">> Restarting services..."
-sudo systemctl restart tradingbot-api tradingbot-offhours cc-dashboard cc-runner
-sudo systemctl is-enabled tradingbot-web >/dev/null 2>&1 \
-  && sudo systemctl restart tradingbot-web || true
+# Restart each unit independently so one missing/old unit can't abort the rest.
+# (cc-dashboard was retired in favor of cc-runner; tradingbot-web needs Node 20.)
+SERVICES="tradingbot-api tradingbot-offhours tradingbot-watch cc-runner tradingbot-web"
+for svc in $SERVICES; do
+  if systemctl list-unit-files "$svc.service" >/dev/null 2>&1 \
+     && systemctl cat "$svc.service" >/dev/null 2>&1; then
+    sudo systemctl restart "$svc" && echo "   restarted $svc" \
+      || echo "   WARN: failed to restart $svc"
+  else
+    echo "   skip $svc (no unit installed)"
+  fi
+done
 
 echo ">> Done. Current status:"
 systemctl --no-pager --lines=0 status \
-  tradingbot-api tradingbot-offhours cc-dashboard cc-runner || true
+  tradingbot-api tradingbot-offhours tradingbot-watch cc-runner 2>/dev/null || true
