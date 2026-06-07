@@ -1,0 +1,20 @@
+[Unit]
+Description=Trading Bot — nightly self-learning (grade trades + evolve knowledge; read-only, no orders)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# oneshot: the two ExecStart steps run sequentially, then the unit exits.
+# Both are read-only on trading (no orders, no config/risk edits) and fail-quiet.
+Type=oneshot
+User=__RUN_USER__
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+Environment=PYTHONPATH=src
+# 1) refresh reports/<date>/funnel_eval.json (audit trail)
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli funnel-eval --config config/default_config.yaml --save-report
+# 2) grade resolved outcomes + evolve the knowledge base + write the CC learning bridge
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli learn --config config/default_config.yaml
+
+[Install]
+WantedBy=multi-user.target

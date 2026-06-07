@@ -255,9 +255,19 @@ def build_morning_prep(
             warnings=warnings,
         ))
 
-    # --- sort descending by score, truncate ---
+    # --- sort descending by score, dedupe to one row per symbol, truncate ---
+    # scored_rows can carry several snapshot rows per symbol (multiple scan runs);
+    # collapse to the single highest-scored row per symbol so the watchlist is N
+    # distinct names, not N rows.
     candidates.sort(key=lambda c: c.score, reverse=True)
-    shortlist = candidates[:shortlist_size]
+    seen_symbols: set[str] = set()
+    deduped: list[PrepCandidate] = []
+    for candidate in candidates:
+        if candidate.symbol in seen_symbols:
+            continue
+        seen_symbols.add(candidate.symbol)
+        deduped.append(candidate)
+    shortlist = deduped[:shortlist_size]
 
     # --- what_changed_overnight ---
     what_changed = _build_what_changed(learning_facts)

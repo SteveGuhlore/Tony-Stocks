@@ -105,6 +105,28 @@ class TestSortOrder:
         )
         assert prep.shortlist[0].symbol == "AAPL"
 
+    def test_dedupes_to_one_row_per_symbol_keeping_highest_score(self):
+        # Several snapshot rows per symbol (as the live DB scan produces) must
+        # collapse to one row per symbol — the highest-scored — not N duplicates.
+        rows = [
+            _make_row("CVS", 70.0),
+            _make_row("CVS", 95.0),   # highest for CVS — this one should win
+            _make_row("CVS", 80.0),
+            _make_row("CSX", 90.0),
+            _make_row("CSX", 60.0),
+        ]
+        prep = build_morning_prep(
+            scored_rows=rows,
+            catalyst_tags={},
+            now_et=_now_et(),
+            phase="weekend",
+        )
+        symbols = [c.symbol for c in prep.shortlist]
+        assert symbols == ["CVS", "CSX"]          # 2 distinct names, deduped
+        assert len(symbols) == len(set(symbols))  # no duplicates
+        cvs = next(c for c in prep.shortlist if c.symbol == "CVS")
+        assert cvs.score == pytest.approx(0.95)   # kept the highest-scored CVS row
+
 
 # ---------------------------------------------------------------------------
 # Test: conviction bands (score normalized /100)
