@@ -69,13 +69,14 @@ this bridge. The bot cannot read from the `morning-prep/` folder or any CC judgm
 path — this is one-way write only. The CC's guardrails remain authoritative.
 
 ## Idempotency
-The bot skips rewriting if the dated file already exists. If new data arrives on the
-same ET date (e.g., overnight price move, fresh scanner run), the bot overwrites the
-existing file with the latest research. The most recent run is authoritative for that
-date.
+One file per ET date. The bridge writer overwrites the dated file each time it runs, so
+the most recent run is authoritative for that date. At the loop level the off-hours watch
+job runs each phase at most once per ET date (a disk-idempotent set keyed by
+`<date>:<phase>`), so within a day the file is refreshed as later phases produce newer
+research rather than rewritten redundantly.
 
 ## Safety
-The producing job (`python -m trading_bot.cli morning-prep` or its equivalent in the
-off-hours engine) is read-only on all trading surfaces: no orders, no config/threshold/
-risk edits, no watch-loop restart. No side-effects outside the three output sinks
-(vault, CC bridge, reports directory).
+The producing job (`python -m trading_bot.cli off-hours-prep` / `off-hours-watch`) is
+read-only on all trading surfaces: no orders, no config/threshold/risk edits, no
+watch-loop restart. No side-effects outside the three output sinks (vault, CC bridge,
+reports directory).
