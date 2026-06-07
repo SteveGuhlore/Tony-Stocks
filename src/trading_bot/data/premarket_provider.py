@@ -19,7 +19,7 @@ the upstream API contracts are confirmed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
 # ---------------------------------------------------------------------------
@@ -32,7 +32,9 @@ class PreMarketQuote:
 
     ``gap_pct`` must be supplied by the caller/provider as
     ``(last - prev_close) / prev_close * 100``; this dataclass is a pure
-    value object and performs no arithmetic.
+    value object and performs no arithmetic.  It is undefined when
+    ``prev_close`` is zero — the provider is responsible for guarding
+    against division by zero so ``inf``/``nan`` never reach scoring.
 
     ``as_of`` is a plain ISO-8601 string with UTC offset, e.g.
     ``"2026-06-06T08:00:00-04:00"``.  It is not parsed or validated here
@@ -50,6 +52,7 @@ class PreMarketQuote:
 # Protocol
 # ---------------------------------------------------------------------------
 
+@runtime_checkable
 class PreMarketProvider(Protocol):
     """Structural interface for pre-market quote providers.
 
