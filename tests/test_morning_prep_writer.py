@@ -14,8 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from trading_bot.analytics.catalyst_enrichment import CatalystTags
-from trading_bot.analytics.morning_prep import build_morning_prep
+from trading_bot.analytics.morning_prep import MorningPrep, build_morning_prep
 from trading_bot.vault.morning_prep_writer import (
     render_morning_prep_markdown,
     write_morning_prep_note,
@@ -28,10 +27,10 @@ from trading_bot.vault.morning_prep_writer import (
 # Fixtures
 # ---------------------------------------------------------------------------
 
-_ET = timezone(timedelta(hours=-5))  # ET (non-DST; good enough for tests)
+_ET = timezone(timedelta(hours=-4))  # EDT (June is daylight time in ET)
 
 
-def _make_prep(date_str: str = "2026-06-07", n_candidates: int = 2) -> object:
+def _make_prep(date_str: str = "2026-06-07", n_candidates: int = 2) -> MorningPrep:
     """Build a MorningPrep with deterministic data."""
     rows = []
     if n_candidates > 0:
@@ -64,7 +63,7 @@ def _make_prep(date_str: str = "2026-06-07", n_candidates: int = 2) -> object:
     )
 
 
-def _make_prep_empty() -> object:
+def _make_prep_empty() -> MorningPrep:
     """Build a MorningPrep with no shortlist candidates."""
     dt = datetime(2026, 6, 7, 4, 30, 0, tzinfo=_ET)
     return build_morning_prep(

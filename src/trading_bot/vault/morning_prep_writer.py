@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 from trading_bot.analytics.morning_prep import MorningPrep
 
@@ -27,7 +27,7 @@ def _fmt_float(value: float | None, decimals: int = 2) -> str:
     return f"{value:.{decimals}f}"
 
 
-def _catalysts_summary(catalysts: dict) -> str:
+def _catalysts_summary(catalysts: dict[str, Any]) -> str:
     """Return a compact one-line summary of catalyst flags for the table."""
     if not catalysts:
         return "—"
@@ -155,7 +155,7 @@ def render_morning_prep_markdown(
 def write_morning_prep_note(
     prep: MorningPrep,
     *,
-    vault_dir,
+    vault_dir: str | Path,
     narrative: str | None = None,
 ) -> Path:
     """Write morning_prep/<date>.md under vault_dir. Returns the Path written."""
@@ -170,7 +170,7 @@ def write_morning_prep_note(
 def write_morning_prep_bridge(
     prep: MorningPrep,
     *,
-    command_center_dir,
+    command_center_dir: str | Path | None,
     narrative: str | None = None,
 ) -> Path | None:
     """Write bridge/tony-stocks/morning-prep/<date>.md under command_center_dir.
@@ -191,7 +191,7 @@ def write_morning_prep_bridge(
 def write_morning_prep_report(
     prep: MorningPrep,
     *,
-    reports_dir,
+    reports_dir: str | Path,
 ) -> Path:
     """Write morning_prep/<date>.json and morning_prep/<date>.md under reports_dir.
 
