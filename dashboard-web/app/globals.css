@@ -1,144 +1,282 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
+/* ===== Kinetic Tape tokens (ported from 08-kinetic-system.html) ===== */
 :root {
-  --bg-base:      #0a0c10;
-  --bg-surface:   #0c0f14;
-  --bg-elevated:  #0e1218;
-  --border:       #1a1f27;
-  --border-soft:  #14181f;
-  --border-focus: #2a3340;
-  --text-primary:   #e8ebf0;
-  --text-secondary: #9aa3b2;
-  --text-tertiary:  #5f6776;
-  --text-muted:     #2a313c;
-  --green:   #36d399;
-  --red:     #ff6363;
-  --amber:   #e0a64d;
-  --brass:   #c7ad6a;
-  --accent:  #5b9dff; /* Tony / azure */
-  --azure:   #5b9dff; /* alias of --accent; matches the "azure" Tone in lib/signal.ts */
-  --cyan:    #5b9dff; /* legacy alias → accent (kept so old pages still compile) */
-  --blue:    #5b9dff;
-  --violet:  #7c4dff;
+  --bg: #0a0c0b;
+  --bg2: #0f1311;
+  --panel: #0f1311;
+  --ink: #eaf2e9;
+  --mut: #7e8a82;
+  --dim: #586059;
+  --lime: #c4f042; /* accent / live score */
+  --cyan: #37e0ff; /* bot / 1st pass */
+  --amber: #ff9e2c; /* Tony / 2nd pass */
+  --pos: #46d39a;
+  --neg: #ff5d73;
+  --warn: #ffce4a;
+  --line: rgba(255, 255, 255, 0.08);
+
+  --disp: "Space Grotesk", sans-serif;
+  --mono: "Space Mono", monospace;
+
+  /* motion */
+  --d-instant: 0.08s;
+  --d-fast: 0.18s;
+  --d-normal: 0.35s;
+  --d-slow: 0.6s;
+  --e-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-sharp: cubic-bezier(0.4, 0, 0.2, 1);
+  --e-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --e-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-* { box-sizing: border-box; }
-
-*:focus-visible {
-  outline: 2px solid var(--cyan);
-  outline-offset: 2px;
-  border-radius: 2px;
+/* Expose tokens to Tailwind 4 theme so `bg-bg`, `text-cyan`, etc. work */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-mut: var(--mut);
+  --color-dim: var(--dim);
+  --color-lime: var(--lime);
+  --color-cyan: var(--cyan);
+  --color-amber: var(--amber);
+  --color-pos: var(--pos);
+  --color-neg: var(--neg);
+  --color-warn: var(--warn);
+  --color-line: var(--line);
+  --font-display: var(--disp);
+  --font-mono: var(--mono);
 }
-*:focus:not(:focus-visible) { outline: none; }
 
-html, body {
-  background: var(--bg-base);
-  color: var(--text-primary);
-  font-family: "Geist", "Inter", system-ui, sans-serif;
-  font-size: 13px;
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-.mono { font-family: "JetBrains Mono", "Fira Code", monospace; }
-
-.status-green  { color: var(--green); }
-.status-red    { color: var(--red); }
-.status-amber  { color: var(--amber); }
-.status-blue   { color: var(--blue); }
-.status-cyan   { color: var(--cyan); }
-.status-violet { color: var(--violet); }
-/* Tone utilities matching lib/signal.ts Tone values (azure/brass/muted) */
-.status-azure  { color: var(--azure); }
-.status-brass  { color: var(--brass); }
-.status-muted  { color: var(--text-tertiary); }
-
-.board-row { transition: background 0.12s; }
-.board-row:hover { background: var(--bg-elevated); }
-.board-row:focus-visible { background: var(--bg-elevated); }
-
-/* dense container: settings, tables, supplementary panels */
-.card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 12px;
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* prominent container: trade/position surfaces */
-.card-prominent {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 14px 16px;
-  margin-bottom: 10px;
+h1,
+h2,
+h3 {
+  font-family: var(--disp);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-.dense-table { width: 100%; border-collapse: collapse; }
-.dense-table th {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  white-space: nowrap;
+/* tabular numerics so columns never jump */
+.num,
+.font-mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
 }
-.dense-table td {
-  padding: 0 8px;
-  height: 28px;
-  border-bottom: 1px solid var(--border);
-  font-family: "JetBrains Mono", monospace;
+
+/* ===== shared component primitives (ported verbatim from mockups) ===== */
+
+/* score glyph bars */
+.kt-bars {
+  display: inline-flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 24px;
+}
+.kt-bars i {
+  width: 5px;
+  border-radius: 1px;
+  background: var(--cyan);
+  box-shadow: 0 0 6px rgba(55, 224, 255, 0.6);
+  animation: kt-rise 0.5s var(--e-smooth) both;
+}
+@keyframes kt-rise {
+  from {
+    height: 2px !important;
+    opacity: 0.3;
+  }
+}
+
+/* verdict pills */
+.kt-pill {
   font-size: 11px;
-  white-space: nowrap;
+  padding: 3px 10px;
+  border-radius: 6px;
+  display: inline-block;
 }
-.dense-table tr:hover td { background: var(--bg-elevated); cursor: pointer; }
+.kt-pill.reaff {
+  background: rgba(70, 211, 154, 0.16);
+  color: var(--pos);
+}
+.kt-pill.over {
+  background: rgba(255, 158, 44, 0.16);
+  color: var(--amber);
+}
+.kt-pill.awaiting {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dim);
+}
 
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-focus); border-radius: 2px; }
+/* near-entry badge */
+.kt-near {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(255, 206, 74, 0.16);
+  color: var(--warn);
+  animation: kt-nearpulse 2.2s var(--e-smooth) infinite;
+}
+@keyframes kt-nearpulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 206, 74, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px 0 rgba(255, 206, 74, 0.35);
+  }
+}
 
+/* buttons */
+.kt-btn {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 9px 16px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform var(--d-fast) var(--e-out),
+    background var(--d-fast) var(--e-out), border-color var(--d-fast) var(--e-out);
+}
+.kt-btn:hover {
+  border-color: var(--cyan);
+  background: rgba(55, 224, 255, 0.08);
+}
+.kt-btn:active {
+  transform: scale(0.96);
+}
+.kt-btn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.kt-btn.primary {
+  background: var(--lime);
+  color: #0a0c0b;
+  border-color: var(--lime);
+  font-weight: 700;
+}
+.kt-btn.danger {
+  background: rgba(255, 93, 115, 0.12);
+  border-color: rgba(255, 93, 115, 0.4);
+  color: var(--neg);
+}
+
+/* sparkline glow */
+.kt-spark {
+  filter: drop-shadow(0 0 3px rgba(55, 224, 255, 0.4));
+}
+
+/* panels */
+.kt-panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg2);
+}
+
+/* scrollbar */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* reduced motion: drop decorative motion to short opacity fades */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001s !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0.2s !important;
     scroll-behavior: auto !important;
   }
-}
-
-/* responsive ============================================== */
-
-/* The dense Board keeps its columns and scrolls horizontally on narrow screens
-   rather than crushing — preserves the "scannable tape" intent on tablet/phone. */
-.board-scroll { overflow-x: auto; }
-.board-scroll > div { min-width: 720px; }
-
-/* tablet-and-down drawer width */
-@media (max-width: 1023px) {
-  .drawer-panel { width: min(480px, 90vw) !important; }
-}
-@media (max-width: 640px) {
-  .drawer-panel { width: 100vw !important; }
-}
-
-/* touch-target sizing for any coarse pointer (tablet, touchscreen) */
-@media (pointer: coarse) {
-  .sidebar-nav a { min-height: 44px; min-width: 44px; }
-  .filter-chip   { min-height: 44px; min-width: 44px; }
-  .ticker-button {
-    min-height: 32px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    padding-left: 8px;
-    padding-right: 8px;
+  .kt-near {
+    animation: none;
   }
 }
 
-/* form stacking on phone */
-@media (max-width: 640px) {
-  .form-grid-4 { grid-template-columns: 1fr 1fr !important; }
-  .today-grid  { grid-template-columns: 1fr !important; row-gap: 16px; }
+/* ===== cockpit shell layout + mobile reflow ===== */
+.kt-shell {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  min-height: calc(100vh - 52px);
+}
+.kt-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+}
+.kt-main {
+  padding: 14px 16px;
+  min-width: 0;
+}
+.desktop-only {
+  display: flex;
+}
+
+@media (max-width: 720px) {
+  .kt-shell {
+    grid-template-columns: 1fr;
+  }
+  /* rail → bottom bar */
+  .kt-rail {
+    order: 3;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    flex-direction: row;
+    justify-content: space-around;
+    border-right: 0 !important;
+    border-top: 1px solid var(--line);
+    padding: 8px 0;
+    background: var(--panel);
+  }
+  .kt-main {
+    order: 1;
+    padding-bottom: 64px; /* clear bottom bar */
+  }
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* a11y helpers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

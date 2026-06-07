@@ -1,28 +1,36 @@
 import { describe, it, expect } from "vitest"
-import { formatPrice, formatSignedPct, plPercent, scanAgeLabel } from "@/lib/format"
+import { fmtPrice, fmtPct, fmtMoney, fmtScore, fmtRvol, changeClass, priceStatusDisplay } from "./format"
 
-describe("formatPrice", () => {
-  it("formats to 2 decimals", () => expect(formatPrice(124.857)).toBe("124.86"))
-  it("renders em dash for null", () => expect(formatPrice(null)).toBe("—"))
-})
-
-describe("formatSignedPct", () => {
-  it("adds + for non-negative", () => expect(formatSignedPct(2.85)).toBe("+2.85%"))
-  it("keeps - for negative", () => expect(formatSignedPct(-1.1)).toBe("-1.10%"))
-  it("renders em dash for null", () => expect(formatSignedPct(null)).toBe("—"))
-})
-
-describe("plPercent", () => {
-  it("computes percent vs entry", () => expect(plPercent(121.4, 124.86)).toBeCloseTo(2.85, 1))
-  it("is null when not in trade", () => {
-    expect(plPercent(null, 124.86)).toBeNull()
-    expect(plPercent(121.4, undefined)).toBeNull()
+describe("format helpers", () => {
+  it("fmtPrice handles null/NaN", () => {
+    expect(fmtPrice(null)).toBe("—")
+    expect(fmtPrice(NaN)).toBe("—")
+    expect(fmtPrice(182.4)).toBe("182.40")
   })
-})
-
-describe("scanAgeLabel", () => {
-  it("handles no scan", () => expect(scanAgeLabel(null)).toBe("no scan yet"))
-  it("handles under a minute", () => expect(scanAgeLabel(30)).toBe("just now"))
-  it("handles minutes", () => expect(scanAgeLabel(125)).toBe("2m ago"))
-  it("handles hours", () => expect(scanAgeLabel(7200)).toBe("2h ago"))
+  it("fmtPct signs and degrades", () => {
+    expect(fmtPct(2.1)).toBe("+2.1%")
+    expect(fmtPct(-1)).toBe("-1.0%")
+    expect(fmtPct(null)).toBe("—")
+  })
+  it("fmtMoney signed", () => {
+    expect(fmtMoney(640, true)).toBe("+$640")
+    expect(fmtMoney(-17, true)).toBe("-$17")
+    expect(fmtMoney(null)).toBe("—")
+  })
+  it("fmtScore rounds, fmtRvol suffixes", () => {
+    expect(fmtScore(90.6)).toBe("91")
+    expect(fmtScore(null)).toBe("—")
+    expect(fmtRvol(1.8)).toBe("1.8×")
+  })
+  it("changeClass", () => {
+    expect(changeClass(1)).toBe("pos")
+    expect(changeClass(-1)).toBe("neg")
+    expect(changeClass(null)).toBe("mut")
+  })
+  it("priceStatusDisplay maps all states and never collapses", () => {
+    expect(priceStatusDisplay("live").fresh).toBe(true)
+    expect(priceStatusDisplay("stale").fresh).toBe(false)
+    expect(priceStatusDisplay("unavailable").label).toBe("no quote")
+    expect(priceStatusDisplay(undefined).label).toBe("—")
+  })
 })

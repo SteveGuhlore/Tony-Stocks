@@ -11,17 +11,24 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.14",
+    "@tanstack/react-virtual": "^3.13.0",
+    "lightweight-charts": "^5.0.0",
     "motion": "^12.40.0",
     "next": "16.2.6",
+    "pixi.js": "^8.6.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "recharts": "^3.8.1"
+    "sonner": "^1.7.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^2.1.9"

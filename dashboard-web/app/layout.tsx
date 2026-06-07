@@ -1,28 +1,40 @@
-﻿import type { Metadata } from "next"
+import type { Metadata } from "next"
 import "./globals.css"
 import { Providers } from "@/lib/providers"
-import { DrawerProvider } from "@/components/overlays/DrawerContext"
-import { StatusBar } from "@/components/layout/StatusBar"
-import { LazyDrawers } from "@/components/overlays/LazyDrawers"
-import { AlertManager } from "@/components/alerts/AlertManager"
-import { PermissionBanner } from "@/components/alerts/PermissionBanner"
+import { Toaster } from "sonner"
 
-export const metadata: Metadata = { title: "Tony", description: "Tony's trading cockpit" }
+export const metadata: Metadata = {
+  title: "Kinetic Tape — Tony",
+  description: "First-pass scanner cockpit",
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ background: "var(--bg-base)", minHeight: "100vh" }}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
         <Providers>
-          <DrawerProvider>
-            <PermissionBanner />
-            <StatusBar />
-            <main className="app-main" style={{ paddingTop: 48, minHeight: "100vh" }}>
-              <div style={{ padding: 16 }}>{children}</div>
-            </main>
-            <LazyDrawers />
-            <AlertManager />
-          </DrawerProvider>
+          {children}
+          <Toaster
+            theme="dark"
+            position="bottom-right"
+            toastOptions={{
+              style: {
+                background: "#0e1614",
+                border: "1px solid var(--cyan)",
+                color: "var(--ink)",
+                fontFamily: "var(--mono)",
+                fontSize: "12px",
+              },
+            }}
+          />
         </Providers>
       </body>
     </html>
