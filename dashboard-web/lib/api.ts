@@ -2,6 +2,7 @@ import type {
   CockpitResponse,
   ChartResponse,
   PaperResponse,
+  PaperPosition,
   PaperEquityCurve,
   CommandCenterResponse,
   MorningPrepResponse,
@@ -46,7 +47,40 @@ export const api = {
   /** PRIMARY read model — one row per symbol, all views derive from this. */
   cockpit: () => get<CockpitResponse>("/api/cockpit"),
   commandCenter: () => get<CommandCenterResponse>("/api/command-center"),
-  paper: () => get<PaperResponse>("/api/paper/positions"),
+  // The API returns {enabled, account_label, open[], closed[], summary}; the UI
+  // consumes {positions, equity, open_pl, realized_pl}. Normalize here so every
+  // consumer (Cockpit drawer + PaperBook) gets a stable shape and never reads
+  // `.positions` off undefined.
+  paper: async (): Promise<PaperResponse> => {
+    const raw = await get<{
+      enabled?: boolean
+      account_label?: string
+      open?: Array<Record<string, unknown>>
+      summary?: { realized_pl?: number | null }
+    }>("/api/paper/positions")
+    const open = raw.open ?? []
+    const positions: PaperPosition[] = open.map((p) => ({
+      symbol: String(p.symbol ?? ""),
+      qty: Number(p.qty ?? 0),
+      avg_entry_price: (p.entry_price as number | null) ?? null,
+      fill_price: (p.entry_price as number | null) ?? null,
+      last_price: (p.last_price as number | null) ?? null,
+      unrealized_pl: (p.unrealized_pl as number | null) ?? null,
+      unrealized_pl_pct: (p.unrealized_pl_pct as number | null) ?? null,
+      protection_status: (p.protection_status as string | null) ?? null,
+      stop: (p.stop as number | null) ?? null,
+      target: (p.target as number | null) ?? null,
+      opened_at: (p.opened_at as string | null) ?? null,
+    }))
+    const openPl = positions.reduce((s, p) => s + (p.unrealized_pl ?? 0), 0)
+    return {
+      status: raw.enabled ? "enabled" : "disabled",
+      equity: null, // equity number lives in /paper/equity-curve, not this endpoint
+      open_pl: positions.length ? openPl : null,
+      realized_pl: raw.summary?.realized_pl ?? null,
+      positions,
+    }
+  },
   paperEquityCurve: (base_equity?: number) =>
     get<PaperEquityCurve>("/api/paper/equity-curve", { base_equity }),
   symbolChart: (symbol: string, timeframe?: string) =>

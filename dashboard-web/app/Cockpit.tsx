@@ -60,7 +60,7 @@ export default function Cockpit() {
   }, [])
 
   const selectedRow = rows.find((r) => r.symbol === selected) ?? null
-  const selectedPos = paper.data?.positions.find((p) => p.symbol === selected) ?? null
+  const selectedPos = paper.data?.positions?.find((p) => p.symbol === selected) ?? null
 
   const commands: PaletteCommand[] = useMemo(
     () => [
