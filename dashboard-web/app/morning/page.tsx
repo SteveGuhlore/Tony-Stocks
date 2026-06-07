@@ -15,11 +15,6 @@ function fmtPhase(phase: string): string {
   return phase ? phase.replace(/_/g, " ").toUpperCase() : "—"
 }
 
-function fmtDate(etDate: string): string {
-  if (!etDate) return "—"
-  return etDate
-}
-
 export default function MorningPage() {
   const prep = useMorningPrep()
 
@@ -29,7 +24,7 @@ export default function MorningPage() {
       <div className="card" style={{ marginBottom: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
           <span style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--brass)" }}>
-            🌅 MORNING PREP · {fmtDate(prep.et_date)}
+            🌅 MORNING PREP · {prep.et_date || "—"}
           </span>
           {prep.phase && (
             <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
