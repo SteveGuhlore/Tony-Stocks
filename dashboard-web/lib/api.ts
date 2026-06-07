@@ -1,7 +1,20 @@
-﻿const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+﻿// Default to SAME-ORIGIN (relative) so requests go to the host serving the page and
+// Next.js rewrites (see next.config.ts) forward /api/* to the local FastAPI backend.
+// This is what makes remote access (SSH tunnel / Tailscale) work — the browser must
+// never be asked to reach "localhost", which would mean the user's own device, not the VM.
+// Set NEXT_PUBLIC_API_URL only if you intentionally serve the API on a separate origin.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? ""
+
+// Resolve a (possibly relative) path against the page origin in the browser. A bare
+// `new URL("/api/x")` throws when BASE is empty; giving it the current origin as the
+// base makes relative same-origin URLs valid (and is ignored when BASE is absolute).
+function originBase(): string {
+  if (typeof window !== "undefined") return window.location.origin
+  return "http://127.0.0.1:3000"
+}
 
 async function get<T>(path: string, params?: Record<string, string | number | boolean | undefined>): Promise<T> {
-  const url = new URL(`${BASE}${path}`)
+  const url = new URL(`${BASE}${path}`, originBase())
   if (params) Object.entries(params).forEach(([k, v]) => { if (v !== undefined) url.searchParams.set(k, String(v)) })
   const res = await fetch(url.toString(), { cache: "no-store" })
   if (!res.ok) throw new Error(`API ${path} -> ${res.status}`)

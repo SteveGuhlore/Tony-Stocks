@@ -145,6 +145,22 @@ gcloud compute ssh trading-stack --zone=us-central1-a -- \
 Then open locally: bot API `http://localhost:8001`, bot dashboard `http://localhost:3000`,
 CC dashboard `http://localhost:8765`. Closing the SSH session closes the tunnel.
 
+### Remote access without a tunnel (Tailscale)
+
+To reach the dashboard from a phone/laptop on the tailnet, expose **only** the Next.js
+web server (port 3000) — not the API:
+```bash
+tailscale serve --bg 3000        # serves https://<host>.<tailnet>.ts.net → localhost:3000
+```
+The dashboard calls the API **same-origin** (relative `/api/*`); the Next.js server
+reverse-proxies those requests to the local FastAPI on `127.0.0.1:8001` via the
+`rewrites()` in `dashboard-web/next.config.ts`. So the API is reachable through the one
+exposed origin and never needs its own port on the tailnet. **Do not** set
+`NEXT_PUBLIC_API_URL` to a `localhost` URL — in a remote browser `localhost` is the
+*viewer's* device, which is the classic "Cannot reach the API" failure. Leave it unset
+(same-origin) unless you intentionally serve the API on a separate public origin, and
+override the proxy target with `API_PROXY_TARGET` only if the API isn't on `:8001`.
+
 ---
 
 ## Verification checklist
@@ -169,6 +185,7 @@ CC dashboard `http://localhost:8765`. Closing the SSH session closes the tunnel.
 | Narrative is templated, not Gemini | Vertex not enabled / no project / wrong region / bad key | Check `.env` (`GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`), key path + perms, `journalctl -u tradingbot-offhours` |
 | `403 Permission denied` on Vertex | service account missing role | re-run the `roles/aiplatform.user` binding (Step 2) |
 | Dashboard blank / connection refused | tunnel not up, or API on wrong port | confirm SSH `-L` flags + `tradingbot-api` running on :8001 |
+| "Cannot reach the API at ." (remote/phone) | frontend pointed at `localhost` or empty origin; API not proxied | leave `NEXT_PUBLIC_API_URL` unset (same-origin); the `rewrites()` in `next.config.ts` proxy `/api/*` → `127.0.0.1:8001`; rebuild (`npm run build`) + restart `tradingbot-web`; confirm `systemctl is-active tradingbot-api` |
 | Service won't start | `User=`/path mismatch | `journalctl -u <svc>`; ensure units' `User=` matches the VM user |
 
 ---
