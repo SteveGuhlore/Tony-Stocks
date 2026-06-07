@@ -241,6 +241,33 @@ class PricesResponse(BaseModel):
 # the dashboard enum (e.g. "pass") survive — the frontend degrades unknowns to
 # "⋯ awaiting" without erroring.
 
+# ── Morning Prep (off-hours research engine) ─────────────────────────────────
+# Mirrors MorningPrep.to_dict() / PrepCandidate.to_dict() from
+# trading_bot.analytics.morning_prep.  All fields carry safe defaults so a
+# partial or missing report still yields a well-formed response (never 500).
+
+class PrepCandidateResponse(BaseModel):
+    symbol: str = ""
+    score: float = 0.0
+    setup: str = ""
+    entry: float | None = None
+    stop: float | None = None
+    target: float | None = None
+    rr: float | None = None
+    conviction: str = ""
+    catalysts: dict = {}
+    warnings: list[str] = []
+
+
+class MorningPrepResponse(BaseModel):
+    generated_at: str = ""
+    et_date: str = ""
+    phase: str = ""
+    shortlist: list[PrepCandidateResponse] = []
+    what_changed_overnight: str = ""
+    plan_for_open: str = ""
+
+
 class CommandCenterPick(BaseModel):
     symbol: str
     score: float
