@@ -255,7 +255,7 @@ class PrepCandidateResponse(BaseModel):
     target: float | None = None
     rr: float | None = None
     conviction: str = ""
-    catalysts: dict = {}
+    catalysts: dict[str, Any] = {}
     warnings: list[str] = []
 
 

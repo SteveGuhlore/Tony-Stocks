@@ -15,12 +15,15 @@ production and tests use the same wiring.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Request
 
 from trading_bot.api.schemas import MorningPrepResponse, PrepCandidateResponse
+
+LOGGER = logging.getLogger(__name__)
 
 router = APIRouter(tags=["morning-prep"])
 
@@ -50,7 +53,10 @@ def _latest_report(morning_prep_dir: Path) -> dict[str, Any] | None:
         if not text:
             return None
         return json.loads(text)
-    except (OSError, json.JSONDecodeError, ValueError):
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        # Degrade to an empty response (never 500), but leave a breadcrumb so an
+        # operator can see that a present-but-unreadable report was skipped.
+        LOGGER.warning("morning-prep: skipping unreadable report (%s)", exc)
         return None
 
 
