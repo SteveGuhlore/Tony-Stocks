@@ -7,8 +7,6 @@ The off-hours research engine is DEFAULT OFF. This test verifies:
 """
 from __future__ import annotations
 
-import pytest
-
 from trading_bot.settings import load_scanner_settings
 
 
