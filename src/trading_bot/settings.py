@@ -57,6 +57,7 @@ class ScannerSettings:
     paper_trading: dict[str, Any] | None = None
     research_funnel: dict[str, Any] | None = None
     learning: dict[str, Any] | None = None
+    off_hours: dict[str, Any] | None = None
 
 
 def load_yaml(path: str | Path) -> dict[str, Any]:

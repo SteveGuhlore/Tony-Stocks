@@ -246,6 +246,16 @@ learning:
   knowledge_history_cap: 30
   bridge_to_cc: true
 
+# Off-hours research engine — read-only pre-open prep (scan, enrich, shortlist). Default OFF.
+off_hours:
+  enabled: false
+  cadence_minutes: 30
+  earnings_blackout_days: 5
+  shortlist_size: 20
+  full_universe_scan: true
+  premarket_provider: "null"
+  enrich_budget: 25
+
 # Paper-trading execution (Alpaca paper account). OFF by default and INDEPENDENT
 # of live_trading_enabled (which stays false and blocks any real-money path).
 # A misconfigured-but-enabled block fails closed (treated as disabled). See
