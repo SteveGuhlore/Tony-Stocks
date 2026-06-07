@@ -9,7 +9,7 @@ Tests verify:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
 import pytest
@@ -147,6 +147,41 @@ class TestRenderMorningPrepMarkdown:
         # Should still have disclaimer and header
         assert "PLANNED" in md.upper()
         assert prep.et_date in md
+
+    def test_catalyst_summary_uses_real_tag_keys(self):
+        """The catalyst column must read the keys CatalystTags.to_dict() emits
+        (earnings_blackout, upcoming_earnings_date, analyst_rec_trend, ...),
+        not invented ones — and must never leak raw key names like the symbol."""
+        from trading_bot.analytics.catalyst_enrichment import build_catalyst_tags
+        from trading_bot.analytics.morning_prep import build_morning_prep
+
+        today = date(2026, 6, 7)
+        tag = build_catalyst_tags(
+            "AAPL",
+            earnings_date="2026-06-09",   # within default blackout window
+            today=today,
+            blackout_days=5,
+            recommendation_now={"strongBuy": 5, "buy": 5, "sell": 0, "strongSell": 0},
+            recommendation_prev={"strongBuy": 0, "buy": 1, "sell": 2, "strongSell": 1},
+        )
+        row = {
+            "symbol": "AAPL", "total_score": 85.0, "setup_category": "Momentum",
+            "planned_entry_price": 190.0, "stop_price": 185.0, "target_price": 200.0,
+        }
+        prep = build_morning_prep(
+            scored_rows=[row],
+            catalyst_tags={"AAPL": tag},
+            now_et=datetime(2026, 6, 7, 4, 30, 0, tzinfo=_ET),
+            phase="pre_open",
+        )
+        md = render_morning_prep_markdown(prep)
+        # Recognized, meaningful flags appear...
+        assert "earnings-blackout" in md
+        assert "earnings:2026-06-09" in md
+        assert "analyst↑" in md
+        # ...and raw tag key names never leak into the summary.
+        assert "analyst_rec_trend" not in md
+        assert "upcoming_earnings_date" not in md
 
 
 # ---------------------------------------------------------------------------

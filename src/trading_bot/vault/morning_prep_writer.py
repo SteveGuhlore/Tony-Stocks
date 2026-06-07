@@ -28,23 +28,32 @@ def _fmt_float(value: float | None, decimals: int = 2) -> str:
 
 
 def _catalysts_summary(catalysts: dict[str, Any]) -> str:
-    """Return a compact one-line summary of catalyst flags for the table."""
+    """Return a compact one-line summary of catalyst flags for the table.
+
+    Reads the keys emitted by ``CatalystTags.to_dict()``: ``earnings_blackout``,
+    ``upcoming_earnings_date``, ``analyst_rec_trend`` ("up"/"down"/"flat"),
+    ``news_sentiment``, ``revenue_growth``. Only meaningful (non-neutral) flags
+    are shown; an all-neutral or empty tag renders "—".
+    """
     if not catalysts:
         return "—"
-    parts = []
+    parts: list[str] = []
     if catalysts.get("earnings_blackout"):
         parts.append("earnings-blackout")
-    if catalysts.get("earnings_date"):
-        parts.append(f"earnings:{catalysts['earnings_date']}")
-    if catalysts.get("analyst_upgrade"):
-        parts.append("upgrade")
-    if catalysts.get("analyst_downgrade"):
-        parts.append("downgrade")
-    if catalysts.get("news_catalyst"):
-        parts.append("news")
-    if not parts:
-        # Some keys present but none recognized — list truthy keys
-        parts = [k for k, v in catalysts.items() if v]
+    earnings_date = catalysts.get("upcoming_earnings_date")
+    if earnings_date:
+        parts.append(f"earnings:{earnings_date}")
+    trend = catalysts.get("analyst_rec_trend")
+    if trend == "up":
+        parts.append("analyst↑")
+    elif trend == "down":
+        parts.append("analyst↓")
+    news = catalysts.get("news_sentiment")
+    if news is not None:
+        parts.append(f"news:{news:+.2f}")
+    rev = catalysts.get("revenue_growth")
+    if rev is not None:
+        parts.append(f"rev:{rev:+.2f}")
     return ", ".join(parts) if parts else "—"
 
 
