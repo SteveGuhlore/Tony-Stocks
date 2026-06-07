@@ -184,8 +184,9 @@ class TestOffHoursWatchMarketHoursShortCircuit:
         with patch("trading_bot.cli._now_et", return_value=market_hours_et):
             result = trading_bot.cli.run_off_hours_watch(args)
 
-        # No assertion on result value — just that it doesn't raise and completes
-        assert isinstance(result, dict)
+        # Ran exactly max_cycles market-hours ticks, then stopped for that reason.
+        assert result["cycles_completed"] == 2
+        assert result["stopped_by"] == "max_cycles"
 
     def test_watch_stop_file_halts_loop(self, tmp_path):
         """run_off_hours_watch respects a STOP file and exits cleanly."""
@@ -206,8 +207,9 @@ class TestOffHoursWatchMarketHoursShortCircuit:
                 # Should complete quickly (stop file present on first check)
                 result = trading_bot.cli.run_off_hours_watch(args)
 
-        # Completed without raise
-        assert isinstance(result, dict)
+        # Stop file present before the first cycle → zero cycles, stopped by stop_file.
+        assert result["cycles_completed"] == 0
+        assert result["stopped_by"] == "stop_file"
 
     def test_idempotency_prevents_double_prep(self, tmp_path):
         """The watch loop does NOT run prep twice for the same <date>:<phase> key."""

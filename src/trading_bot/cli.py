@@ -4056,9 +4056,8 @@ def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
         try:
             # Use research_providers if keys available; degrade gracefully if not
             from trading_bot.data.research_providers import FmpProvider, FinnhubProvider  # noqa: PLC0415
-            import os as _os  # noqa: PLC0415
-            fmp = FmpProvider(api_key=_os.getenv("FMP_API_KEY", ""))
-            finnhub = FinnhubProvider(api_key=_os.getenv("FINNHUB_API_KEY", ""))
+            fmp = FmpProvider(api_key=os.getenv("FMP_API_KEY", ""))
+            finnhub = FinnhubProvider(api_key=os.getenv("FINNHUB_API_KEY", ""))
 
             today = now_et.date()
             # One bulk earnings calendar call if FMP available
@@ -4086,8 +4085,10 @@ def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
                         blackout_days=blackout_days,
                         recommendation_now=rec,
                     )
-                except Exception:
-                    # Per-symbol failure: degrade to empty tag for that symbol
+                except Exception as sym_exc:
+                    # Per-symbol failure: degrade to empty tag for that symbol.
+                    # Fail-quiet but leave a debug breadcrumb for diagnosis.
+                    LOGGER.debug("catalyst enrichment failed for %s: %s", sym, sym_exc)
                     catalyst_tags[sym] = build_catalyst_tags(sym, today=today)
         except Exception as exc:
             errors.append(f"catalyst_enrichment: {exc}")
@@ -4095,13 +4096,12 @@ def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
     # --- 5. OVERNIGHT phase: optional run_learn equivalent (each wrapped, fail-quiet) ---
     learning_facts: dict | None = None
     if phase_str == Phase.OVERNIGHT.value:
-        # Refresh funnel_eval (reuse existing helper)
-        try:
-            _refresh_funnel_eval_for_learning(
-                reports_dir, args.config,
-                days=120, min_sample=5)
-        except Exception as exc:
-            errors.append(f"funnel_eval_refresh: {exc}")
+        # Refresh funnel_eval (reuse existing helper). The helper is self-contained
+        # and fail-quiet (never raises; returns False on failure), so we inspect its
+        # return value rather than wrapping it in a try/except that could never fire.
+        if not _refresh_funnel_eval_for_learning(
+                reports_dir, args.config, days=120, min_sample=5):
+            errors.append("funnel_eval_refresh: failed (see logs)")
 
         # Load existing learning facts from reports (if available)
         try:
@@ -4118,9 +4118,8 @@ def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
             make_llm_client, model_for, resolve_provider,
         )
         from trading_bot.analytics.learning_knowledge import knowledge_from_dict  # noqa: PLC0415
-        import os as _os2  # noqa: PLC0415
 
-        if _os2.getenv("ANTHROPIC_API_KEY") or _os2.getenv("GEMINI_API_KEY"):
+        if os.getenv("ANTHROPIC_API_KEY") or os.getenv("GEMINI_API_KEY"):
             _lcfg = getattr(settings, "learning", None) or {}
             _provider = resolve_provider(_lcfg.get("provider"))
             _model = model_for(_provider, _lcfg)
@@ -4161,17 +4160,18 @@ def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
 
     # --- 9. Write all four sinks, each in its own try/except (fail-quiet) ---
     for label, fn in (
-        ("report (json+md)", lambda: str(write_morning_prep_report(
-            prep, reports_dir=reports_dir))),
-        ("vault note", lambda: str(write_morning_prep_note(
-            prep, vault_dir=vault_dir_str, narrative=narrative))),
-        ("cc bridge", lambda: str(write_morning_prep_bridge(
-            prep, command_center_dir=cc_dir_str, narrative=narrative))),
+        ("report (json+md)", lambda: write_morning_prep_report(
+            prep, reports_dir=reports_dir)),
+        ("vault note", lambda: write_morning_prep_note(
+            prep, vault_dir=vault_dir_str, narrative=narrative)),
+        ("cc bridge", lambda: write_morning_prep_bridge(
+            prep, command_center_dir=cc_dir_str, narrative=narrative)),
     ):
         try:
             path = fn()
-            if path and path != "None":
-                sinks_written.append(path)
+            # write_morning_prep_bridge returns None when no CC dir is configured.
+            if path is not None:
+                sinks_written.append(str(path))
         except Exception as exc:
             errors.append(f"sink({label}): {exc}")
             print(f"[off-hours-prep] sink error ({label}): {exc}")
@@ -4229,14 +4229,17 @@ def run_off_hours_watch(args: argparse.Namespace) -> dict[str, Any]:
         command_center_dir=None,
     )
 
+    stopped_by = "unknown"
     while True:
         # --- Stop file check (mirror run_watch) ---
         if stop_file.exists():
             print(f"[off-hours-watch] stop file detected ({stop_file}); exiting.")
+            stopped_by = "stop_file"
             break
 
         # --- Max-cycles check ---
         if max_cycles is not None and cycle >= max_cycles:
+            stopped_by = "max_cycles"
             break
 
         now_et = _now_et()
@@ -4272,7 +4275,7 @@ def run_off_hours_watch(args: argparse.Namespace) -> dict[str, Any]:
         if cadence_seconds > 0 and (max_cycles is None or cycle < max_cycles):
             time.sleep(cadence_seconds)
 
-    return {"cycles_completed": cycle, "stopped_by": "max_cycles" if max_cycles is not None else "stop_file"}
+    return {"cycles_completed": cycle, "stopped_by": stopped_by}
 
 
 def run_paper_status(args: argparse.Namespace) -> dict[str, Any]:
