@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 import json
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 from trading_bot.api.deps import get_repo
@@ -7,6 +8,9 @@ from trading_bot.api.schemas import SymbolDetailResponse, CandidateSnapshotRow, 
 from trading_bot.storage.repositories import ScannerRepository
 
 router = APIRouter(tags=["symbols"])
+
+# A symbol's stored bars are "stale" if the newest bar is older than this.
+CHART_STALE_AFTER_HOURS = 26  # one trading day + slack (covers an overnight gap)
 
 def _nan(v):
     return v if isinstance(v, str) else None
@@ -56,16 +60,68 @@ def get_symbol_detail(symbol: str, repo: ScannerRepository = Depends(get_repo)):
     return SymbolDetailResponse(symbol=symbol, latest_snapshot=sym_snaps[0] if sym_snaps else None,
         recent_snapshots=sym_snaps[:5], latest_scan_result=latest_scan, chart_bars=[])
 
-@router.get("/symbols/{symbol}/chart")
-def get_symbol_chart(symbol: str, days: int = 60):
+def _plan_for_symbol(repo: ScannerRepository, symbol: str) -> dict:
+    """Latest plan levels (entry/stop/target) from the newest snapshot. Awaiting-safe."""
+    plan = {"entry": None, "stop": None, "target": None}
     try:
-        import yfinance as yf
-        df = yf.download(symbol.upper(), period=f"{days}d", interval="1d", progress=False, auto_adjust=True)
-        if df.empty:
-            return JSONResponse({"bars": []})
-        bars = [{"date": str(d.date()), "open": float(r["Open"]), "high": float(r["High"]),
-                 "low": float(r["Low"]), "close": float(r["Close"]), "volume": float(r["Volume"])}
-                for d, r in df.iterrows()]
-        return JSONResponse({"bars": bars})
+        df = repo.list_candidate_snapshots(limit=500)
+        if not df.empty:
+            m = df[df["symbol"] == symbol]
+            if not m.empty:
+                r = m.iloc[0].to_dict()
+                def _fl(v):
+                    try:
+                        return float(v)
+                    except (TypeError, ValueError):
+                        return None
+                plan = {
+                    "entry": _fl(r.get("original_entry_price") if r.get("original_entry_price") is not None else r.get("entry")),
+                    "stop": _fl(r.get("original_stop_price") if r.get("original_stop_price") is not None else r.get("stop")),
+                    "target": _fl(r.get("original_target_price") if r.get("original_target_price") is not None else r.get("target")),
+                }
     except Exception:
-        return JSONResponse({"bars": []})
+        pass
+    return plan
+
+
+@router.get("/symbols/{symbol}/chart")
+def get_symbol_chart(symbol: str, timeframe: str = "intraday", repo: ScannerRepository = Depends(get_repo)):
+    """First-party chart endpoint. Reads ONLY stored intraday_bars (fed by the price-poll
+    cycle) — never on-request yfinance in the hot path. Returns an explicit status so the
+    UI shows a labeled empty/stale state instead of a broken axis. Never crashes on a
+    symbol with no bars (status='unavailable')."""
+    symbol = symbol.upper()
+    plan = _plan_for_symbol(repo, symbol)
+
+    try:
+        stored = repo.list_intraday_bars(symbol, limit=5000)
+    except Exception:
+        stored = []
+
+    if not stored:
+        return JSONResponse({"symbol": symbol, "timeframe": timeframe, "status": "unavailable",
+                             "bars": [], "plan": plan})
+
+    bars = []
+    for b in stored:
+        def _f(v):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+        bars.append({"t": b.get("ts"), "o": _f(b.get("open")), "h": _f(b.get("high")),
+                     "l": _f(b.get("low")), "c": _f(b.get("close")), "v": _f(b.get("volume"))})
+
+    status = "ok"
+    last_ts = bars[-1]["t"]
+    try:
+        last_dt = datetime.fromisoformat(str(last_ts).replace("Z", "+00:00"))
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        if datetime.now(timezone.utc) - last_dt > timedelta(hours=CHART_STALE_AFTER_HOURS):
+            status = "stale"
+    except Exception:
+        status = "stale"
+
+    return JSONResponse({"symbol": symbol, "timeframe": timeframe, "status": status,
+                         "bars": bars, "plan": plan})

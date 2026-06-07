@@ -1023,6 +1023,200 @@ class ScannerRepository:
                 })
         return picks
 
+    # ── Intraday bars (Kinetic Tape chart endpoint) ─────────────────────────────
+
+    def upsert_intraday_bar(
+        self, *, symbol: str, ts: str, open: float | None, high: float | None,
+        low: float | None, close: float | None, volume: float | None,
+    ) -> None:
+        """Persist one polled intraday bar. Idempotent on (symbol, ts) — re-polling the
+        same bar updates it in place. Fail-quiet callers swallow errors; here we let
+        sqlite errors propagate so they are visible in tests."""
+        with connect(self.database_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO intraday_bars (symbol, ts, open, high, low, close, volume)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(symbol, ts) DO UPDATE SET
+                    open = excluded.open, high = excluded.high, low = excluded.low,
+                    close = excluded.close, volume = excluded.volume
+                """,
+                (str(symbol).upper(), ts, open, high, low, close, volume),
+            )
+
+    def list_intraday_bars(self, symbol: str, *, limit: int = 5000) -> list[dict[str, Any]]:
+        """Return stored bars for a symbol oldest-first (chart-ready)."""
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT symbol, ts, open, high, low, close, volume
+                FROM intraday_bars WHERE symbol = ? ORDER BY ts ASC LIMIT ?
+                """,
+                (str(symbol).upper(), limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def latest_intraday_bar_ts(self, symbol: str) -> str | None:
+        with connect(self.database_path) as conn:
+            row = conn.execute(
+                "SELECT MAX(ts) AS ts FROM intraday_bars WHERE symbol = ?",
+                (str(symbol).upper(),),
+            ).fetchone()
+        return row["ts"] if row and row["ts"] else None
+
+    def prune_intraday_bars(self, *, before_ts: str) -> int:
+        """Delete bars with ts strictly older than ``before_ts`` (rolling retention).
+        Returns the number of rows removed."""
+        with connect(self.database_path) as conn:
+            cursor = conn.execute("DELETE FROM intraday_bars WHERE ts < ?", (before_ts,))
+            return int(cursor.rowcount)
+
+    # ── Action audit + idempotency (control endpoints) ──────────────────────────
+
+    def find_action_audit(self, *, action: str, idempotency_key: str) -> dict[str, Any] | None:
+        """Return a prior audit row matching (action, idempotency_key), or None."""
+        with connect(self.database_path) as conn:
+            row = conn.execute(
+                "SELECT * FROM action_audit WHERE action = ? AND idempotency_key = ? LIMIT 1",
+                (action, idempotency_key),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def record_action_audit(
+        self, *, action: str, actor: str = "dashboard", idempotency_key: str | None = None,
+        result: str = "ok", detail: str | None = None,
+    ) -> int:
+        """Write an immutable audit row for a control action. Returns the new row id."""
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO action_audit (ts, action, actor, idempotency_key, result, detail)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (utc_now_iso(), action, actor, idempotency_key, result, detail),
+            )
+            return int(cursor.lastrowid)
+
+    def list_action_audit(self, limit: int = 100) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM action_audit ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    # ── Personalization (pins / notes / presets / journal / ratings / alerts) ────
+
+    def add_pin(self, symbol: str) -> None:
+        with connect(self.database_path) as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO pins (symbol, created_at) VALUES (?, ?)",
+                (str(symbol).upper(), utc_now_iso()),
+            )
+
+    def remove_pin(self, symbol: str) -> None:
+        with connect(self.database_path) as conn:
+            conn.execute("DELETE FROM pins WHERE symbol = ?", (str(symbol).upper(),))
+
+    def list_pins(self) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            rows = conn.execute("SELECT * FROM pins ORDER BY created_at DESC").fetchall()
+        return [dict(row) for row in rows]
+
+    def add_note(self, *, symbol: str, body: str) -> int:
+        now = utc_now_iso()
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                "INSERT INTO notes (symbol, body, created_at, updated_at) VALUES (?, ?, ?, ?)",
+                (str(symbol).upper(), body, now, now),
+            )
+            return int(cursor.lastrowid)
+
+    def list_notes(self, *, symbol: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            if symbol:
+                rows = conn.execute(
+                    "SELECT * FROM notes WHERE symbol = ? ORDER BY id DESC LIMIT ?",
+                    (str(symbol).upper(), limit),
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM notes ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def upsert_preset(self, *, name: str, payload_json: str) -> int:
+        now = utc_now_iso()
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO presets (name, payload_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET payload_json = excluded.payload_json, updated_at = excluded.updated_at
+                """,
+                (name, payload_json, now, now),
+            )
+            return int(cursor.lastrowid or 0)
+
+    def list_presets(self) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            rows = conn.execute("SELECT * FROM presets ORDER BY name ASC").fetchall()
+        return [dict(row) for row in rows]
+
+    def add_journal_entry(self, *, symbol: str | None, entry: str) -> int:
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                "INSERT INTO journal (symbol, entry, created_at) VALUES (?, ?, ?)",
+                (str(symbol).upper() if symbol else None, entry, utc_now_iso()),
+            )
+            return int(cursor.lastrowid)
+
+    def list_journal(self, limit: int = 200) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            rows = conn.execute("SELECT * FROM journal ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def add_call_rating(self, *, symbol: str, rating: int, note: str | None = None) -> int:
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                "INSERT INTO call_ratings (symbol, rating, note, created_at) VALUES (?, ?, ?, ?)",
+                (str(symbol).upper(), int(rating), note, utc_now_iso()),
+            )
+            return int(cursor.lastrowid)
+
+    def list_call_ratings(self, *, symbol: str | None = None, limit: int = 200) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            if symbol:
+                rows = conn.execute(
+                    "SELECT * FROM call_ratings WHERE symbol = ? ORDER BY id DESC LIMIT ?",
+                    (str(symbol).upper(), limit),
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM call_ratings ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def add_price_alert(self, *, symbol: str, target_price: float, direction: str = "above") -> int:
+        with connect(self.database_path) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO price_alerts (symbol, target_price, direction, active, created_at)
+                VALUES (?, ?, ?, 1, ?)
+                """,
+                (str(symbol).upper(), float(target_price), direction, utc_now_iso()),
+            )
+            return int(cursor.lastrowid)
+
+    def list_price_alerts(self, *, active_only: bool = False, limit: int = 200) -> list[dict[str, Any]]:
+        with connect(self.database_path) as conn:
+            if active_only:
+                rows = conn.execute(
+                    "SELECT * FROM price_alerts WHERE active = 1 ORDER BY id DESC LIMIT ?", (limit,)
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM price_alerts ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+        return [dict(row) for row in rows]
+
+    def deactivate_price_alert(self, alert_id: int) -> None:
+        with connect(self.database_path) as conn:
+            conn.execute("UPDATE price_alerts SET active = 0 WHERE id = ?", (int(alert_id),))
+
     # ── Internal helpers ───────────────────────────────────────────────────────
 
     def _recent_snapshot_exists(self, conn: Any, symbol: str, setup_category: str, dedupe_minutes: int) -> bool:

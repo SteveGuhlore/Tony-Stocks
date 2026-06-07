@@ -5,7 +5,7 @@ import functools
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pandas as pd
@@ -19,6 +19,8 @@ ALPACA_DATA_URL = "https://data.alpaca.markets"
 NEAR_ENTRY_THRESHOLD = 0.005       # 0.5% distance to entry triggers near_entry
 NEAR_ENTRY_COOLDOWN_SECS = 300     # 5-minute per-symbol cooldown
 SYMBOL_REBUILD_SECS = 300          # rebuild symbol set every 5 minutes
+INTRADAY_RETENTION_DAYS = 10       # rolling ~10-trading-day window of stored bars
+INTRADAY_PRUNE_SECS = 3600         # prune stored bars at most once an hour
 
 
 @dataclass
@@ -131,8 +133,45 @@ class PriceCache:
         if self._event_queue is not None and new_quotes:
             await self._detect_events(new_quotes)
 
+        # Persist each polled snapshot's day bar into intraday_bars (fail-quiet) so the
+        # chart endpoint reads only stored bars — never on-request yfinance in the hot path.
+        if new_quotes:
+            await asyncio.to_thread(self._persist_bars, new_quotes)
+
         self._previous_prices = {s: q.price for s, q in self._quotes.items()}
         self._quotes.update(new_quotes)
+
+    def _persist_bars(self, quotes: dict[str, "LiveQuote"]) -> None:
+        """Store one bar per polled symbol. Best-effort: any error is swallowed so a
+        storage hiccup never breaks the price poll. Bar ts is bucketed to the minute so
+        repolls within a minute upsert the same row instead of flooding the table."""
+        try:
+            repo = ScannerRepository(self._db_path)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.debug("intraday bar repo init failed: %s", exc)
+            return
+        for symbol, q in quotes.items():
+            try:
+                if not q.price:
+                    continue
+                ts = q.asof.astimezone(timezone.utc).replace(second=0, microsecond=0).isoformat()
+                repo.upsert_intraday_bar(
+                    symbol=symbol, ts=ts,
+                    open=q.day_open or None, high=q.day_high or None,
+                    low=q.day_low or None, close=q.price,
+                    volume=q.day_volume or None,
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                log.debug("intraday bar persist failed for %s: %s", symbol, exc)
+
+    def prune_intraday_bars(self) -> None:
+        """Drop bars older than the rolling retention window. Fail-quiet."""
+        try:
+            repo = ScannerRepository(self._db_path)
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=INTRADAY_RETENTION_DAYS)).isoformat()
+            repo.prune_intraday_bars(before_ts=cutoff)
+        except Exception as exc:  # pragma: no cover - defensive
+            log.debug("intraday bar prune failed: %s", exc)
 
     async def _detect_events(self, new_quotes: dict[str, LiveQuote]) -> None:
         try:
@@ -222,6 +261,7 @@ class PriceCache:
 async def run_price_poll_loop(app) -> None:  # type: ignore[type-arg]
     """Background task: poll Alpaca every 15s (market hours) or 60s (closed)."""
     last_rebuild: datetime | None = None
+    last_prune: datetime | None = None
 
     while True:
         try:
@@ -229,6 +269,10 @@ async def run_price_poll_loop(app) -> None:  # type: ignore[type-arg]
             if last_rebuild is None or (now - last_rebuild).total_seconds() > SYMBOL_REBUILD_SECS:
                 await app.state.price_cache.rebuild_symbol_set()
                 last_rebuild = now
+
+            if last_prune is None or (now - last_prune).total_seconds() > INTRADAY_PRUNE_SECS:
+                await asyncio.to_thread(app.state.price_cache.prune_intraday_bars)
+                last_prune = now
 
             if await asyncio.to_thread(is_market_open, now):
                 await app.state.price_cache.refresh()

@@ -221,6 +221,81 @@ CREATE TABLE IF NOT EXISTS paper_positions (
     opened_at TEXT NOT NULL,
     closed_at TEXT
 );
+
+-- Kinetic Tape dashboard (additive, V34A): stored intraday bars feed the first-party
+-- chart endpoint so the hot path never hits on-request yfinance. One row per
+-- (symbol, ts); ts is an ISO-8601 UTC string. Fed by the existing price-poll cycle.
+CREATE TABLE IF NOT EXISTS intraday_bars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    ts TEXT NOT NULL,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    volume REAL,
+    UNIQUE (symbol, ts)
+);
+CREATE INDEX IF NOT EXISTS idx_intraday_bars_symbol_ts ON intraday_bars (symbol, ts);
+
+-- Kinetic Tape dashboard control plane (additive): immutable audit of every
+-- money/control POST + idempotency dedup. Personalization tables are operator-only.
+CREATE TABLE IF NOT EXISTS action_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts TEXT NOT NULL,
+    action TEXT NOT NULL,
+    actor TEXT NOT NULL DEFAULT 'dashboard',
+    idempotency_key TEXT,
+    result TEXT NOT NULL DEFAULT 'ok',
+    detail TEXT,
+    UNIQUE (action, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS pins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    body TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS presets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT,
+    entry TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS call_ratings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    rating INTEGER NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS price_alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    target_price REAL NOT NULL,
+    direction TEXT NOT NULL DEFAULT 'above',
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
 """
 
 
