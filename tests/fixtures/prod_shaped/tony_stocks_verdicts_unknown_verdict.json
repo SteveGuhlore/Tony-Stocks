@@ -1,0 +1,29 @@
+[
+  {
+    "date": "2026-06-06",
+    "symbol": "AAPL",
+    "tony_score": 72.5,
+    "verdict": "pass",
+    "thesis": "Passing - chop, no clean trigger.",
+    "target": null,
+    "stop": null
+  },
+  {
+    "date": "2026-06-06",
+    "symbol": "nvda",
+    "tony_score": 88.0,
+    "verdict": "frobnicate",
+    "thesis": "Garbage verdict value the dashboard enum does not know.",
+    "target": 1300.0,
+    "stop": 1180.0
+  },
+  {
+    "date": "2026-06-06",
+    "symbol": "TSLA",
+    "tony_score": 41.0,
+    "verdict": "reaffirm",
+    "thesis": "Known-good verdict alongside the unknowns.",
+    "target": null,
+    "stop": null
+  }
+]
