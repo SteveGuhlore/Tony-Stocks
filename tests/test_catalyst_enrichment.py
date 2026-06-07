@@ -115,6 +115,25 @@ class TestEarningsBlackout:
         tags = build_catalyst_tags("AAPL", today=_TODAY)
         assert tags.upcoming_earnings_date is None
 
+    def test_blackout_days_zero_only_today(self):
+        """blackout_days=0 → only earnings today triggers blackout."""
+        today_tags = build_catalyst_tags(
+            "AAPL", earnings_date=_TODAY, today=_TODAY, blackout_days=0
+        )
+        tomorrow_tags = build_catalyst_tags(
+            "AAPL", earnings_date=date(2026, 6, 7), today=_TODAY, blackout_days=0
+        )
+        assert today_tags.earnings_blackout is True
+        assert tomorrow_tags.earnings_blackout is False
+
+    def test_malformed_iso_string_degrades_safely(self):
+        """A junk earnings_date string → no blackout, upcoming date None."""
+        tags = build_catalyst_tags(
+            "AAPL", earnings_date="not-a-date", today=_TODAY, blackout_days=5
+        )
+        assert tags.earnings_blackout is False
+        assert tags.upcoming_earnings_date is None
+
 
 # ---------------------------------------------------------------------------
 # analyst_rec_trend
@@ -193,12 +212,33 @@ class TestAnalystRecTrend:
         assert tags.analyst_rec_trend == "up"
 
     def test_empty_dicts_treated_as_flat(self):
-        """Empty dicts → net=0 for both → flat."""
+        """Empty dicts → no data → flat."""
         tags = build_catalyst_tags(
             "AAPL",
             today=_TODAY,
             recommendation_now={},
             recommendation_prev={},
+        )
+        assert tags.analyst_rec_trend == "flat"
+
+    def test_empty_dict_vs_populated_is_flat(self):
+        """An empty dict means 'no data', not an all-zero neutral reading,
+        so it degrades to flat even against a populated previous snapshot."""
+        tags = build_catalyst_tags(
+            "AAPL",
+            today=_TODAY,
+            recommendation_now={},
+            recommendation_prev=_REC_A,
+        )
+        assert tags.analyst_rec_trend == "flat"
+
+    def test_malformed_rec_dict_degrades_to_flat(self):
+        """Non-numeric counts → safe-default to flat (no crash)."""
+        tags = build_catalyst_tags(
+            "AAPL",
+            today=_TODAY,
+            recommendation_now={"strongBuy": "garbage", "buy": None},
+            recommendation_prev=_REC_A,
         )
         assert tags.analyst_rec_trend == "flat"
 

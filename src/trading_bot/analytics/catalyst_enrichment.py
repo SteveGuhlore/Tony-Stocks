@@ -32,10 +32,11 @@ def _rec_net(rec: dict[str, Any] | None) -> int | None:
 
     net = strongBuy*2 + buy - sell - strongSell*2
 
-    Returns None when the dict is missing; returns 0 for an empty dict
-    (all counts default to 0).
+    Returns None when there is no usable snapshot — a missing (``None``) or
+    empty dict both mean "no data" and degrade the trend to ``"flat"`` rather
+    than being treated as an all-zero "neutral" reading.
     """
-    if rec is None:
+    if not rec:  # None or empty dict → no data
         return None
     try:
         strong_buy = int(rec.get("strongBuy", 0) or 0)
