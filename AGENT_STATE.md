@@ -6,6 +6,48 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-08 handoff — churn guard + CC sliver fix DEPLOYED; 59 naked positions still OPEN
+
+**Branch for this work:** `claude/gracious-curie-fSsVN`, fast-forwarded into `main` (bot) at/after `aa76453`.
+Picking up on another device: `git fetch origin main && git checkout main && git pull`.
+
+### DONE + DEPLOYED to the VM this session
+- **Same-day re-entry guard (bot).** `config: block_same_day_reentry: true`; enforced in
+  `order_router.py` (`state.exited_today` -> `"no same-day re-entry: {sym} already exited today"`),
+  `paper_config.py`, `paper_engine.py`, `repositories.py` (symbols-closed-today). Tests green
+  (`test_order_router.py`, `test_paper_engine.py`, 34 passed). `max_notional_per_position` reverted to 1000.
+- **Deployed to VM live** by surgical overlay (the VM working tree is corrupted — see below), then
+  `sudo systemctl restart tradingbot-watch` (pid changed, `Environment=PYTHONPATH=src`, reads `src/` live).
+- **CC fractional-sliver fix** pulled to `/opt/command-center` `5f09384` ("auto-liquidate un-bracketable
+  fractional slivers"), `cc-runner` restarted, dashboard HTTP 200.
+
+### NOT FIXED — the actual emergency: 59 naked positions (no stop-loss)
+Cross-account Alpaca audit (2026-06-08 ~20:35):
+- **Bot `PA3P0RN75VL1`: 43 positions, 7 protected, 36 NAKED.**
+- **CC  `PA30334APT6O`: 50 positions, 27 protected, 23 NAKED.**
+Root cause: each naked name has a take-profit *limit* sell holding the full qty, so Alpaca rejects any new
+stop with `40310000` (`held_for_orders`). The watch can never attach a stop. Fix = cancel the holding order,
+then re-submit OCO at stored levels.
+- **Fix written & pushed (ready to run, NOT yet executed):** `scripts/reprotect_naked.py` — dry-run by
+  default, `--execute` to fire. Bot account only (uses bot DB stored stop/target). Naked names with no stored
+  levels are skipped/reported — decide a fallback for those.
+  - `PYTHONPATH=src .venv/bin/python scripts/reprotect_naked.py --config config/default_config.yaml` (plan)
+  - add `--execute` to place orders.
+- **CC's 23 naked** must be re-protected by the CC's own tooling (separate account/system), not this script.
+
+### Original ask still pending: trim oversized legacy positions to 1%
+`scripts/trim_legacy_positions.py --execute` (dry-run first). Do re-protect FIRST — trimming a naked
+position leaves the remainder naked. (Operator chose "re-protect first".)
+
+### VM cleanup debt (do later, not blocking)
+- `/opt/trading-bot` is on `feat/kinetic-dashboard` with a **corrupted working tree**: committed files deleted
+  outside git (e.g. `api/routes/cockpit.py` -> API tests `ImportError`), root-owned leftovers (fixed via
+  `sudo chown -R alynx066 /opt/trading-bot`), guard files staged-but-uncommitted, stray `?? C:/`,
+  `full_audit.py`, `tony_size_audit.py`. Needs a clean reconcile onto `main` (preserve live dashboard edits).
+- VM has no bare `python` — use `.venv/bin/python`. `tradingbot-watch` runs as `alynx066`.
+
+---
+
 ## 2026-06-07 handoff — Kinetic Tape dashboard: DESIGN LOCKED + Codex-APPROVED, build STARTED
 
 **Branch:** `feat/kinetic-dashboard` (off `main`; legacy frontend tagged `dashboard-web-legacy`).
