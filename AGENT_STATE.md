@@ -6,7 +6,7 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
-## 2026-06-08 handoff — churn guard + CC sliver fix DEPLOYED; 59 naked positions still OPEN
+## 2026-06-08 handoff — churn guard + CC sliver fix DEPLOYED; BOT re-protected (0 naked); CC still 22 naked
 
 **Branch for this work:** `claude/gracious-curie-fSsVN`, fast-forwarded into `main` (bot) at/after `aa76453`.
 Picking up on another device: `git fetch origin main && git checkout main && git pull`.
@@ -21,19 +21,20 @@ Picking up on another device: `git fetch origin main && git checkout main && git
 - **CC fractional-sliver fix** pulled to `/opt/command-center` `5f09384` ("auto-liquidate un-bracketable
   fractional slivers"), `cc-runner` restarted, dashboard HTTP 200.
 
-### NOT FIXED — the actual emergency: 59 naked positions (no stop-loss)
-Cross-account Alpaca audit (2026-06-08 ~20:35):
-- **Bot `PA3P0RN75VL1`: 43 positions, 7 protected, 36 NAKED.**
-- **CC  `PA30334APT6O`: 50 positions, 27 protected, 23 NAKED.**
+### Naked positions (no stop-loss) — BOT FIXED, CC STILL OPEN
 Root cause: each naked name has a take-profit *limit* sell holding the full qty, so Alpaca rejects any new
-stop with `40310000` (`held_for_orders`). The watch can never attach a stop. Fix = cancel the holding order,
-then re-submit OCO at stored levels.
-- **Fix written & pushed (ready to run, NOT yet executed):** `scripts/reprotect_naked.py` — dry-run by
-  default, `--execute` to fire. Bot account only (uses bot DB stored stop/target). Naked names with no stored
-  levels are skipped/reported — decide a fallback for those.
-  - `PYTHONPATH=src .venv/bin/python scripts/reprotect_naked.py --config config/default_config.yaml` (plan)
-  - add `--execute` to place orders.
-- **CC's 23 naked** must be re-protected by the CC's own tooling (separate account/system), not this script.
+stop with `40310000` (`held_for_orders`). Fix = cancel the holding order, then re-submit OCO at stored levels.
+- **BOT `PA3P0RN75VL1`: DONE — 43/43 protected, 0 naked** (was 36 naked). Ran
+  `scripts/reprotect_naked.py --execute` 2026-06-08 ~20:46; all 43 re-OCO'd at stored stop/target, 0 errors.
+  NOTE: `_has_stop` must check for a real SELL *stop* (stop_price / stop type), NOT order_class — an orphaned
+  take-profit limit still reports order_class=oco/bracket. Fixed in commit `0368de7`.
+- **CC `PA30334APT6O`: STILL 22 NAKED** (was 23). Will NOT self-heal: `ea21857` only liquidates fractional
+  slivers, not round-lot re-protect. Needs a **CC-side re-protect** mirroring `reprotect_naked.py` against the
+  CC ledger/broker (`runner/ledger/alpaca_paper.py`, repo `steveguhlore/ai-operations-command-center`; broker
+  via `_alpaca_broker()`, has `.open_orders()`). Naked list: ALLY AMD C CCL CRM ET FLEX FRSH GM HAL HBAN HOOD
+  INVH KDP KO LUV LYFT MRK SNAP TFC USB WULF.
+- **Minor:** `cc-runner` logs `bot_equity fetch: Connection refused` — CC can't reach `tradingbot-api`
+  (port/listener after restart). Not protection-critical; check later.
 
 ### Original ask still pending: trim oversized legacy positions to 1%
 `scripts/trim_legacy_positions.py --execute` (dry-run first). Do re-protect FIRST — trimming a naked
