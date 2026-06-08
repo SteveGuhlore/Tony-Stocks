@@ -20,6 +20,7 @@ class PortfolioState:
     open_symbols: frozenset[str] = frozenset()
     open_positions: int = 0
     orders_today: int = 0
+    exited_today: frozenset[str] = frozenset()  # symbols already closed today (no same-day re-entry)
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,8 @@ def should_trade(
         return OrderDecision(False, 0, "market closed")
     if sym in {str(s).upper() for s in state.open_symbols}:
         return OrderDecision(False, 0, f"duplicate: already an open position for {sym}")
+    if config.block_same_day_reentry and sym in {str(s).upper() for s in state.exited_today}:
+        return OrderDecision(False, 0, f"no same-day re-entry: {sym} already exited today")
     if state.open_positions >= config.max_open_positions:
         return OrderDecision(False, 0, f"max_open_positions reached ({config.max_open_positions})")
     if state.orders_today >= config.max_daily_orders:

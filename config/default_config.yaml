@@ -264,15 +264,20 @@ paper_trading:
   enabled: true
   risk_per_trade_pct: 1.0          # % of paper equity risked per trade (entry->stop distance)
   max_open_positions: 50
-  max_notional_per_position: 1000   # 1% of the bot's $100k paper account. NEW entries only —
-                                    # existing $5k-sized positions run off until target/stop/close.
-                                    # PARITY: CC ($1M) should use 10000 (1% of $1M). See docs/CONTRACTS/execution-parity.md.
+  max_notional_per_position: 10000  # 1% notional cap per NEW entry. MUST track the live account:
+                                    # ~$1M account -> 10000 (1%); a $100k account -> 1000 (1%).
+                                    # A stale 1000 on a $1M account throttles every entry to 0.1%.
+                                    # NOTE: loaded once at watch startup — a RESTART is required for a
+                                    # change here to take effect. See docs/CONTRACTS/execution-parity.md.
   max_daily_orders: 200
   bracket: true                    # entry + stop + target as one bracket
   time_in_force: gtc               # GTC so stop/target protection PERSISTS overnight.
                                    # Entry is a market order (fills at trigger, never rests),
                                    # so "day" would only expire the protective legs at the
                                    # close, leaving positions unprotected. See paper_config.py.
+  block_same_day_reentry: true     # do NOT re-buy a symbol the same day it was exited (esp. after a
+                                   # stop-out). Without this the duplicate gate releases on close and
+                                   # the next cycle re-enters the loser -> loss-churn. See order_router.py.
   gate_on_command_center: false    # trade on Tony's trigger; do not wait for CC verdict
   close_on_command_center_exit: false  # PURE SEPARATION: bot trades its own picks/exits only.
                                        # Tony's verdicts are NOT acted on the bot's book; they are

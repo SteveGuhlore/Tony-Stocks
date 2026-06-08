@@ -43,6 +43,10 @@ class PaperTradingConfig:
     time_in_force: str = "gtc"
     gate_on_command_center: bool = False
     close_on_command_center_exit: bool = True
+    # Block re-buying a symbol the same day it was already exited (esp. after a stop-out).
+    # The duplicate gate only blocks CURRENTLY-open names; without this, a stop fill closes
+    # the position and the next cycle immediately re-enters the loser. Default on.
+    block_same_day_reentry: bool = True
     account_label: str = "tony"
     base_url: str = PAPER_BASE_URL
     disabled_reason: str | None = None
@@ -109,6 +113,9 @@ def load_paper_trading_config(raw: dict[str, Any] | None) -> PaperTradingConfig:
         "gate_on_command_center": bool(data.get("gate_on_command_center", False)),
         "close_on_command_center_exit": bool(
             data.get("close_on_command_center_exit", defaults.close_on_command_center_exit)
+        ),
+        "block_same_day_reentry": bool(
+            data.get("block_same_day_reentry", defaults.block_same_day_reentry)
         ),
         "account_label": str(data.get("account_label", defaults.account_label)),
         "base_url": base_url,

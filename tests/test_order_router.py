@@ -100,6 +100,28 @@ class TestShouldTrade:
         d = should_trade(**self._ok_args(symbol="zeta", state=_state(open_symbols=frozenset({"ZETA"}))))
         assert d.approved is False
 
+    def test_same_day_reentry_rejects(self):
+        # Stop-out -> position closed -> NOT in open_symbols, but in exited_today: block re-buy.
+        d = should_trade(**self._ok_args(state=_state(exited_today=frozenset({"ZETA"}))))
+        assert d.approved is False
+        assert "re-entry" in d.reason.lower()
+        assert d.quantity == 0
+
+    def test_same_day_reentry_check_is_case_insensitive(self):
+        d = should_trade(**self._ok_args(symbol="zeta", state=_state(exited_today=frozenset({"ZETA"}))))
+        assert d.approved is False
+
+    def test_same_day_reentry_allowed_when_disabled(self):
+        d = should_trade(**self._ok_args(
+            state=_state(exited_today=frozenset({"ZETA"})),
+            config=_cfg(block_same_day_reentry=False),
+        ))
+        assert d.approved is True
+
+    def test_exited_today_does_not_block_other_symbols(self):
+        d = should_trade(**self._ok_args(symbol="ZETA", state=_state(exited_today=frozenset({"AAPL"}))))
+        assert d.approved is True
+
     def test_max_open_positions_rejects(self):
         d = should_trade(**self._ok_args(state=_state(open_positions=8), config=_cfg(max_open_positions=8)))
         assert d.approved is False

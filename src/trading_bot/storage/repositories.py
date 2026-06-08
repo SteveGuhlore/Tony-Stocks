@@ -979,6 +979,21 @@ class ScannerRepository:
             ).fetchall()
             return {str(row[0]).upper() for row in rows}
 
+    def symbols_closed_today(self, *, account_label: str, day: str) -> set[str]:
+        """Symbols with a paper position CLOSED on ``day`` (ET YYYY-MM-DD, by closed_at).
+
+        Used by the re-entry guard so the bot does not immediately re-buy a name it
+        just exited the same day (e.g. right after a stop fill is reconciled closed).
+        """
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT symbol FROM paper_positions "
+                "WHERE account_label = ? AND status = 'closed' "
+                "AND substr(COALESCE(closed_at, ''), 1, 10) = ?",
+                (account_label, day),
+            ).fetchall()
+            return {str(row[0]).upper() for row in rows}
+
     def list_paper_positions(self, *, account_label: str | None = None, limit: int = 500) -> list[dict[str, Any]]:
         with connect(self.database_path) as conn:
             if account_label is None:

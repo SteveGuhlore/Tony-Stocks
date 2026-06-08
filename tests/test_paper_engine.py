@@ -102,6 +102,31 @@ class TestReconciliation:
         assert summary["reconciled"] == []
 
 
+class TestSameDayReentry:
+    """The DAL bug: stop fills -> position closed -> bot must NOT re-buy it same day."""
+
+    def test_stopped_out_pick_is_not_rebought_same_day(self, repo):
+        b = FakeBroker()
+        _cycle(b, repo, _cfg(), triggered_picks=[_pick(entry=100.0, target=115.0, stop=95.0)])
+        b.simulate_price("ZETA", 94.0)            # stop fills at the broker
+        stop_cycle = _cycle(b, repo, _cfg())       # reconcile -> closed stop_hit
+        assert stop_cycle["reconciled"][0]["result"] == "stop_hit"
+        # Same day, the scanner re-presents ZETA (fresh plan). Must be rejected.
+        summary = _cycle(b, repo, _cfg(), triggered_picks=[_pick(entry=99.0, stop=94.0, target=120.0)])
+        assert summary["submitted"] == []
+        assert any("re-entry" in r["reason"].lower() for r in summary["rejected"])
+        assert repo.open_paper_position_symbols(account_label="tony") == set()
+
+    def test_reentry_allowed_when_flag_disabled(self, repo):
+        b = FakeBroker()
+        _cycle(b, repo, _cfg(), triggered_picks=[_pick(entry=100.0, target=115.0, stop=95.0)])
+        b.simulate_price("ZETA", 94.0)
+        _cycle(b, repo, _cfg())                     # closed stop_hit
+        summary = _cycle(b, repo, _cfg(block_same_day_reentry=False),
+                         triggered_picks=[_pick(entry=99.0, stop=94.0, target=120.0)])
+        assert summary["submitted"] and summary["submitted"][0]["symbol"] == "ZETA"
+
+
 class TestCommandCenterExit:
     def test_cc_exit_closes_open_position(self, repo):
         b = FakeBroker()

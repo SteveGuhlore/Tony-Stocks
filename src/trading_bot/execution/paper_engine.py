@@ -20,11 +20,13 @@ from trading_bot.execution.paper_config import PaperTradingConfig
 def _portfolio_state(broker: Broker, repo: Any, account_label: str, day: str) -> PortfolioState:
     account = broker.account()
     open_symbols = repo.open_paper_position_symbols(account_label=account_label)
+    exited_today = repo.symbols_closed_today(account_label=account_label, day=day)
     return PortfolioState(
         equity=account.equity,
         open_symbols=frozenset(open_symbols),
         open_positions=len(open_symbols),
         orders_today=repo.count_paper_orders_today(account_label=account_label, day=day),
+        exited_today=frozenset(exited_today),
     )
 
 
