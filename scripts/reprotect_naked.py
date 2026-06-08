@@ -37,15 +37,18 @@ def _open_orders(client, sym: str):
 
 
 def _has_stop(orders) -> bool:
-    """True if any open order on the symbol is a stop / OCO / bracket (real protection)."""
+    """True only if there's an open SELL order/leg with a real stop (stop_price or stop type).
+
+    Do NOT trust order_class: an orphaned take-profit limit left over from a broken
+    OCO/bracket still reports order_class=oco/bracket while holding the shares with
+    NO live stop leg. That is exactly the naked case we must fix, so check the actual
+    stop attributes — matching the cross-account audit.
+    """
     for o in orders:
-        oc = str(getattr(o, "order_class", "") or "").lower()
-        ot = str(getattr(o, "type", "") or "").lower()
-        if "oco" in oc or "bracket" in oc or "stop" in ot or getattr(o, "stop_price", None):
-            return True
-        for leg in (getattr(o, "legs", None) or []):
-            lt = str(getattr(leg, "type", "") or "").lower()
-            if "stop" in lt or getattr(leg, "stop_price", None):
+        for x in [o, *(getattr(o, "legs", None) or [])]:
+            side = str(getattr(x, "side", "") or "").lower()
+            otype = str(getattr(x, "type", "") or "").lower()
+            if side == "sell" and (getattr(x, "stop_price", None) or "stop" in otype):
                 return True
     return False
 
