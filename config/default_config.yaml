@@ -264,11 +264,13 @@ paper_trading:
   enabled: true
   risk_per_trade_pct: 1.0          # % of paper equity risked per trade (entry->stop distance)
   max_open_positions: 50
-  max_notional_per_position: 10000  # 1% notional cap per NEW entry. MUST track the live account:
-                                    # ~$1M account -> 10000 (1%); a $100k account -> 1000 (1%).
-                                    # A stale 1000 on a $1M account throttles every entry to 0.1%.
-                                    # NOTE: loaded once at watch startup — a RESTART is required for a
-                                    # change here to take effect. See docs/CONTRACTS/execution-parity.md.
+  max_notional_per_position: 1000   # 1% notional cap per NEW entry. MUST track live equity:
+                                    # this 'Trading Bot' account is ~$100k, so 1000 = ~1% (correct).
+                                    # (The separate CC/Tony $1M account uses 10000.) A wrong value
+                                    # here mis-sizes the whole book. Loaded once at watch startup —
+                                    # a RESTART is required for a change to take effect.
+                                    # KNOWN: legacy positions were sized at ~$5k (5%) under the old
+                                    # default cap and run off until target/stop; new entries are 1%.
   max_daily_orders: 200
   bracket: true                    # entry + stop + target as one bracket
   time_in_force: gtc               # GTC so stop/target protection PERSISTS overnight.
