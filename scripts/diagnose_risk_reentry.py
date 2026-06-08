@@ -43,7 +43,7 @@ def main() -> None:
 
     print(f"=== RISK / RE-ENTRY DIAGNOSIS  ({now_et:%Y-%m-%d %H:%M %Z}) ===")
     print(f"DB: {settings.database_path}   account_label={cfg.account_label!r}")
-    print(f"equity: {('$%,.0f' % eq) if eq else 'n/a'} ({eq_src})")
+    print(f"equity: {(f'${eq:,.0f}') if eq else 'n/a'} ({eq_src})")
     print(f"config: risk_per_trade_pct={cfg.risk_per_trade_pct}  "
           f"max_notional_per_position={cfg.max_notional_per_position}  "
           f"max_open_positions={cfg.max_open_positions}")
