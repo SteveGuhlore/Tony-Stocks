@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import time
 
 from trading_bot.settings import load_scanner_settings
 from trading_bot.storage.repositories import ScannerRepository
@@ -24,18 +25,32 @@ from trading_bot.storage.database import connect
 from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_config
 
 
-def _cancel_open_orders(client, sym: str) -> int:
+def _open_orders(client, sym: str):
     from alpaca.trading.enums import QueryOrderStatus
     from alpaca.trading.requests import GetOrdersRequest
     req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[sym], limit=100)
+    return list(client.get_orders(filter=req))
+
+
+def _cancel_open_orders(client, sym: str) -> int:
     n = 0
-    for o in client.get_orders(filter=req):
+    for o in _open_orders(client, sym):
         try:
             client.cancel_order_by_id(o.id)
             n += 1
         except Exception as exc:
             print(f"      WARN: could not cancel order {getattr(o, 'id', '?')} for {sym}: {exc}")
     return n
+
+
+def _wait_no_open_orders(client, sym: str, timeout: float = 6.0) -> bool:
+    """Cancel is async on Alpaca; poll until the shares are no longer held_for_orders."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not _open_orders(client, sym):
+            return True
+        time.sleep(0.4)
+    return not _open_orders(client, sym)
 
 
 def _reduce_position(client, sym: str, sell_qty: int) -> None:
@@ -112,6 +127,9 @@ def main() -> None:
               f"(stop={stop} target={target})")
         try:
             _cancel_open_orders(client, sym)
+            if not _wait_no_open_orders(client, sym):
+                print(f"      SKIP: {sym} still has open orders after cancel; leaving untouched")
+                continue
             _reduce_position(client, sym, sell_qty)
             if stop is not None and target is not None:
                 broker.submit_protection(symbol=sym, qty=target_qty,
