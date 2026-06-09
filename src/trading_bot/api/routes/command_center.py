@@ -185,12 +185,12 @@ def get_command_center(request: Request) -> CommandCenterResponse:
     reports_dir = Path(getattr(request.app.state, "reports_dir", "reports"))
     verdicts = _load_json(_verdicts_path(reports_dir))
     record_raw = _load_json(_record_path(reports_dir))
-    # Prefer the CC's own graded agreement; fall back to the bot-side Tony divergence
-    # ledger so the "does the 2nd pass help?" matrix populates from our teaching layer
-    # even before the CC writes its record file.
-    agreement = build_agreement(record_raw)
+    # Prefer the bot-side Tony divergence ledger (tony_teaching_log.json): it grades every
+    # verdict against the symbol's reviewed pick once resolved, so the "does the 2nd pass
+    # help?" matrix populates from real outcomes. Fall back to the CC's record-file tally.
+    agreement = build_agreement_from_teaching(_load_json(_teaching_path(reports_dir)))
     if agreement is None:
-        agreement = build_agreement_from_teaching(_load_json(_teaching_path(reports_dir)))
+        agreement = build_agreement(record_raw)
     return CommandCenterResponse(
         picks=build_picks(verdicts),
         record=build_record(record_raw),

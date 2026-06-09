@@ -163,34 +163,59 @@ def build_tony_divergence(
     One record per verdict. A verdict with no matching resolved outcome is ``pending``
     and is re-graded automatically on a later run once the outcome resolves.
     """
-    outcome_map: dict[tuple[str, str], dict[str, Any]] = {}
+    from collections import defaultdict  # noqa: PLC0415
+
+    # Outcomes per symbol, sorted by pick_date. A Tony verdict carries his REVIEW date, not
+    # the snapshot's pick_date, so an exact-date join never matches (every record would be a
+    # false "pending"). Instead, match a verdict to the pick it was reviewing: the symbol's
+    # latest outcome with pick_date <= the verdict date. It grades once that pick resolves.
+    by_symbol: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
     for o in outcomes or []:
         sym = str(o.get("symbol") or "").upper()
-        date = str(o.get("pick_date") or "")
-        if sym and date:
-            outcome_map[(sym, date)] = o
+        pd = str(o.get("pick_date") or "")
+        if sym and pd:
+            by_symbol[sym].append((pd, o))
+    for lst in by_symbol.values():
+        lst.sort(key=lambda x: x[0])
 
-    bot_map: dict[tuple[str, str], dict[str, Any]] = {}
+    def _match(sym: str, vdate: str) -> dict[str, Any] | None:
+        chosen: dict[str, Any] | None = None
+        for pd, o in by_symbol.get(sym, []):
+            if pd <= vdate:
+                chosen = o
+            else:
+                break
+        return chosen
+
+    bot_map: dict[str, dict[str, Any]] = {}
     for b in bot_picks or []:
         sym = str(b.get("symbol") or "").upper()
-        date = str(b.get("pick_date") or b.get("date") or "")
-        if sym and date:
-            bot_map[(sym, date)] = b
+        if sym:
+            bot_map[sym] = b
 
-    records: list[TeachingRecord] = []
+    # Latest verdict per symbol = Tony's current stance, so a daily-re-issued verdict isn't
+    # counted many times against the same outcome (one graded record per name).
+    latest_v: dict[str, dict[str, Any]] = {}
     for v in verdicts or []:
         sym = str(v.get("symbol") or "").upper()
-        date = str(v.get("date") or v.get("pick_date") or "")
-        if not sym or not date:
+        d = str(v.get("date") or v.get("pick_date") or "")
+        if not sym or not d:
             continue
+        prev = latest_v.get(sym)
+        if prev is None or d >= str(prev.get("date") or prev.get("pick_date") or ""):
+            latest_v[sym] = v
+
+    records: list[TeachingRecord] = []
+    for sym, v in latest_v.items():
+        date = str(v.get("date") or v.get("pick_date") or "")
         verdict = str(v.get("verdict") or "")
-        outcome = outcome_map.get((sym, date))
+        outcome = _match(sym, date)
         win = _outcome_is_win(outcome)
-        bot = bot_map.get((sym, date), {})
+        bot = bot_map.get(sym, {})
         records.append(TeachingRecord(
             pick_id=f"{sym}-{date}",
             symbol=sym,
-            pick_date=date,
+            pick_date=str(outcome.get("pick_date")) if outcome else date,
             verdict=verdict,
             tony_reasoning=str(v.get("thesis") or v.get("reasoning") or ""),
             bot_action=str(bot.get("action") or ""),

@@ -189,3 +189,32 @@ class TestPersistence:
         assert teaching_log_path() == tmp_path / "custom.json"
         monkeypatch.delenv("TONY_TEACHING_FILE")
         assert teaching_log_path().name == "tony_teaching_log.json"
+
+
+# --- regression: verdict REVIEW-date vs outcome PICK-date join (was all-pending) ---
+
+def test_join_grades_verdict_against_prior_pick_date():
+    """Verdicts carry Tony's REVIEW date; outcomes a (different, earlier) pick_date. The
+    join must match by symbol + latest pick on-or-before the verdict, not require equal
+    dates — a date-equality join falsely marked every verdict 'pending'."""
+    verdicts = [_verdict("AAPL", "2026-06-05", "reaffirm")]
+    outcomes = [{"symbol": "AAPL", "pick_date": "2026-05-18", "result": "target_hit", "return_pct": 9.0}]
+    rec = build_tony_divergence(verdicts, outcomes).records[0]
+    assert rec.classification == "agreed_right"  # reaffirm + a win
+    assert rec.result == "target_hit"
+    assert rec.pick_date == "2026-05-18"  # matched the reviewed pick
+
+
+def test_join_ignores_outcomes_after_the_verdict():
+    verdicts = [_verdict("MSFT", "2026-06-01", "reaffirm")]
+    outcomes = [{"symbol": "MSFT", "pick_date": "2026-06-10", "result": "target_hit"}]
+    assert build_tony_divergence(verdicts, outcomes).records[0].classification == "pending"
+
+
+def test_latest_verdict_per_symbol_graded_once():
+    verdicts = [_verdict("NVDA", "2026-06-01", "reaffirm"), _verdict("NVDA", "2026-06-05", "override")]
+    outcomes = [{"symbol": "NVDA", "pick_date": "2026-05-20", "result": "target_hit"}]
+    recs = build_tony_divergence(verdicts, outcomes).records
+    assert len(recs) == 1                                 # one record per symbol (latest stance)
+    assert recs[0].verdict == "override"
+    assert recs[0].classification == "cc_overrode_missed"  # overrode a winner -> missed
