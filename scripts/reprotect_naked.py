@@ -32,7 +32,11 @@ from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_
 def _open_orders(client, sym: str):
     from alpaca.trading.enums import QueryOrderStatus
     from alpaca.trading.requests import GetOrdersRequest
-    req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[sym], limit=100)
+    # nested=True is REQUIRED: an OCO's protective stop leg sits at status="held" and is
+    # NOT returned by a flat status=open query — it only appears rolled up under its parent's
+    # .legs. Without this the audit is blind to every held stop and reports a fully-protected
+    # OCO as naked (then cancels a working stop to "fix" it). _has_stop already reads o.legs.
+    req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[sym], limit=100, nested=True)
     return list(client.get_orders(filter=req))
 
 
