@@ -22,39 +22,47 @@ DRY-RUN by default (read-only — safe during market hours). Add --execute to fi
 from __future__ import annotations
 
 import argparse
+import json
 import time
+import urllib.request
 
 from trading_bot.settings import load_scanner_settings
 from trading_bot.storage.repositories import ScannerRepository
 from trading_bot.execution import build_alpaca_paper_broker, load_paper_trading_config
 
+_PAPER_REST = "https://paper-api.alpaca.markets"
+
+
+def _protected_symbols(key: str, secret: str) -> set[str]:
+    """Symbols with a LIVE protective stop, via raw REST ``nested=true``.
+
+    Ground truth for naked detection. An OCO's stop leg sits at status="held" and is NOT
+    returned by a flat status=open query — it only appears rolled up under its parent's
+    ``legs`` when ``nested=true``. The alpaca-py GetOrdersRequest in this SDK build drops
+    the nested flag, so we read the REST endpoint directly (identical logic to
+    preflight_check.sh's cross-account audit). A symbol is protected iff it has an open
+    SELL order/leg carrying a real stop_price (or a stop-type)."""
+    url = f"{_PAPER_REST}/v2/orders?status=open&limit=500&nested=true"
+    req = urllib.request.Request(url, headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
+    with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 - fixed paper host
+        orders = json.load(r)
+    out: set[str] = set()
+    for o in orders:
+        for x in [o, *(o.get("legs") or [])]:
+            if x.get("side") == "sell" and (x.get("stop_price") or "stop" in str(x.get("type", "")).lower()):
+                out.add(str(x.get("symbol") or "").upper())
+    return out
+
 
 def _open_orders(client, sym: str):
+    # Used only to drain a symbol's orders before re-OCO (the cancelable take-profit is
+    # status=open and visible here). Naked DETECTION does not use this — it uses the
+    # raw-REST nested call in _protected_symbols, because held stop legs aren't returned
+    # by a flat status=open query and this SDK build drops the nested flag.
     from alpaca.trading.enums import QueryOrderStatus
     from alpaca.trading.requests import GetOrdersRequest
-    # nested=True is REQUIRED: an OCO's protective stop leg sits at status="held" and is
-    # NOT returned by a flat status=open query — it only appears rolled up under its parent's
-    # .legs. Without this the audit is blind to every held stop and reports a fully-protected
-    # OCO as naked (then cancels a working stop to "fix" it). _has_stop already reads o.legs.
-    req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[sym], limit=100, nested=True)
+    req = GetOrdersRequest(status=QueryOrderStatus.OPEN, symbols=[sym], limit=100)
     return list(client.get_orders(filter=req))
-
-
-def _has_stop(orders) -> bool:
-    """True only if there's an open SELL order/leg with a real stop (stop_price or stop type).
-
-    Do NOT trust order_class: an orphaned take-profit limit left over from a broken
-    OCO/bracket still reports order_class=oco/bracket while holding the shares with
-    NO live stop leg. That is exactly the naked case we must fix, so check the actual
-    stop attributes — matching the cross-account audit.
-    """
-    for o in orders:
-        for x in [o, *(getattr(o, "legs", None) or [])]:
-            side = str(getattr(x, "side", "") or "").lower()
-            otype = str(getattr(x, "type", "") or "").lower()
-            if side == "sell" and (getattr(x, "stop_price", None) or "stop" in otype):
-                return True
-    return False
 
 
 def _cancel_open_orders(client, sym: str) -> int:
@@ -89,6 +97,7 @@ def main() -> None:
     repo = ScannerRepository(settings.database_path)
     broker = build_alpaca_paper_broker(cfg)
     client = broker._client  # direct client for order list + cancel
+    protected = _protected_symbols(broker.api_key, broker.secret_key)  # raw-REST nested ground truth
 
     # bot's intended stop/target per open symbol (re-protection levels)
     levels = {
@@ -107,9 +116,9 @@ def main() -> None:
         if p.qty <= 0:
             continue
         sym = p.symbol.upper()
-        if _has_stop(_open_orders(client, sym)):
+        if sym in protected:
             already_ok += 1
-            continue  # already protected — leave it
+            continue  # already protected (live stop leg) — leave it
         stop, target = levels.get(sym, (None, None))
         if stop is None or target is None:
             no_levels.append(sym)
