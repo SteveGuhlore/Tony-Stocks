@@ -38,6 +38,39 @@ shows in `systemctl --failed`. Manual re-run already patched 06-09 (Tony has tod
   Flipping it on + verifying `learning_facts` flow into morning prep is the second-half "both consumers" task.
 - Learning is **read-only on trading** by design — it sharpens verdicts/prep, never auto-edits risk/config.
 
+### Dashboard (kinetic, on the VM via tailscale) — readable now, 1 view left
+- **Phone access fixed:** front-end was built with empty `NEXT_PUBLIC_API_URL` -> `new URL("")` threw
+  ("Cannot reach the API at ."). Fixed: built committed dashboard with
+  `NEXT_PUBLIC_API_URL=https://trading-stack.tail0ae2dc.ts.net:8443` (tailscale serves UI `/`→:3000,
+  `/api`→:8001 same-origin). The incomplete kinetic REWRITE (app/ pages importing
+  components/board,charts,overlays,paper,morning + lib/hooks that were never created) is **git-stashed**
+  ("incomplete kinetic-dashboard rewrite WIP", `git stash pop` to resume) — it does NOT build; the committed
+  one-page Cockpit does.
+- **Stale-mapping fixes (front-end read shapes drifted from the live API):**
+  - System view: read nested `/api/system/health` (`watch.{status,cycles_completed,last_heartbeat_at,
+    api_requests}`, `last_scan_run`, snapshot/warning counts). DONE — tiles + footer populate.
+  - Paper Book EQUITY: computed mark-to-market in the view (`base_equity` from curve + realized + open P/L);
+    `/paper/positions` transform sets equity:null. DONE.
+- **Realized-P&L bug (backend, important):** live Alpaca `closed_positions()` returns `realized_pl=None`, so
+  `reconcile_closed` stored 0 P&L on every exit -> paper book showed $0 realized, head-to-head blank. FIXED:
+  `paper_engine._realized_pl` computes `(exit-entry)*qty` on close (+ `scripts/backfill_realized_pl.py` for
+  rows closed before the fix; operator ran it → REALIZED now ~-$3k of pre-guard churn). Commit `00b2060`.
+- **STILL EMPTY — Track Record (the one real feature gap, NOT a mapping):** view reads `/api/command-center`
+  expecting `bot_win_rate/tony_win_rate/bot_avg_r/tony_avg_r/equity_bot/equity_tony/agreement/by_setup`, but
+  that endpoint now returns `picks` (Tony's verdicts). The record/comparison data isn't served anywhere.
+  Needs a backend aggregation (both paper accounts' closed-trade win-rate/avg-R + divergence teaching log
+  `agreed_right/wrong/tony_saved/missed` + both equity curves) then repoint the view. ~half-day feature.
+
+### Remaining queue (all logged; tackle off the marathon)
+1. **Track Record** backend aggregation (above).
+2. **VM git reconcile** onto `main` (after close) — see below.
+3. **off_hours bot-prep learning** — flip `off_hours.enabled` + verify `learning_facts` reach morning prep.
+4. **Fail-quiet hardening** — apply the loud+health pattern (done for `learn`) to the off-hours/bridge sinks.
+5. **CC's 22 naked** — self-heals via `sync()`; manual CC-side sweep optional.
+- Dashboard rebuild ritual: `git fetch origin main && git checkout origin/main -- dashboard-web/<files>` then
+  `cd dashboard-web && npm run build && sudo systemctl restart tradingbot-web` (`.env.production.local` holds
+  the API URL; keep the rewrite stashed or the build breaks).
+
 ### Root-cause win: the `cockpit` ImportError
 `/opt/trading-bot` working tree had `src/trading_bot/api/routes/cockpit.py` (+controls/personalize/env_fence)
 DELETED -> `tradingbot-api` crash-looped (`ImportError: cannot import name 'cockpit'`) -> nothing on `:8001`.
