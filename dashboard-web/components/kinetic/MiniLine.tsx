@@ -10,10 +10,12 @@ export function MiniLine({
   series,
   height = 120,
   baseline = null,
+  yUnit = "value",
 }: {
   series: { points: EquityPoint[]; color: string; label: string }[]
   height?: number
   baseline?: number | null
+  yUnit?: "value" | "return"
 }) {
   const all = series.flatMap((s) => s.points.map((p) => p.equity))
   if (all.length < 2) {
@@ -37,6 +39,10 @@ export function MiniLine({
   const yOf = (v: number) => padT + plotH - ((v - min) / rg) * plotH
   const fmt = (v: number) =>
     Math.abs(v) >= 1000 ? v.toFixed(0) : Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)
+  const labelOf = (v: number) =>
+    yUnit === "return" && baseline != null
+      ? `${v - baseline > 0 ? "+" : ""}${(v - baseline).toFixed(1)}%`
+      : fmt(v)
 
   const ticks: { v: number; base: boolean }[] = [{ v: max, base: false }]
   if (baseline != null && baseline > min && baseline < max) ticks.push({ v: baseline, base: true })
@@ -57,7 +63,7 @@ export function MiniLine({
               color: t.base ? "var(--mut)" : "var(--dim)",
             }}
           >
-            {fmt(t.v)}
+            {labelOf(t.v)}
           </span>
         ))}
       </div>
