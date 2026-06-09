@@ -4386,15 +4386,24 @@ def run_paper_flatten(args: argparse.Namespace) -> dict[str, Any]:
     except Exception as exc:
         print(f"Could not build broker to flatten ({exc}).")
         return {"flattened": 0, "error": str(exc)}
+    from trading_bot.execution.paper_engine import _latest_close_records, _realized_pl  # noqa: PLC0415
+
     flattened = 0
     for r in open_rows:
         sym = str(r["symbol"]).upper()
         try:
-            broker.close_position(sym)
-            record = next((c for c in broker.closed_positions() if c["symbol"].upper() == sym), {})
+            if broker.close_position(sym) is None:
+                # Live broker returns None on any close failure. Closing the repo row
+                # anyway would leave a REAL open position with nothing tracking it.
+                print(f"  failed to flatten {sym}: broker refused the close; row left open (re-run to retry)")
+                continue
+            record = _latest_close_records(broker).get(sym, {})
+            realized = record.get("realized_pl")
+            if realized is None:  # live broker reports no P&L — compute from entry + exit fill
+                realized = _realized_pl(r, record.get("exit"))
             repo.close_paper_position(
                 sym, account_label=cfg.account_label, result="closed",
-                exit_price=record.get("exit"), realized_pl=record.get("realized_pl"),
+                exit_price=record.get("exit"), realized_pl=realized,
                 closed_at=utc_now_iso(),
             )
             flattened += 1
