@@ -1,10 +1,23 @@
 # Trading Bot Project — Roadmap
 
-_Last updated: 2026-06-06_
+_Last updated: 2026-06-09_
 
 ---
 
 ## Planned — next sessions
+
+- ⏳ **TODO — Track Record equity chart: honest time axis + no dropped trading hours.**
+  The bot-vs-Tony equity-compare chart (`GET /api/paper/equity-compare`, 1W/1H) plots by bar-index
+  (weekends compress — fine, standard for intraday), but two real issues remain:
+  (a) only 3 x-axis labels *sample* the range, so a present-but-unlabeled day (e.g. 6/8) reads as
+  "missing"; and (b) `align_common` **intersects** the two accounts' timestamps, so if one account
+  lacks a bar (Tony's CC account pre-funding, or a missing morning) those trading hours get DROPPED
+  from BOTH lines. Fix: keep the **union** of timestamps (forward-fill the account missing a bar so
+  neither line loses real hours), and add more / time-proportional x-axis ticks (or a true wall-clock
+  axis with visible session breaks). Files: `analytics/equity_compare.py` (`align_common`),
+  `dashboard-web/components/kinetic/MiniLine.tsx` (x-axis), `components/views/TrackRecordView.tsx`.
+  Context: 2026-06-09 session shipped the endpoint + %-axis + crosshair + hourly + the divergence join
+  fix + section explainers; this is the remaining polish.
 
 - ✅ **DONE (2026-06-06) — Off-Hours Research Engine (Tasks 1–12, complete).** Read-only inverse
   watch loop (`off-hours-watch` CLI) + one-shot `off-hours-prep` CLI that assembles a ranked,
