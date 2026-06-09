@@ -46,10 +46,28 @@ class KnowledgeBase:
                 "items": [i.to_dict() for i in self.items]}
 
 
+_ITEM_DEFAULTS: dict[str, Any] = {
+    "claim": "", "status": "emerging", "win_rate": None, "sample_size": 0,
+    "confidence": "insufficient", "first_seen": "", "last_updated": "",
+    "trend": "flat", "history": [],
+}
+
+
 def knowledge_from_dict(data: dict[str, Any] | None) -> KnowledgeBase:
-    data = data or {}
-    items = [KnowledgeItem(**{**it, "history": it.get("history", [])})
-             for it in data.get("items", [])]
+    """Rehydrate the running knowledge from its persisted JSON. Tolerant by design:
+    this reads LAST night's file, so it must survive schema drift (a field we added
+    since it was written) and a partially-corrupt row without killing tonight's whole
+    learning run. An item with no ``key`` is unusable and dropped; missing fields fall
+    back to defaults; unknown fields are ignored."""
+    data = data if isinstance(data, dict) else {}
+    items: list[KnowledgeItem] = []
+    for it in data.get("items", []) or []:
+        if not isinstance(it, dict) or not it.get("key"):
+            continue
+        fields = {k: it.get(k, default) for k, default in _ITEM_DEFAULTS.items()}
+        history = fields["history"]
+        fields["history"] = history if isinstance(history, list) else []
+        items.append(KnowledgeItem(key=str(it["key"]), **fields))
     return KnowledgeBase(items=items, as_of=str(data.get("as_of") or ""))
 
 

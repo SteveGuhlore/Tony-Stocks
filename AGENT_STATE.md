@@ -50,10 +50,26 @@ query params.
 
 **Local suite: clean** (sandbox quarantine: 12 API test files + backtest_cli (yfinance) +
 1 alpaca-py-bound submit-bracket test — all dep-missing-only; they run on the VM/Windows).
+**Learning/training loop hardened too (data-integrity tier).** Extended the same
+error/edge sweep to the nightly learner:
+- **BUG (forward-compat crash):** `knowledge_from_dict` did `KnowledgeItem(**it)`, so reading
+  LAST night's saved knowledge JSON crashed with `TypeError` the moment a field was missing —
+  exactly what happens after we add a `KnowledgeItem` field and then read a file written by the
+  prior build. A crash there kills the *whole* nightly run and loses tonight's grading. Now it
+  degrades: drops a row with no `key`, defaults missing fields, ignores unknown ones (proven:
+  old code `TypeError`, new code returns an emerging item).
+- The pure dimension code (`nightly_learning`) was already robust to junk rows — the existing
+  `_to_float`/`_outcome_is_win`/`entry==stop` guards held; new tests pin that contract (junk
+  rows, NaN returns, zero-risk R, non-numeric scores, unknown sectors, bad closed-paper fold-in)
+  so a future refactor can't silently regress it. No production bug there.
+- Tests: `test_learning_knowledge` (+6 corrupt-prior-file cases), `test_nightly_learning` (+5
+  junk-row cases). Full learning suite: 89 passed.
+
 **VM deploy needed:** the fixes are in `paper_engine.py`, `alpaca_paper.py`,
-`order_router.py`, `cc_verdicts.py`, `equity_compare.py`, `api/routes/paper.py` — pull on
-the VM + restart `tradingbot-api`/`tradingbot-watch` per the deploy ritual (no dashboard
-rebuild needed; no schema changes). Then run the full suite there (fastapi/alpaca present).
+`order_router.py`, `cc_verdicts.py`, `equity_compare.py`, `api/routes/paper.py`,
+`analytics/learning_knowledge.py`, `cli.py` — pull on the VM + restart
+`tradingbot-api`/`tradingbot-watch` per the deploy ritual (no dashboard rebuild needed; no
+schema changes). Then run the full suite there (fastapi/alpaca present).
 
 ---
 

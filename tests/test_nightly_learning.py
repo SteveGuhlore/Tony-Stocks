@@ -180,3 +180,61 @@ def test_build_nightly_facts_empty_is_safe():
     facts = build_nightly_facts([], None, None, None, as_of="2026-06-04")
     assert facts.summary["trades"] == 0
     assert all(d.confidence == "insufficient" for d in facts.dimensions)
+
+
+# --- error/edge: junk outcome rows must degrade, never crash the nightly run ----- #
+# The outcomes spine comes from the DB and the bot's own closed book — a single
+# malformed row (string score, NaN return, missing keys) must not abort grading.
+
+def _junk_rows():
+    return [
+        {},                                                        # totally empty
+        {"symbol": "AAA"},                                         # no result/score
+        {"symbol": "BBB", "result": "target_hit", "return_pct": "n/a", "total_score": "high"},
+        {"symbol": "CCC", "result": "stop_hit", "return_pct": float("nan"), "total_score": None},
+        {"symbol": "DDD", "result": "closed", "return_pct": 4.0, "total_score": 75,
+         "setup_category": "Momentum / Buy", "entry": 100, "stop": 100, "exit": 110},  # entry==stop
+    ]
+
+
+def test_build_nightly_facts_survives_junk_rows():
+    facts = build_nightly_facts(_junk_rows(), None, None, None, as_of="2026-06-09")
+    d = facts.to_dict()
+    assert d["as_of"] == "2026-06-09"
+    assert len(facts.dimensions) == 9                 # every dimension still assembled
+    assert facts.summary["trades"] >= 0               # no crash computing the summary
+
+
+def test_r_multiple_zero_risk_row_is_dropped_not_divided_by_zero():
+    # entry == stop would be a divide-by-zero in the R calc; it must yield None and drop.
+    dim = dim_r_multiple([
+        {"result": "target_hit", "entry": 100, "stop": 100, "exit": 110},   # zero risk -> dropped
+        {"result": "target_hit", "entry": 100, "stop": 95, "exit": 115},    # +3R kept
+        {"result": "stop_hit", "entry": 100, "stop": 95, "exit": 95},       # -1R kept
+    ])
+    assert dim.rows[0]["n"] == 2                       # the zero-risk row excluded
+
+
+def test_score_calibration_ignores_non_numeric_scores():
+    rows = [_o(f"S{i}", "target_hit", 5) | {"total_score": s}
+            for i, s in enumerate(["high", None, "", float("nan")])]
+    dim = dim_score_calibration(rows)
+    assert dim.rows == [] or all("win_rate" in r for r in dim.rows)  # no crash, junk bucketed out
+
+
+def test_sector_signal_skips_unknown_symbols():
+    dim = dim_sector_signal([{"symbol": "", "result": "target_hit", "return_pct": 5},
+                             {"symbol": None, "result": "stop_hit", "return_pct": -2}])
+    assert dim.rows == []                              # nothing maps to a known sector
+    assert dim.sample_size == 0
+
+
+def test_closed_paper_fold_in_tolerates_junk_and_missing_result():
+    outcomes = [_o("AAA", "target_hit", 8)] * 5
+    closed_paper = [
+        {"symbol": "BOT1", "result": "target_hit", "return_pct": 3.0, "setup_category": "Momentum / Buy"},
+        {"symbol": "BOT2"},                            # no result -> filtered out by the fold-in
+        {"symbol": "BOT3", "result": None},            # explicit None result -> filtered out
+    ]
+    facts = build_nightly_facts(outcomes, None, None, closed_paper, as_of="2026-06-09")
+    assert facts.summary["trades"] >= 5               # research outcomes + the one good bot fill
