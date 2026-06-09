@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useCockpit, usePaper } from "@/lib/hooks"
+import { useCockpit, usePaper, usePaperEquityCurve } from "@/lib/hooks"
 import { useEventStream } from "@/lib/useEventStream"
 import { seedTicks } from "@/lib/priceStore"
 import { autoPhase, type Phase } from "@/lib/phase"
@@ -23,6 +23,12 @@ import { toast } from "sonner"
 export default function Cockpit() {
   const { data, isLoading, isError } = useCockpit()
   const paper = usePaper()
+  const equityCurve = usePaperEquityCurve()
+  // Mark-to-market paper equity for the header: base + realized + open unrealized.
+  const _baseEq = equityCurve.data?.base_equity ?? null
+  const _pl = (paper.data?.realized_pl ?? 0) + (paper.data?.open_pl ?? 0)
+  const headerEquity = _baseEq != null ? _baseEq + _pl : null
+  const headerEquityPct = _baseEq ? (_pl / _baseEq) * 100 : null
   const stream = useEventStream((e) => {
     if (e.type === "entry_triggered" && e.symbol) {
       toast.success(`${e.symbol} entry triggered`, { description: e.message })
@@ -110,8 +116,8 @@ export default function Cockpit() {
         phase={phase}
         onPhase={(p) => setManualPhase(p)}
         sessionLabel={sessionLabel}
-        equity={paper.data?.equity ?? null}
-        equityPct={null}
+        equity={headerEquity}
+        equityPct={headerEquityPct}
         streamState={stream.state}
         onOpenPalette={() => setPaletteOpen(true)}
       />

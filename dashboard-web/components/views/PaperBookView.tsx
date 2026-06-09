@@ -38,7 +38,11 @@ export function PaperBookView({
         {curve.isLoading ? (
           <Awaiting what="equity curve" />
         ) : (
-          <MiniLine series={[{ points: curve.data?.points ?? [], color: "var(--lime)", label: "Paper equity" }]} />
+          <MiniLine
+            xTime
+            baseline={baseEq}
+            series={[{ points: curve.data?.points ?? [], color: "var(--lime)", label: "Paper equity" }]}
+          />
         )}
       </Panel>
       <Panel title="Open positions">
