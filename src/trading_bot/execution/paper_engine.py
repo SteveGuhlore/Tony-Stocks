@@ -61,10 +61,28 @@ def _realized_pl(position: dict[str, Any], exit_price: float | None) -> float | 
         return None
 
 
+def _latest_close_records(broker: Broker) -> dict[str, dict[str, Any]]:
+    """Most recent close record per symbol. A broker can report several SELL fills for
+    one symbol (re-entries on later days still inside the live order window), and the
+    record order differs by broker (live Alpaca lists newest-first, FakeBroker appends
+    oldest-first) — grading a close against a stale fill records the wrong exit price
+    and P&L. Prefer the record with the greatest ``closed_at``; on ties or when the
+    stamp is missing, the later-seen record wins."""
+    best: dict[str, dict[str, Any]] = {}
+    for c in broker.closed_positions():
+        sym = str(c.get("symbol") or "").upper()
+        if not sym:
+            continue
+        prev = best.get(sym)
+        if prev is None or str(c.get("closed_at") or "") >= str(prev.get("closed_at") or ""):
+            best[sym] = c
+    return best
+
+
 def reconcile_closed(broker: Broker, repo: Any, account_label: str, now_iso: str) -> list[dict[str, Any]]:
     """Close repo positions that are no longer open at the broker (bracket filled)."""
     broker_open = {p.symbol.upper() for p in broker.list_positions()}
-    closed_records = {c["symbol"].upper(): c for c in broker.closed_positions()}
+    closed_records = _latest_close_records(broker)
     results: list[dict[str, Any]] = []
     for position in repo.list_open_paper_positions(account_label=account_label):
         sym = str(position["symbol"]).upper()
@@ -96,8 +114,12 @@ def apply_cc_exits(
     requested = {str(s).upper() for s in cc_exits}
     closed: list[str] = []
     for sym in sorted(requested & set(positions)):
-        broker.close_position(sym)
-        record = next((c for c in broker.closed_positions() if c["symbol"].upper() == sym), {})
+        if broker.close_position(sym) is None:
+            # Broker refused/errored (live broker returns None on any failure). Do NOT
+            # mark the repo row closed — that would leave a real position open at the
+            # broker with nothing tracking it. The verdict persists; retry next cycle.
+            continue
+        record = _latest_close_records(broker).get(sym, {})
         realized = record.get("realized_pl")
         if realized is None:  # live broker reports no P&L — compute from entry + exit fill
             realized = _realized_pl(positions[sym], record.get("exit"))

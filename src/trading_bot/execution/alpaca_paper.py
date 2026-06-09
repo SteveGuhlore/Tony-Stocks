@@ -183,20 +183,29 @@ class AlpacaPaperBroker:
 
             req = GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=100)
             out: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            # get_orders returns newest-first; keep only the FIRST (= most recent) SELL
+            # fill per symbol. A symbol re-entered on a later day can have several fills
+            # in the window, and reconciling against a stale one records the wrong exit.
             for order in self._client.get_orders(filter=req):
-                if str(getattr(order, "status", "")).lower().endswith("filled") is False and \
-                        str(getattr(order, "status", "")).lower() != "filled":
+                if not str(getattr(order, "status", "")).lower().endswith("filled"):
                     continue
                 if getattr(order, "side", None) not in (OrderSide.SELL, "sell"):
                     continue
                 filled = getattr(order, "filled_avg_price", None)
                 if filled is None:
                     continue
+                sym = str(getattr(order, "symbol", "")).upper()
+                if not sym or sym in seen:
+                    continue
+                seen.add(sym)
+                stamp = getattr(order, "filled_at", None) or getattr(order, "submitted_at", None)
                 out.append({
-                    "symbol": str(getattr(order, "symbol", "")).upper(),
+                    "symbol": sym,
                     "exit": _f(filled),
                     "result": None,
                     "realized_pl": None,
+                    "closed_at": str(stamp) if stamp else None,
                 })
             return out
         except Exception:

@@ -63,6 +63,82 @@ class TestConstruction:
         assert b.api_key == "pk"
 
 
+class TestClosedPositions:
+    """closed_positions() maps raw CLOSED-order queries to close records. The raw feed
+    is newest-first with one order PER FILL — a re-entered symbol shows several SELL
+    fills, and the engine must only ever see the most recent one."""
+
+    @staticmethod
+    def _stub_alpaca(monkeypatch):
+        """Install minimal alpaca.trading.{enums,requests} stand-ins so the lazy imports
+        inside closed_positions() resolve without alpaca-py (and deterministically when
+        the real package is present)."""
+        import sys
+        from types import ModuleType, SimpleNamespace
+
+        enums = ModuleType("alpaca.trading.enums")
+        enums.OrderSide = SimpleNamespace(SELL="sell", BUY="buy")
+        enums.QueryOrderStatus = SimpleNamespace(CLOSED="closed", OPEN="open")
+        requests_mod = ModuleType("alpaca.trading.requests")
+
+        class GetOrdersRequest:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        requests_mod.GetOrdersRequest = GetOrdersRequest
+        trading = ModuleType("alpaca.trading")
+        root = ModuleType("alpaca")
+        for name, mod in (("alpaca", root), ("alpaca.trading", trading),
+                          ("alpaca.trading.enums", enums), ("alpaca.trading.requests", requests_mod)):
+            monkeypatch.setitem(sys.modules, name, mod)
+
+    @staticmethod
+    def _order(symbol, price, status="filled", side="sell", filled_at="2026-06-09T15:00:00Z"):
+        return SimpleNamespace(symbol=symbol, status=status, side=side,
+                               filled_avg_price=price, filled_at=filled_at, submitted_at=None)
+
+    def _broker_with_orders(self, monkeypatch, orders):
+        self._stub_alpaca(monkeypatch)
+        client = _StubClient()
+        client.get_orders = lambda filter: orders  # noqa: A002 - alpaca-py kwarg name
+        return _broker(client)
+
+    def test_keeps_only_newest_fill_per_symbol(self, monkeypatch):
+        b = self._broker_with_orders(monkeypatch, [
+            self._order("ZETA", "120.0", filled_at="2026-06-09T15:00:00Z"),  # newest first
+            self._order("AAPL", "200.0", filled_at="2026-06-08T15:00:00Z"),
+            self._order("ZETA", "95.0", filled_at="2026-06-02T15:00:00Z"),   # stale re-entry fill
+        ])
+        records = {r["symbol"]: r for r in b.closed_positions()}
+        assert len(records) == 2
+        assert records["ZETA"]["exit"] == 120.0          # not the stale 95
+        assert records["ZETA"]["closed_at"] == "2026-06-09T15:00:00Z"
+        assert records["ZETA"]["result"] is None and records["ZETA"]["realized_pl"] is None
+
+    def test_skips_non_sells_unfilled_and_priceless_orders(self, monkeypatch):
+        b = self._broker_with_orders(monkeypatch, [
+            self._order("BUYS", "100.0", side="buy"),
+            self._order("CANC", "100.0", status="canceled"),
+            self._order("NOPX", None),
+            self._order("GOOD", "50.0"),
+        ])
+        assert [r["symbol"] for r in b.closed_positions()] == ["GOOD"]
+
+    def test_partially_filled_sell_is_reported(self, monkeypatch):
+        b = self._broker_with_orders(monkeypatch, [self._order("PART", "75.0", status="partially_filled")])
+        assert b.closed_positions()[0]["exit"] == 75.0
+
+    def test_order_query_error_returns_empty(self, monkeypatch):
+        self._stub_alpaca(monkeypatch)
+        client = _StubClient()
+
+        def boom(filter):  # noqa: A002
+            raise OSError("alpaca down")
+
+        client.get_orders = boom
+        assert _broker(client).closed_positions() == []
+
+
 class TestMapping:
     def test_submit_bracket_maps_result(self):
         client = _StubClient()
