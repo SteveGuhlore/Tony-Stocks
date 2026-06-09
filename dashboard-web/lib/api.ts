@@ -46,7 +46,43 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 export const api = {
   /** PRIMARY read model — one row per symbol, all views derive from this. */
   cockpit: () => get<CockpitResponse>("/api/cockpit"),
-  commandCenter: () => get<CommandCenterResponse>("/api/command-center"),
+  commandCenter: async (): Promise<CommandCenterResponse> => {
+    // Backend serves {picks, record, agreement}; the UI's Track Record consumes a flat
+    // shape. Map Tony's side here; the bot side is filled in the view from /paper.
+    const raw = await get<{
+      record?: { win_rate?: number | null; equity_curve?: number[]; avg_pl_per_trade?: number | null } | null
+      agreement?: {
+        agreed_right?: number
+        agreed_wrong?: number
+        cc_overrode_saved?: number
+        cc_overrode_missed?: number
+      } | null
+      weights?: Record<string, number> | null
+      proposed_weights?: Record<string, number> | null
+    }>("/api/command-center")
+    const eq = raw.record?.equity_curve ?? []
+    const agr = raw.agreement
+    return {
+      tony_win_rate: raw.record?.win_rate ?? null,
+      tony_avg_r: null, // Tony's record tracks $ P/L per trade, not R-multiples
+      tony_return_pct: eq.length ? eq[eq.length - 1] - 100 : null,
+      equity_tony: eq.map((v, i) => ({ t: i, equity: v })),
+      bot_win_rate: null,
+      bot_avg_r: null,
+      bot_return_pct: null,
+      equity_bot: [],
+      agreement: agr
+        ? {
+            agreed_right: agr.agreed_right ?? 0,
+            agreed_wrong: agr.agreed_wrong ?? 0,
+            tony_saved: agr.cc_overrode_saved ?? 0,
+            tony_missed: agr.cc_overrode_missed ?? 0,
+          }
+        : null,
+      weights: raw.weights ?? null,
+      proposed_weights: raw.proposed_weights ?? null,
+    }
+  },
   // The API returns {enabled, account_label, open[], closed[], summary}; the UI
   // consumes {positions, equity, open_pl, realized_pl}. Normalize here so every
   // consumer (Cockpit drawer + PaperBook) gets a stable shape and never reads
@@ -56,7 +92,8 @@ export const api = {
       enabled?: boolean
       account_label?: string
       open?: Array<Record<string, unknown>>
-      summary?: { realized_pl?: number | null }
+      closed?: Array<Record<string, unknown>>
+      summary?: { realized_pl?: number | null; win_rate?: number | null }
     }>("/api/paper/positions")
     const open = raw.open ?? []
     const positions: PaperPosition[] = open.map((p) => ({
@@ -73,11 +110,23 @@ export const api = {
       opened_at: (p.opened_at as string | null) ?? null,
     }))
     const openPl = positions.reduce((s, p) => s + (p.unrealized_pl ?? 0), 0)
+    // Bot avg R = mean of (exit-entry)/(entry-stop) over closed trades (Track Record).
+    const rs: number[] = []
+    for (const c of raw.closed ?? []) {
+      const entry = Number(c.entry_price)
+      const stop = Number(c.stop)
+      const exit = Number(c.exit_price)
+      if (Number.isFinite(entry) && Number.isFinite(stop) && Number.isFinite(exit) && entry !== stop) {
+        rs.push((exit - entry) / (entry - stop))
+      }
+    }
     return {
       status: raw.enabled ? "enabled" : "disabled",
       equity: null, // equity number lives in /paper/equity-curve, not this endpoint
       open_pl: positions.length ? openPl : null,
       realized_pl: raw.summary?.realized_pl ?? null,
+      win_rate: raw.summary?.win_rate ?? null,
+      avg_r: rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null,
       positions,
     }
   },

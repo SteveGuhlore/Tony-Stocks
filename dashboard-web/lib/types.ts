@@ -122,15 +122,19 @@ export interface PaperResponse {
   cash?: number | null
   open_pl: number | null
   realized_pl: number | null
+  win_rate?: number | null
+  avg_r?: number | null
   positions: PaperPosition[]
 }
 export interface EquityPoint {
   t: number | string
   equity: number
+  index?: number | null
 }
 export interface PaperEquityCurve {
   points: EquityPoint[]
   base_equity?: number | null
+  return_pct?: number | null
 }
 
 /* ---- command center / agreement ---- */
