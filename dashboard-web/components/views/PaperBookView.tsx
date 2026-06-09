@@ -17,15 +17,20 @@ export function PaperBookView({
   const { data, isLoading } = usePaper()
   const curve = usePaperEquityCurve()
   const positions = data?.positions ?? []
+  // Mark-to-market equity = baseline + realized + open unrealized. The /paper/positions
+  // endpoint omits equity (it's null in the transform); base_equity comes from the curve.
+  const baseEq = curve.data?.base_equity ?? null
+  const equity =
+    baseEq != null ? baseEq + (data?.realized_pl ?? 0) + (data?.open_pl ?? 0) : (data?.equity ?? null)
 
   return (
     <div>
       <ViewHeader title="Paper Book" sub="research account · live mark + realized" />
       <Kpis
         items={[
-          { label: "Equity", value: fmtMoney(data?.equity ?? null) },
+          { label: "Equity", value: fmtMoney(equity), tone: equity != null && baseEq != null && equity >= baseEq ? "pos" : equity != null && baseEq != null ? "neg" : undefined },
           { label: "Open P/L", value: fmtMoney(data?.open_pl ?? null, true), tone: (data?.open_pl ?? 0) >= 0 ? "pos" : "neg" },
-          { label: "Realized", value: fmtMoney(data?.realized_pl ?? null, true) },
+          { label: "Realized", value: fmtMoney(data?.realized_pl ?? null, true), tone: (data?.realized_pl ?? 0) >= 0 ? "pos" : (data?.realized_pl ?? 0) < 0 ? "neg" : undefined },
           { label: "Open pos.", value: positions.length },
         ]}
       />
