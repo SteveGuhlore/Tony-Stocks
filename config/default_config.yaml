@@ -263,7 +263,7 @@ off_hours:
 paper_trading:
   enabled: true
   risk_per_trade_pct: 1.0          # % of paper equity risked per trade (entry->stop distance)
-  max_open_positions: 50
+  max_open_positions: 75
   max_notional_per_position: 1000   # 1% notional cap per NEW entry. MUST track live equity:
                                     # this 'Trading Bot' account is ~$100k, so 1000 = ~1% (correct).
                                     # (The separate CC/Tony $1M account uses 10000.) A wrong value
