@@ -31,6 +31,7 @@ export function TrackRecordView() {
       />
       <Panel title="Equity · bot vs Tony (indexed 100)">
         <MiniLine
+          baseline={100}
           series={[
             { points: botPts, color: "var(--cyan)", label: `Bot ${fmtPct(curve.data?.return_pct)}` },
             { points: data?.equity_tony ?? [], color: "var(--amber)", label: `Tony ${fmtPct(data?.tony_return_pct)}` },
