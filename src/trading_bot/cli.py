@@ -3889,6 +3889,9 @@ def run_learn(args: argparse.Namespace) -> int:
     client = make_llm_client(provider) if use_llm and provider != "none" else None
     narration = narrate(facts, kb, prior_note, client=client, use_llm=use_llm, model=model)
 
+    bridge_expected = bool(cc_dir and not args.no_bridge and lcfg.get("bridge_to_cc", True))
+
+    failures: list[str] = []
     for label, fn in (
         ("vault note", lambda: write_learning_note(vault_dir, facts, narration)),
         ("knowledge page", lambda: write_knowledge_page(vault_dir, kb)),
@@ -3898,18 +3901,40 @@ def run_learn(args: argparse.Namespace) -> int:
     ):
         try:
             fn()
-        except Exception as exc:  # pragma: no cover - defensive, keep run alive
+        except Exception as exc:  # keep the run alive, but record the failure loudly
+            failures.append(label)
+            LOGGER.warning("[learn] sink FAILED (%s) for %s: %s", label, as_of, exc)
             print(f"[learn] sink error ({label}): {exc}")
 
-    if cc_dir and not args.no_bridge and lcfg.get("bridge_to_cc", True):
+    if bridge_expected:
         try:
             write_cc_learning_bridge(cc_dir, facts, kb, narration)
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:
+            failures.append("cc bridge")
+            LOGGER.warning("[learn] sink FAILED (cc bridge) for %s: %s", as_of, exc)
             print(f"[learn] bridge error: {exc}")
 
+    # Freshness self-check — the loop's whole point is to FEED today's lessons back.
+    # A fail-quiet sink, or the disk-idempotent CC-bridge skip leaving nothing, must
+    # not pass silently. Verify each dated feedback file actually landed for as_of;
+    # a missing/empty one means the loop is degraded and gets surfaced loudly below.
+    for label in _verify_learning_sinks(vault_dir, reports, cc_dir, as_of, bridge_expected):
+        if label not in failures:
+            failures.append(label)
+        LOGGER.warning("[learn] freshness check FAILED: %s missing/empty for %s", label, as_of)
+        print(f"[learn] STALE: {label} not written for {as_of}")
+
     llm_state = "fallback" if narration.template_fallback else f"on ({model})"
+    status = "OK" if not failures else f"DEGRADED: {', '.join(failures)} failed"
     print(f"[learn] {as_of}: graded {facts.summary['trades']} trades, "
-          f"{len(kb.items)} knowledge items, llm={llm_state}")
+          f"{len(kb.items)} knowledge items, llm={llm_state} -- {status}")
+    _write_learn_health(reports, as_of, failures)
+    if failures:
+        # Non-zero so the systemd oneshot is marked FAILED (visible in `systemctl --failed`)
+        # instead of the loop silently rotting on stale learning.
+        LOGGER.error("[learn] %s: feedback loop DEGRADED -- %d sink(s) failed: %s",
+                     as_of, len(failures), ", ".join(failures))
+        return 1
     return 0
 
 
@@ -3917,6 +3942,51 @@ def _write_knowledge_json(reports: Path, kb: Any) -> None:
     reports.mkdir(parents=True, exist_ok=True)
     (reports / "learning_knowledge.json").write_text(
         json.dumps(kb.to_dict(), indent=2), encoding="utf-8")
+
+
+def _verify_learning_sinks(vault_dir: str | Path, reports: Path, cc_dir: str | None,
+                           as_of: str, bridge_expected: bool) -> list[str]:
+    """Confirm each nightly feedback file actually landed for ``as_of`` (exists and is
+    non-empty). Catches a fail-quiet sink, or the disk-idempotent CC-bridge skip that
+    leaves nothing, so a degraded feedback loop never passes as success. Returns the
+    labels of the missing/empty sinks (empty list == healthy)."""
+    # Only files that MUST be (re)written every run. agent_insights.json is a cumulative
+    # mailbox that can legitimately be empty, so it is tracked by the sink try/except
+    # (a raise is caught) but not freshness-checked here.
+    learning = Path(vault_dir) / "learning"
+    checks: list[tuple[str, Path]] = [
+        ("vault note", learning / f"{as_of}.md"),
+        ("knowledge page", learning / "_knowledge.md"),
+        ("knowledge json", reports / "learning_knowledge.json"),
+    ]
+    if bridge_expected and cc_dir:
+        checks.append(("cc bridge",
+                       Path(cc_dir) / "bridge" / "tony-stocks" / "learning" / f"{as_of}.md"))
+    missing: list[str] = []
+    for label, path in checks:
+        try:
+            if not path.exists() or path.stat().st_size == 0:
+                missing.append(label)
+        except OSError:
+            missing.append(label)
+    return missing
+
+
+def _write_learn_health(reports: Path, as_of: str, failures: list[str]) -> None:
+    """Machine-readable health marker (``reports/learning_health.json``) so the dashboard
+    and the next run can see whether the nightly feedback loop was fully delivered.
+    Best-effort: never raises (a health-write failure must not break the run)."""
+    from datetime import datetime, timezone  # noqa: PLC0415
+    try:
+        reports.mkdir(parents=True, exist_ok=True)
+        (reports / "learning_health.json").write_text(json.dumps({
+            "as_of": as_of,
+            "ok": not failures,
+            "failed_sinks": failures,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        }, indent=2), encoding="utf-8")
+    except Exception as exc:  # never let the health marker break the run
+        LOGGER.warning("[learn] could not write learning_health.json: %s", exc)
 
 
 # ---------------------------------------------------------------------------

@@ -37,6 +37,63 @@ def test_run_learn_produces_all_sinks(tmp_path):
     assert (cc / "bridge" / "tony-stocks" / "learning" / "2026-06-04.md").exists()
 
 
+def test_run_learn_writes_health_marker_on_success(tmp_path):
+    reports = tmp_path / "reports"
+    _seed(reports)
+    vault = tmp_path / "vault"
+    cc = tmp_path / "CC"
+    args = build_parser().parse_args([
+        "learn", "--config", "config/default_config.yaml", "--date", "2026-06-04",
+        "--no-llm", "--min-sample", "1", "--reports-dir", str(reports), "--vault-dir", str(vault),
+        "--command-center-dir", str(cc),
+    ])
+    assert run_learn(args) == 0
+    health = json.loads((reports / "learning_health.json").read_text(encoding="utf-8"))
+    assert health["ok"] is True
+    assert health["failed_sinks"] == []
+    assert health["as_of"] == "2026-06-04"
+
+
+def test_run_learn_detects_silent_cc_bridge_skip(tmp_path, monkeypatch):
+    """The exact failure we hit: the CC bridge silently writes nothing (no exception —
+    disk-idempotent skip / transient). The freshness self-check must catch it: rc=1 and
+    the health marker flags the failure, while the local sinks still wrote."""
+    import trading_bot.vault.learning_writer as lw
+    reports = tmp_path / "reports"
+    _seed(reports)
+    vault = tmp_path / "vault"
+    cc = tmp_path / "CC"
+    monkeypatch.setattr(lw, "write_cc_learning_bridge", lambda *a, **k: None)  # writes nothing
+    args = build_parser().parse_args([
+        "learn", "--config", "config/default_config.yaml", "--date", "2026-06-04",
+        "--no-llm", "--min-sample", "1", "--reports-dir", str(reports), "--vault-dir", str(vault),
+        "--command-center-dir", str(cc),
+    ])
+    assert run_learn(args) == 1  # degraded -> non-zero so systemd surfaces it
+    health = json.loads((reports / "learning_health.json").read_text(encoding="utf-8"))
+    assert health["ok"] is False
+    assert "cc bridge" in health["failed_sinks"]
+    assert (vault / "learning" / "2026-06-04.md").exists()  # loop stayed alive
+
+
+def test_verify_learning_sinks_flags_missing_and_empty(tmp_path):
+    vault = tmp_path / "v"
+    reports = tmp_path / "r"
+    cc = tmp_path / "cc"
+    (vault / "learning").mkdir(parents=True)
+    (vault / "learning" / "2026-06-04.md").write_text("note", encoding="utf-8")
+    (vault / "learning" / "_knowledge.md").write_text("kb", encoding="utf-8")
+    reports.mkdir()
+    (reports / "learning_knowledge.json").write_text("{}", encoding="utf-8")
+    # cc bridge missing -> flagged when expected
+    assert cli._verify_learning_sinks(vault, reports, str(cc), "2026-06-04", True) == ["cc bridge"]
+    # not expected -> not flagged
+    assert cli._verify_learning_sinks(vault, reports, str(cc), "2026-06-04", False) == []
+    # empty dated note -> flagged
+    (vault / "learning" / "2026-06-04.md").write_text("", encoding="utf-8")
+    assert "vault note" in cli._verify_learning_sinks(vault, reports, None, "2026-06-04", False)
+
+
 def test_run_learn_survives_missing_inputs(tmp_path):
     reports = tmp_path / "reports"  # nothing seeded
     args = build_parser().parse_args([
