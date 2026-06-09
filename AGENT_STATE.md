@@ -25,6 +25,19 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
   183 signal pages. It's gitignored-by-design live data (builds per-machine; nothing to "pull").
 - **All 5 services active:** watch, api, offhours, web, cc-runner.
 
+### Learning feedback loop — write side solid; FEEDBACK made reliable (commit `c8bf677`, deployed)
+The nightly `learn` (timer 05:30) grades trades + evolves `vault/learning/_knowledge.md` — that half always
+worked (sector win-rates compounding). But the FEEDBACK half (lessons -> next session) was silently rotting:
+`learn` was fail-quiet per sink AND always exited 0, so when the CC learning-bridge sink silently wrote
+nothing (it's disk-idempotent; the 06-09 05:30 run skipped it for an indeterminate transient), Tony ran on
+stale learning with zero signal. **Fix:** `run_learn` now tracks each sink failure, logs WARNING/ERROR, runs
+a **freshness self-check** (dated vault note + CC bridge actually landed for `as_of`), writes
+`reports/learning_health.json` (`{ok, failed_sinks, as_of}`), and **exits non-zero** so the systemd oneshot
+shows in `systemctl --failed`. Manual re-run already patched 06-09 (Tony has today's learning); health=ok.
+- STILL OPEN (scoped, not done): the BOT's own prep doesn't consume learning — `off_hours.enabled: false`.
+  Flipping it on + verifying `learning_facts` flow into morning prep is the second-half "both consumers" task.
+- Learning is **read-only on trading** by design — it sharpens verdicts/prep, never auto-edits risk/config.
+
 ### Root-cause win: the `cockpit` ImportError
 `/opt/trading-bot` working tree had `src/trading_bot/api/routes/cockpit.py` (+controls/personalize/env_fence)
 DELETED -> `tradingbot-api` crash-looped (`ImportError: cannot import name 'cockpit'`) -> nothing on `:8001`.
