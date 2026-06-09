@@ -18,22 +18,19 @@ const SEV_COLOR: Record<string, string> = {
 export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmSpec) => void; streamState: StreamState }) {
   const { data, isLoading } = useSystemHealth()
   const events = data?.events ?? []
+  const w = data?.watch
+  const hb = w?.last_heartbeat_at
+  const hbSecs = hb ? Math.max(0, Math.round((Date.now() - Date.parse(hb)) / 1000)) : null
 
   return (
     <div>
       <ViewHeader title="System" sub="health & controls" />
       <Kpis
         items={[
-          { label: "Watch", value: data?.watch_status ?? "—", tone: data?.watch_status === "running" ? "pos" : undefined },
-          { label: "Heartbeat", value: data?.heartbeat_seconds != null ? `${data.heartbeat_seconds}s` : "—" },
-          { label: "Cycle", value: data?.cycle ?? "—" },
-          {
-            label: "API budget",
-            value:
-              data?.api_budget_used != null && data?.api_budget_total != null
-                ? `${data.api_budget_used}/${data.api_budget_total}`
-                : "—",
-          },
+          { label: "Watch", value: w?.status ?? "—", tone: w?.status === "running" ? "pos" : undefined },
+          { label: "Heartbeat", value: hbSecs != null ? `${hbSecs}s ago` : "—", tone: hbSecs != null && hbSecs < 600 ? "pos" : undefined },
+          { label: "Cycle", value: w?.cycles_completed ?? "—" },
+          { label: "API calls", value: w?.api_requests ?? "—" },
         ]}
       />
       <Panel title="Stream">
@@ -115,8 +112,18 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
         )}
       </Panel>
       <div className="flex gap-3 text-dim" style={{ fontSize: 10, marginTop: 6, flexWrap: "wrap" }}>
-        <span>● {data?.data_source ?? "data source —"}</span>
-        <span>{data?.last_scan_label ?? "scan —"}</span>
+        <span>● {data?.last_scan_run?.provider ?? "data source —"}</span>
+        <span>
+          {data?.last_scan_run
+            ? `scan #${data.last_scan_run.id} · ${data.last_scan_run.universe_count ?? "—"} symbols`
+            : "scan —"}
+        </span>
+        <span>
+          open {data?.open_snapshots ?? "—"} · triggered {data?.triggered_snapshots ?? "—"}
+        </span>
+        {data?.unacknowledged_warnings ? (
+          <span className="text-warn">⚑ {data.unacknowledged_warnings} warnings</span>
+        ) : null}
         <span className="text-warn">⚑ research only</span>
       </div>
     </div>

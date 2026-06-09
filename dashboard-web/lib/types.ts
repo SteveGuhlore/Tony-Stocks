@@ -180,14 +180,28 @@ export interface SystemEvent {
   severity: string
   message: string
 }
+export interface SystemHealthWatch {
+  status?: string | null
+  started_at?: string | null
+  last_heartbeat_at?: string | null
+  cycles_completed?: number | null
+  api_requests?: number | null
+  symbols_scanned?: number | null
+  last_scan_age_seconds?: number | null
+}
+export interface SystemHealthLastScan {
+  id?: number | null
+  created_at?: string | null
+  universe_count?: number | null
+  provider?: string | null
+}
 export interface SystemHealthResponse {
-  watch_status?: string | null
-  heartbeat_seconds?: number | null
-  cycle?: number | null
-  api_budget_used?: number | null
-  api_budget_total?: number | null
-  data_source?: string | null
-  last_scan_label?: string | null
+  watch?: SystemHealthWatch | null
+  last_scan_run?: SystemHealthLastScan | null
+  open_snapshots?: number | null
+  triggered_snapshots?: number | null
+  tony_events_total?: number | null
+  unacknowledged_warnings?: number | null
   events?: SystemEvent[]
 }
 
