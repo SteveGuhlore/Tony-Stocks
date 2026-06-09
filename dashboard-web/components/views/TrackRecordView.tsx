@@ -41,12 +41,30 @@ export function TrackRecordView() {
       </Panel>
       <Panel title="Does the 2nd pass help?">
         {a ? (
-          <div className="grid gap-[6px]" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-            <Agree n={a.agreed_right} label="agreed · right" color="var(--pos)" />
-            <Agree n={a.agreed_wrong} label="agreed · wrong" color="var(--neg)" />
-            <Agree n={a.tony_saved} label="Tony saved" color="var(--amber)" />
-            <Agree n={a.tony_missed} label="Tony missed" color="var(--mut)" />
-          </div>
+          <>
+            <div className="grid gap-[6px]" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+              <Agree n={a.agreed_right} label="agreed · right" color="var(--pos)" />
+              <Agree n={a.agreed_wrong} label="agreed · wrong" color="var(--neg)" />
+              <Agree n={a.tony_saved} label="Tony saved" color="var(--amber)" />
+              <Agree n={a.tony_missed} label="Tony missed" color="var(--mut)" />
+            </div>
+            <p className="text-mut" style={{ fontSize: 11, lineHeight: 1.7, marginTop: 10 }}>
+              Tony is the 2nd pass: he reviews each bot pick and either backs it or overrides (skip/close).
+              Each is graded once the pick resolves.
+              <br />
+              <b style={{ color: "var(--pos)" }}>agreed · right</b> — backed the bot, it won ·{" "}
+              <b style={{ color: "var(--neg)" }}>agreed · wrong</b> — backed it, it lost ·{" "}
+              <b style={{ color: "var(--amber)" }}>Tony saved</b> — overrode and it would&apos;ve <i>lost</i> (good call) ·{" "}
+              <b className="text-ink">Tony missed</b> — overrode and it would&apos;ve <i>won</i> (cost).
+              <br />
+              <span className="text-dim">
+                Net: {a.tony_saved + a.agreed_right} good calls vs {a.tony_missed + a.agreed_wrong} bad —{" "}
+                {a.tony_saved >= a.tony_missed
+                  ? "his overrides are net-helpful so far."
+                  : "his overrides have cost more than they saved so far (small sample)."}
+              </span>
+            </p>
+          </>
         ) : (
           <Awaiting what="agreement stats" />
         )}
