@@ -22,10 +22,18 @@ def test_build_account_curve_empty_safe():
         assert c["return_pct"] is None
 
 
-def test_build_account_curve_handles_zero_base():
+def test_build_account_curve_drops_unfunded_leading_zeros():
+    # Alpaca pads pre-funding days with equity 0 — they must be dropped, not indexed to 0.
+    c = build_account_curve({"timestamp": [1, 2, 3, 4], "equity": [0.0, 0.0, 100.0, 110.0]}, "X")
+    assert [p["ts"] for p in c["points"]] == [3, 4]  # zero days filtered
+    assert c["base_value"] == 100.0
+    assert [p["index"] for p in c["points"]] == [100.0, 110.0]
+    assert c["return_pct"] == 10.0
+
+
+def test_build_account_curve_all_zero_is_empty():
     c = build_account_curve({"timestamp": [1, 2], "equity": [0.0, 0.0]}, "X")
-    assert c["base_value"] is None
-    assert all(p["index"] == 100.0 for p in c["points"])  # degrade flat, never divide by zero
+    assert c["points"] == [] and c["base_value"] is None
 
 
 def test_align_common_trims_and_rebases_to_shared_start():

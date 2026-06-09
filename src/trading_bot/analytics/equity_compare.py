@@ -31,8 +31,11 @@ def build_account_curve(hist: dict[str, Any] | None, label: str) -> dict[str, An
     ts_raw = hist.get("timestamp") or []
     eq_raw = hist.get("equity") or []
     n = min(len(ts_raw), len(eq_raw))
-    timestamps = [int(t) for t in ts_raw[:n]]
-    equity = [float(e) if e is not None else 0.0 for e in eq_raw[:n]]
+    # Drop entries with no equity: Alpaca returns 0/null for days before the account was
+    # funded/active, and indexing those produces a phantom plunge to 0 on the left edge.
+    pairs = [(int(t), float(e)) for t, e in zip(ts_raw[:n], eq_raw[:n]) if e is not None and float(e) > 0]
+    timestamps = [t for t, _ in pairs]
+    equity = [e for _, e in pairs]
     index, base = _index(equity)
     points: list[dict[str, Any]] = []
     for ts, ix, eq in zip(timestamps, index, equity):
