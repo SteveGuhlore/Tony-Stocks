@@ -218,3 +218,48 @@ def test_latest_verdict_per_symbol_graded_once():
     assert len(recs) == 1                                 # one record per symbol (latest stance)
     assert recs[0].verdict == "override"
     assert recs[0].classification == "cc_overrode_missed"  # overrode a winner -> missed
+
+
+class TestMalformedInputs:
+    """Error/edge: the verdicts file is written by the CC and the outcomes come from the
+    DB — junk rows must be skipped or held pending, never crash the nightly regrade."""
+
+    def test_rows_missing_symbol_or_date_are_skipped(self):
+        led = build_tony_divergence(
+            [{"verdict": "close"}, {"symbol": "", "date": "2026-06-01", "verdict": "close"},
+             {"symbol": "AAA", "verdict": "close"}, _verdict("BBB", "2026-06-01", "reaffirm")],
+            [{"pick_date": "2026-06-01", "result": "target_hit"},      # no symbol
+             {"symbol": "BBB", "result": "target_hit"},                 # no pick_date
+             _outcome("BBB", "2026-06-01", "target_hit", 5.0)],
+        )
+        assert {r.symbol for r in led.records} == {"BBB"}
+        assert _by_symbol(led)["BBB"].classification == "agreed_right"
+
+    def test_nan_return_pct_stays_pending(self):
+        led = build_tony_divergence(
+            [_verdict("AAA", "2026-06-02", "reaffirm")],
+            [_outcome("AAA", "2026-06-01", "still_open", float("nan"))],
+        )
+        assert _by_symbol(led)["AAA"].classification == "pending"
+        assert _by_symbol(led)["AAA"].return_pct is None
+
+    def test_unknown_result_with_signed_return_grades_by_return(self):
+        led = build_tony_divergence(
+            [_verdict("AAA", "2026-06-02", "reaffirm"), _verdict("BBB", "2026-06-02", "override")],
+            [_outcome("AAA", "2026-06-01", "time_exit", 3.5),
+             _outcome("BBB", "2026-06-01", "time_exit", -2.0)],
+        )
+        assert _by_symbol(led)["AAA"].classification == "agreed_right"
+        assert _by_symbol(led)["BBB"].classification == "cc_overrode_saved"
+
+    def test_verdict_before_any_outcome_is_pending(self):
+        # Tony reviewed the name BEFORE the bot ever picked it — nothing to grade against.
+        led = build_tony_divergence(
+            [_verdict("AAA", "2026-05-01", "reaffirm")],
+            [_outcome("AAA", "2026-06-01", "target_hit", 5.0)],
+        )
+        assert _by_symbol(led)["AAA"].classification == "pending"
+
+    def test_empty_and_none_inputs(self):
+        assert build_tony_divergence([], []).records == []
+        assert build_tony_divergence(None, None).records == []

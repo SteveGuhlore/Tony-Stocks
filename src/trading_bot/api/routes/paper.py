@@ -249,7 +249,10 @@ def _portfolio_history(key: str | None, secret: str | None, period: str, timefra
     """Fetch one paper account's Alpaca portfolio history. Fail-quiet → None on any error."""
     if not (key and secret):
         return None
-    url = f"{_PAPER_REST}/v2/account/portfolio/history?period={period}&timeframe={timeframe}"
+    from urllib.parse import quote  # noqa: PLC0415
+
+    url = (f"{_PAPER_REST}/v2/account/portfolio/history"
+           f"?period={quote(str(period))}&timeframe={quote(str(timeframe))}")
     req = urllib.request.Request(url, headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 - fixed paper host

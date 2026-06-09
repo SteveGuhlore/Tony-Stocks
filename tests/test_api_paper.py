@@ -132,3 +132,63 @@ def test_position_live_marks_when_cache_has_prices(client):
     assert zeta["last_price"] == 110.0
     assert zeta["unrealized_pl"] == 500.0
     assert zeta["unrealized_pl_pct"] == 10.0
+
+
+class TestEquityCompare:
+    """/paper/equity-compare: cross-account fetch is monkeypatched (no network), the
+    transform stack underneath is real. Degrade paths: missing keys, broker hiccups,
+    and the raw Alpaca warts (pre-funding zeros) must never 500 the dashboard."""
+
+    def _patch_history(self, monkeypatch, bot_payload, tony_payload):
+        from trading_bot.api.routes import paper as paper_routes
+
+        def fake_history(key, secret, period, timeframe):
+            if not (key and secret):
+                return None
+            return bot_payload if key == "bot-key" else tony_payload
+
+        monkeypatch.setattr(paper_routes, "_portfolio_history", fake_history)
+        monkeypatch.setenv("ALPACA_PAPER_API_KEY", "bot-key")
+        monkeypatch.setenv("ALPACA_PAPER_SECRET_KEY", "bot-secret")
+
+    def _patch_cc_env(self, monkeypatch, tmp_path, body):
+        cc_env = tmp_path / "cc.env"
+        cc_env.write_text(body, encoding="utf-8")
+        monkeypatch.setenv("CC_ENV_FILE", str(cc_env))
+
+    def test_both_accounts_aligned_and_indexed(self, client, tmp_path, monkeypatch):
+        c, _ = client
+        from tests._doubles import history_payload
+        self._patch_history(
+            monkeypatch,
+            history_payload([1000, 2000, 3000], [100_000.0, 101_000.0, 99_000.0]),
+            history_payload([2000, 3000], [1_000_000.0, 1_005_000.0]),
+        )
+        self._patch_cc_env(monkeypatch, tmp_path,
+                           "ALPACA_PAPER_API_KEY=tony-key\nALPACA_PAPER_SECRET_KEY=tony-secret\n")
+        data = c.get("/api/paper/equity-compare?period=1W&timeframe=1H").json()
+        assert data["research_only"] is True
+        # trimmed to the 2 shared timestamps, both re-indexed to 100 at the shared start
+        assert [p["ts"] for p in data["bot"]["points"]] == [2000, 3000]
+        assert data["bot"]["points"][0]["index"] == 100.0
+        assert data["tony"]["points"][0]["index"] == 100.0
+        assert data["tony"]["return_pct"] == 0.5  # 1.000M -> 1.005M
+
+    def test_missing_cc_keys_degrades_to_bot_only(self, client, tmp_path, monkeypatch):
+        c, _ = client
+        from tests._doubles import history_with_prefunding_zeros
+        self._patch_history(monkeypatch, history_with_prefunding_zeros(), None)
+        self._patch_cc_env(monkeypatch, tmp_path, "# no keys here\n")
+        r = c.get("/api/paper/equity-compare")
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data["bot"]["points"]) == 3   # zero-padded pre-funding days dropped
+        assert data["tony"]["points"] == []      # degraded, not an error
+
+    def test_broker_hiccup_on_both_sides_returns_empty_curves(self, client, tmp_path, monkeypatch):
+        c, _ = client
+        self._patch_history(monkeypatch, None, None)
+        self._patch_cc_env(monkeypatch, tmp_path, "")
+        r = c.get("/api/paper/equity-compare")
+        assert r.status_code == 200
+        assert r.json()["bot"]["points"] == [] and r.json()["tony"]["points"] == []

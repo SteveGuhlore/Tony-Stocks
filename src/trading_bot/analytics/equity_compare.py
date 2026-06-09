@@ -30,10 +30,20 @@ def build_account_curve(hist: dict[str, Any] | None, label: str) -> dict[str, An
         return {"label": label, "points": [], "return_pct": None, "base_value": None}
     ts_raw = hist.get("timestamp") or []
     eq_raw = hist.get("equity") or []
-    n = min(len(ts_raw), len(eq_raw))
+    if not isinstance(ts_raw, (list, tuple)) or not isinstance(eq_raw, (list, tuple)):
+        return {"label": label, "points": [], "return_pct": None, "base_value": None}
     # Drop entries with no equity: Alpaca returns 0/null for days before the account was
     # funded/active, and indexing those produces a phantom plunge to 0 on the left edge.
-    pairs = [(int(t), float(e)) for t, e in zip(ts_raw[:n], eq_raw[:n]) if e is not None and float(e) > 0]
+    # Per-entry try/except keeps the promise above — one malformed bar (string junk,
+    # nulls) drops that bar, it doesn't 500 the dashboard.
+    pairs: list[tuple[int, float]] = []
+    for t, e in zip(ts_raw, eq_raw):
+        try:
+            ts, eq = int(float(t)), float(e)
+        except (TypeError, ValueError):
+            continue
+        if eq > 0:
+            pairs.append((ts, eq))
     timestamps = [t for t, _ in pairs]
     equity = [e for _, e in pairs]
     index, base = _index(equity)
