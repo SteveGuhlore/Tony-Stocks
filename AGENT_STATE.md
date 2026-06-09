@@ -1,8 +1,57 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-06_
+_Last updated: 2026-06-09_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-09 open — full pre-market audit DONE; everything live & verified
+
+**State at the 06-09 open: all green and trading.** `main` HEAD = `c53553b`.
+
+### Verified live this session
+- **Bot scanner:** cycling (5-min), cycle 1 at the open logged **68 triggered entries**, real intraday
+  data (`provider=alpaca_iex requested=91 real_intraday=91 missing=0`). The pre-market `no_data=819/1026`
+  was just pre-market sparsity; intraday data is clean. `max_open_positions` raised **50 -> 75** (commit
+  `c53553b`). New entries are bracketed at fill (`bracket: true`, `gtc`) -> no new naked risk.
+- **Same-day re-entry guard:** live and CORRECT — `symbols_closed_today` is date-scoped, `order_router`
+  blocks only the specific exited symbol (test `test_exited_today_does_not_block_other_symbols`). NOT
+  suppressing entries (the "bot entered 0" worry was just looking mid-cycle before it finished).
+- **Bot↔CC handoffs: LIVE today** — CC bridge `2026-06-09.md` @13:43, `tony_stocks_verdicts.json` @13:50,
+  CC `vault/sessions` @13:45. CC executed ~24 verdicts at the open.
+- **Obsidian memory layer (vault): live on VM** — `vault.enabled:true`, `bridge_enabled:true`. Bot
+  `vault/daily/2026-06-09.md` @13:43, `vault/learning/_knowledge.md` evolved by nightly learning @05:30,
+  183 signal pages. It's gitignored-by-design live data (builds per-machine; nothing to "pull").
+- **All 5 services active:** watch, api, offhours, web, cc-runner.
+
+### Root-cause win: the `cockpit` ImportError
+`/opt/trading-bot` working tree had `src/trading_bot/api/routes/cockpit.py` (+controls/personalize/env_fence)
+DELETED -> `tradingbot-api` crash-looped (`ImportError: cannot import name 'cockpit'`) -> nothing on `:8001`.
+That ONE failure broke THREE things: the **tailscale dashboard `/api`**, the **CC `bot_equity` Connection
+refused**, AND the **CC's stuck protection** (its `sync()` aborted at the equity fetch before reconciling).
+Fixed with `git checkout origin/main -- src/` + `sudo systemctl restart tradingbot-api`. API now 200; CC
+self-healed and re-protected its book on the next cycle.
+- Dashboard: tailscale serve `:8443 / -> :3000` (next UI), `/api -> :8001/api` (bot API). Both 200. If the
+  phone shows "API not connected", it's stale client state -> hard refresh / `restart tradingbot-web`.
+
+### CC protection
+CC has its OWN robust re-protect: `_reconcile_protection` -> `protect()` (cancels orphaned TP limit, retries
+`_place_oco` 12x on `40310000`), fallback ON by default (`TONY_FALLBACK_PROTECTION`, 12%/20%). It was only
+stuck because `sync()` died at the bot_equity fetch; fixing the API unblocked it. To force a sweep manually:
+`_reconcile_protection(b, ap._latest_scanner_levels(), fallback_pct=ap._fallback_pcts())`.
+
+### OPEN cleanup task — VM git reconcile (DEFERRED, do off-session, NOT mid-trading)
+`/opt/trading-bot` is on `feat/kinetic-dashboard` with **129 dirty/untracked files**. This is partly
+**load-bearing**: the dirty `src/`+`config/` are the files we overlaid from `main` = the LIVE guard + 75-cap.
+**Latent risk:** a `git reset --hard`/`stash`/`checkout .` on the VM would revert the guard out of the tree;
+a watch restart would then run unprotected. Also `vault/ data/ logs/` are NOT gitignored on `feat` (most of
+the 129 is vault churn) — `main` likely fixes this.
+**SAFE reconcile plan (operator was unsure; preserve work):**
+1. `git -C /opt/trading-bot add dashboard-web/ && git commit -m "wip kinetic dashboard"` (preserve WIP on feat).
+2. Confirm `src/`+`config/` already == `main` (they do — overlaid).
+3. `git fetch origin main && git checkout main && git pull` (guard + 75 are committed on main).
+4. Re-verify: `systemctl is-active tradingbot-watch tradingbot-api`, scanner cycle, naked-audit 0/0.
 
 ---
 
