@@ -5,11 +5,15 @@ stored paper_positions only — no broker/network call in the request path.
 """
 from __future__ import annotations
 
+import json
+import os
+import urllib.request
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
+from trading_bot.analytics.equity_compare import align_common, build_account_curve
 from trading_bot.analytics.equity_curve import build_paper_equity_curve
 from trading_bot.api.deps import get_repo
 from trading_bot.storage.repositories import ScannerRepository
@@ -213,3 +217,67 @@ def get_paper_equity_curve(
         return_pct=curve.return_pct,
         points=[EquityPointSchema(**p.to_dict()) for p in curve.points],
     )
+
+
+# ── Bot-vs-Tony equity comparison (time-aligned, both Alpaca paper accounts) ─────
+
+_PAPER_REST = "https://paper-api.alpaca.markets"
+
+
+def _env_keys(env: dict[str, str]) -> tuple[str | None, str | None]:
+    return (
+        env.get("ALPACA_PAPER_API_KEY") or env.get("ALPACA_API_KEY"),
+        env.get("ALPACA_PAPER_SECRET_KEY") or env.get("ALPACA_SECRET_KEY"),
+    )
+
+
+def _read_env_file(path: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            for ln in fh:
+                ln = ln.strip()
+                if ln and not ln.startswith("#") and "=" in ln:
+                    k, _, v = ln.partition("=")
+                    out[k.strip()] = v.strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return out
+
+
+def _portfolio_history(key: str | None, secret: str | None, period: str, timeframe: str) -> dict[str, Any] | None:
+    """Fetch one paper account's Alpaca portfolio history. Fail-quiet → None on any error."""
+    if not (key and secret):
+        return None
+    url = f"{_PAPER_REST}/v2/account/portfolio/history?period={period}&timeframe={timeframe}"
+    req = urllib.request.Request(url, headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 - fixed paper host
+            return json.load(resp)
+    except Exception:  # noqa: BLE001 - never break the dashboard on a broker hiccup
+        return None
+
+
+@router.get("/paper/equity-compare")
+def get_equity_compare(
+    period: str = Query("1M", description="Alpaca portfolio-history period, e.g. 1D/1W/1M/3M."),
+    timeframe: str = Query("1D", description="Bar timeframe, e.g. 15Min/1H/1D."),
+) -> dict[str, Any]:
+    """Bot vs Tony equity on ONE shared time axis. Pulls Alpaca portfolio history for both
+    paper accounts with the same period+timeframe (so timestamps align), indexes each to
+    100, and trims to the common window. Read-only; degrades to whichever account(s) have
+    keys. Tony's keys come from CC_ENV_FILE (default /opt/command-center/.env)."""
+    bot_key, bot_secret = _env_keys(dict(os.environ))
+    cc_env = _read_env_file(os.environ.get("CC_ENV_FILE", "/opt/command-center/.env"))
+    tony_key, tony_secret = _env_keys(cc_env)
+
+    bot = build_account_curve(_portfolio_history(bot_key, bot_secret, period, timeframe), "Bot")
+    tony = build_account_curve(_portfolio_history(tony_key, tony_secret, period, timeframe), "Tony")
+    bot, tony = align_common(bot, tony)
+    return {
+        "period": period,
+        "timeframe": timeframe,
+        "bot": bot,
+        "tony": tony,
+        "research_only": True,
+    }

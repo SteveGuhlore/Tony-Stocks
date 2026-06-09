@@ -136,6 +136,17 @@ export interface PaperEquityCurve {
   base_equity?: number | null
   return_pct?: number | null
 }
+export interface EquityCompareSeries {
+  label?: string
+  points: EquityPoint[]
+  return_pct?: number | null
+}
+export interface EquityCompareResponse {
+  period?: string
+  timeframe?: string
+  bot?: EquityCompareSeries | null
+  tony?: EquityCompareSeries | null
+}
 
 /* ---- command center / agreement ---- */
 export interface AgreementStats {

@@ -23,6 +23,13 @@ export function usePaperEquityCurve(baseEquity?: number) {
   })
 }
 
+export function useEquityCompare(period?: string, timeframe?: string) {
+  return useQuery({
+    queryKey: ["equity-compare", period ?? null, timeframe ?? null],
+    queryFn: () => api.equityCompare(period, timeframe),
+  })
+}
+
 export function useSymbolChart(symbol: string | null, timeframe?: string) {
   return useQuery({
     queryKey: ["chart", symbol, timeframe ?? null],

@@ -4,6 +4,7 @@ import type {
   PaperResponse,
   PaperPosition,
   PaperEquityCurve,
+  EquityCompareResponse,
   CommandCenterResponse,
   MorningPrepResponse,
   SystemHealthResponse,
@@ -132,6 +133,8 @@ export const api = {
   },
   paperEquityCurve: (base_equity?: number) =>
     get<PaperEquityCurve>("/api/paper/equity-curve", { base_equity }),
+  equityCompare: (period?: string, timeframe?: string) =>
+    get<EquityCompareResponse>("/api/paper/equity-compare", { period, timeframe }),
   symbolChart: (symbol: string, timeframe?: string) =>
     get<ChartResponse>(`/api/symbols/${encodeURIComponent(symbol)}/chart`, { timeframe }),
   morningPrep: () => get<MorningPrepResponse>("/api/morning-prep"),

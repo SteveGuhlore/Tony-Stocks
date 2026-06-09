@@ -13,11 +13,13 @@ export function MiniLine({
   height = 120,
   baseline = null,
   yUnit = "value",
+  xTime = false,
 }: {
   series: { points: EquityPoint[]; color: string; label: string }[]
   height?: number
   baseline?: number | null
   yUnit?: "value" | "return"
+  xTime?: boolean
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [frac, setFrac] = useState<number | null>(null)
@@ -75,6 +77,20 @@ export function MiniLine({
     setFrac(Math.max(0, Math.min(1, (clientX - rect.left - GUT) / plotW)))
   }
   const leftCalc = (f: number) => `calc(${GUT}px + (100% - ${GUT}px) * ${f})`
+
+  // x-axis time labels: pull timestamps from the first series whose points carry a
+  // parseable date `t`. Span > ~36h shows M/D, else HH:MM.
+  const refPts = series.find((s) => s.points.length >= 2 && !Number.isNaN(Date.parse(String(s.points[0].t))))?.points
+  const spanMs =
+    refPts && refPts.length >= 2 ? Date.parse(String(refPts[refPts.length - 1].t)) - Date.parse(String(refPts[0].t)) : 0
+  const fmtTime = (t: EquityPoint["t"]) => {
+    const d = new Date(t)
+    if (Number.isNaN(d.getTime())) return ""
+    return spanMs > 36 * 3600_000
+      ? `${d.getMonth() + 1}/${d.getDate()}`
+      : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+  }
+  const hoverTime = xTime && refPts && frac != null ? fmtTime(refPts[Math.round(frac * (refPts.length - 1))].t) : null
 
   return (
     <div>
@@ -139,8 +155,20 @@ export function MiniLine({
         )}
       </div>
 
-      {/* legend — updates with the hovered value(s) */}
-      <div className="flex gap-3" style={{ fontSize: 10, marginTop: 6, minHeight: 14 }}>
+      {/* x-axis time labels (start / mid / end) when the points carry timestamps */}
+      {xTime && refPts && refPts.length >= 2 && (
+        <div
+          style={{ display: "flex", justifyContent: "space-between", paddingLeft: GUT, marginTop: 2, fontSize: 9, color: "var(--dim)" }}
+        >
+          <span>{fmtTime(refPts[0].t)}</span>
+          <span>{fmtTime(refPts[Math.floor(refPts.length / 2)].t)}</span>
+          <span>{fmtTime(refPts[refPts.length - 1].t)}</span>
+        </div>
+      )}
+
+      {/* legend — updates with the hovered value(s) + time */}
+      <div className="flex gap-3 items-center" style={{ fontSize: 10, marginTop: 6, minHeight: 14 }}>
+        {hoverTime && <span className="text-mut">{hoverTime}</span>}
         {series.map((s) => {
           const v = frac != null ? valueAt(s.points, frac) : null
           return (

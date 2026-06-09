@@ -1,6 +1,6 @@
 "use client"
 
-import { useCommandCenter, usePaper, usePaperEquityCurve } from "@/lib/hooks"
+import { useCommandCenter, usePaper, useEquityCompare } from "@/lib/hooks"
 import { ViewHeader, Kpis, Panel, ResearchFooter, Awaiting } from "./shared"
 import { MiniLine } from "@/components/kinetic/MiniLine"
 import { fmtPct } from "@/lib/format"
@@ -8,15 +8,14 @@ import { fmtPct } from "@/lib/format"
 export function TrackRecordView() {
   const { data } = useCommandCenter()
   const paper = usePaper()
-  const curve = usePaperEquityCurve()
+  const cmp = useEquityCompare() // both accounts on one shared time axis (Alpaca portfolio history)
   const a = data?.agreement
   const pct = (v: number | null | undefined) => (v == null ? "—" : `${Math.round(v)}%`)
   const r = (v: number | null | undefined) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}`)
 
-  // Bot side from /paper (win rate + computed avg R) and the indexed equity curve;
-  // Tony side from the command-center record (mapped to flat fields in the api layer).
+  // Win/avg-R: bot from /paper, Tony from the command-center record. Equity chart:
+  // the time-aligned /paper/equity-compare (both accounts, same period/timeframe).
   const botWr = paper.data?.win_rate
-  const botPts = (curve.data?.points ?? []).map((p) => ({ t: p.t, equity: p.index ?? p.equity }))
 
   return (
     <div>
@@ -33,9 +32,10 @@ export function TrackRecordView() {
         <MiniLine
           baseline={100}
           yUnit="return"
+          xTime
           series={[
-            { points: botPts, color: "var(--cyan)", label: `Bot ${fmtPct(curve.data?.return_pct)}` },
-            { points: data?.equity_tony ?? [], color: "var(--amber)", label: `Tony ${fmtPct(data?.tony_return_pct)}` },
+            { points: cmp.data?.bot?.points ?? [], color: "var(--cyan)", label: `Bot ${fmtPct(cmp.data?.bot?.return_pct)}` },
+            { points: cmp.data?.tony?.points ?? [], color: "var(--amber)", label: `Tony ${fmtPct(cmp.data?.tony?.return_pct)}` },
           ]}
         />
       </Panel>
