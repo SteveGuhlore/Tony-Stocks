@@ -62,3 +62,38 @@ class TestExitSymbols:
     def test_empty_input(self):
         assert cc_exit_symbols([]) == set()
         assert cc_exit_symbols(None) == set()
+
+
+class TestExitTextEdges:
+    """Word-boundary + negation guard: prose in a verdict field must not flatten a
+    position it didn't ask to flatten (substring matching did: 'disclosed' ⊃ 'close')."""
+
+    def test_substring_inside_word_is_not_exit(self):
+        verdicts = [{"symbol": "AAA", "action": "risk disclosed in 10-K"},
+                    {"symbol": "BBB", "decision": "florexit catalyst watch"}]
+        assert cc_exit_symbols(verdicts) == set()
+
+    def test_negated_exit_is_not_exit(self):
+        verdicts = [{"symbol": "AAA", "action": "do not sell"},
+                    {"symbol": "BBB", "action": "don't exit yet"},
+                    {"symbol": "CCC", "recommended_action": "hold, never close early"},
+                    {"symbol": "DDD", "decision": "avoid selling here"}]
+        assert cc_exit_symbols(verdicts) == set()
+
+    def test_plain_exit_words_still_count(self):
+        verdicts = [{"symbol": "AAA", "action": "sell now"},
+                    {"symbol": "BBB", "verdict": "close"},
+                    {"symbol": "CCC", "action": "flatten the position"},
+                    {"symbol": "DDD", "recommended_action": "liquidate"},
+                    {"symbol": "EEE", "verdict": "closed"}]
+        assert cc_exit_symbols(verdicts) == {"AAA", "BBB", "CCC", "DDD", "EEE"}
+
+    def test_get_out_bigram(self):
+        assert cc_exit_symbols([{"symbol": "AAA", "action": "get out now"}]) == {"AAA"}
+        assert cc_exit_symbols([{"symbol": "AAA", "action": "don't get out"}]) == set()
+        assert cc_exit_symbols([{"symbol": "AAA", "verdict": "get_out"}]) == {"AAA"}
+
+    def test_explicit_exit_flag_beats_negated_text(self):
+        # The boolean channel is unambiguous — text never overrides it.
+        verdicts = [{"symbol": "AAA", "exit": True, "action": "do not sell"}]
+        assert cc_exit_symbols(verdicts) == {"AAA"}

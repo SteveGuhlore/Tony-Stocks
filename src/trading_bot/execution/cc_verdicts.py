@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 _DEFAULT_VERDICTS_PATH = "reports/tony_stocks_verdicts.json"
-_EXIT_TOKENS = ("close", "sell", "exit", "get out", "get_out", "getout", "flatten")
+_EXIT_TOKENS = frozenset({
+    "close", "closed", "sell", "sold", "selling", "exit", "exited",
+    "get_out", "getout", "flatten", "liquidate",
+})
+_NEGATORS = frozenset({"no", "not", "dont", "don", "t", "never", "without", "avoid", "hold"})
 
 
 def load_cc_verdicts(path: str | Path | None = None) -> list[dict[str, Any]]:
@@ -43,6 +48,30 @@ def load_cc_verdicts(path: str | Path | None = None) -> list[dict[str, Any]]:
     return []
 
 
+def _is_exit_text(text: str) -> bool:
+    """Word-boundary exit detection with a small negation guard.
+
+    The old substring scan flattened positions on phrases that merely *contain* an exit
+    word — "disclosed" contains "close", "do not sell yet" contains "sell". This trades
+    money for grep. Tokenize instead, treat "get out" as a bigram, and skip an exit word
+    when one of the two preceding tokens negates it ("not sell", "don't exit", "hold —
+    don't close"). Verdict fields are short enums in practice; this is a guardrail for
+    when the CC writes prose into them.
+    """
+    tokens = [t for t in re.split(r"[^a-z0-9_]+", text.lower()) if t]
+    for i, tok in enumerate(tokens):
+        if tok == "out" and i > 0 and tokens[i - 1] == "get":
+            anchor = i - 1  # negation window sits before "get"
+        elif tok in _EXIT_TOKENS:
+            anchor = i
+        else:
+            continue
+        if any(t in _NEGATORS for t in tokens[max(0, anchor - 2):anchor]):
+            continue
+        return True
+    return False
+
+
 def cc_exit_symbols(verdicts: list[dict[str, Any]] | None) -> set[str]:
     """Symbols whose verdict/action says to close (sell/exit/flatten)."""
     out: set[str] = set()
@@ -56,7 +85,7 @@ def cc_exit_symbols(verdicts: list[dict[str, Any]] | None) -> set[str]:
         signals = " ".join(
             str(verdict.get(key) or "")
             for key in ("verdict", "action", "recommended_action", "decision")
-        ).lower()
-        if any(token in signals for token in _EXIT_TOKENS):
+        )
+        if _is_exit_text(signals):
             out.add(symbol)
     return out
