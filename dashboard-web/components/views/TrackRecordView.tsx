@@ -48,22 +48,26 @@ export function TrackRecordView() {
               <Agree n={a.tony_saved} label="Tony saved" color="var(--amber)" />
               <Agree n={a.tony_missed} label="Tony missed" color="var(--mut)" />
             </div>
-            <p className="text-mut" style={{ fontSize: 11, lineHeight: 1.7, marginTop: 10 }}>
-              Tony is the 2nd pass: he reviews each bot pick and either backs it or overrides (skip/close).
-              Each is graded once the pick resolves.
-              <br />
-              <b style={{ color: "var(--pos)" }}>agreed · right</b> — backed the bot, it won ·{" "}
-              <b style={{ color: "var(--neg)" }}>agreed · wrong</b> — backed it, it lost ·{" "}
-              <b style={{ color: "var(--amber)" }}>Tony saved</b> — overrode and it would&apos;ve <i>lost</i> (good call) ·{" "}
-              <b className="text-ink">Tony missed</b> — overrode and it would&apos;ve <i>won</i> (cost).
-              <br />
-              <span className="text-dim">
-                Net: {a.tony_saved + a.agreed_right} good calls vs {a.tony_missed + a.agreed_wrong} bad —{" "}
-                {a.tony_saved >= a.tony_missed
-                  ? "his overrides are net-helpful so far."
-                  : "his overrides have cost more than they saved so far (small sample)."}
-              </span>
+            <p className="text-mut" style={{ fontSize: 11, lineHeight: 1.6, marginTop: 12 }}>
+              Tony is the 2nd pass — he reviews each bot pick and either <b className="text-ink">backs</b> it or{" "}
+              <b className="text-ink">overrides</b> (skip / close). Each is graded once the pick resolves.
             </p>
+            <div style={{ display: "grid", gap: 5, marginTop: 8 }}>
+              <Def color="var(--pos)" term="agreed · right" desc="backed the bot — it won" />
+              <Def color="var(--neg)" term="agreed · wrong" desc="backed it — it lost" />
+              <Def color="var(--amber)" term="Tony saved" desc="overrode, and it would've lost (good call)" />
+              <Def color="var(--mut)" term="Tony missed" desc="overrode, and it would've won (cost)" />
+            </div>
+            <div
+              className="text-mut"
+              style={{ fontSize: 11, marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--line)" }}
+            >
+              <b className="text-ink">Net so far:</b> {a.tony_saved + a.agreed_right} good vs{" "}
+              {a.tony_missed + a.agreed_wrong} bad —{" "}
+              {a.tony_saved >= a.tony_missed
+                ? "his overrides are net-helpful."
+                : "his overrides have cost more than they saved (small sample)."}
+            </div>
           </>
         ) : (
           <Awaiting what="agreement stats" />
@@ -83,6 +87,15 @@ function Agree({ n, label, color }: { n: number; label: string; color: string })
       <span className="text-dim" style={{ fontSize: 8.5 }}>
         {label}
       </span>
+    </div>
+  )
+}
+
+function Def({ color, term, desc }: { color: string; term: string; desc: string }) {
+  return (
+    <div className="flex" style={{ gap: 8, alignItems: "baseline", fontSize: 11 }}>
+      <b style={{ color, minWidth: 84, flexShrink: 0 }}>{term}</b>
+      <span className="text-mut">{desc}</span>
     </div>
   )
 }
