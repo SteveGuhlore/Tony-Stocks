@@ -43,6 +43,24 @@ def _classify_exit(exit_price: float | None, position: dict[str, Any]) -> str:
     return "closed"
 
 
+def _realized_pl(position: dict[str, Any], exit_price: float | None) -> float | None:
+    """Compute realized P&L = (exit - entry) * qty from the stored position, for brokers
+    that report a close without it. The live Alpaca broker's ``closed_positions()`` returns
+    ``realized_pl=None`` (it only has the SELL fill, not the entry), so without this the
+    paper book records 0 realized on every stop/target exit and the head-to-head P&L is
+    blank. Returns None when entry/exit/qty are unusable."""
+    if exit_price is None:
+        return None
+    entry = position.get("entry_price")
+    qty = position.get("qty")
+    try:
+        if entry in (None, "", 0) or not qty:
+            return None
+        return round((float(exit_price) - float(entry)) * int(qty), 2)
+    except (TypeError, ValueError):
+        return None
+
+
 def reconcile_closed(broker: Broker, repo: Any, account_label: str, now_iso: str) -> list[dict[str, Any]]:
     """Close repo positions that are no longer open at the broker (bracket filled)."""
     broker_open = {p.symbol.upper() for p in broker.list_positions()}
@@ -56,6 +74,8 @@ def reconcile_closed(broker: Broker, repo: Any, account_label: str, now_iso: str
         exit_price = record.get("exit")
         result = record.get("result") or _classify_exit(exit_price, position)
         realized = record.get("realized_pl")
+        if realized is None:  # live broker reports no P&L — compute from entry + exit fill
+            realized = _realized_pl(position, exit_price)
         repo.close_paper_position(
             sym, account_label=account_label, result=result, exit_price=exit_price,
             realized_pl=realized, closed_at=now_iso,
@@ -71,15 +91,19 @@ def apply_cc_exits(
     """Flatten open positions named by the Command Center exit verdict."""
     if not config.close_on_command_center_exit or not cc_exits:
         return []
-    open_symbols = repo.open_paper_position_symbols(account_label=account_label)
+    positions = {str(p["symbol"]).upper(): p
+                 for p in repo.list_open_paper_positions(account_label=account_label)}
     requested = {str(s).upper() for s in cc_exits}
     closed: list[str] = []
-    for sym in sorted(requested & open_symbols):
+    for sym in sorted(requested & set(positions)):
         broker.close_position(sym)
         record = next((c for c in broker.closed_positions() if c["symbol"].upper() == sym), {})
+        realized = record.get("realized_pl")
+        if realized is None:  # live broker reports no P&L — compute from entry + exit fill
+            realized = _realized_pl(positions[sym], record.get("exit"))
         repo.close_paper_position(
             sym, account_label=account_label, result="closed",
-            exit_price=record.get("exit"), realized_pl=record.get("realized_pl"), closed_at=now_iso,
+            exit_price=record.get("exit"), realized_pl=realized, closed_at=now_iso,
         )
         closed.append(sym)
     return closed

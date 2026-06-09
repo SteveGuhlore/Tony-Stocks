@@ -93,6 +93,30 @@ class TestReconciliation:
         summary = _cycle(b, repo, _cfg())
         assert summary["reconciled"][0]["result"] == "stop_hit"
 
+    def test_realized_pl_computed_when_broker_omits_it(self, repo):
+        """The live Alpaca broker reports closes with realized_pl=None; reconcile must
+        compute it from the stored entry + exit fill so the paper book records real P&L
+        (not 0) and the head-to-head measurement works."""
+        from trading_bot.execution.paper_engine import _realized_pl
+        assert _realized_pl({"entry_price": 100.0, "qty": 10}, 95.0) == -50.0
+        assert _realized_pl({"entry_price": 100.0, "qty": 10}, None) is None
+        assert _realized_pl({"entry_price": None, "qty": 10}, 95.0) is None
+        assert _realized_pl({"entry_price": 100.0, "qty": 0}, 95.0) is None
+
+        class _NoPnLBroker(FakeBroker):  # mimics the live broker: exit fill, no P&L
+            def closed_positions(self):
+                return [{**c, "realized_pl": None} for c in super().closed_positions()]
+
+        b = _NoPnLBroker()
+        _cycle(b, repo, _cfg(), triggered_picks=[_pick(entry=100.0, target=115.0, stop=95.0)])
+        b.simulate_price("ZETA", 94.0)  # stop fills at 95
+        _cycle(b, repo, _cfg())
+        closed = [p for p in repo.list_paper_positions(account_label="tony") if p["status"] == "closed"]
+        assert closed and closed[0]["result"] == "stop_hit"
+        expected = round((float(closed[0]["exit_price"]) - float(closed[0]["entry_price"])) * closed[0]["qty"], 2)
+        assert closed[0]["realized_pl"] == expected
+        assert closed[0]["realized_pl"] < 0  # a stop-out is a loss, not 0
+
     def test_reconcile_is_idempotent(self, repo):
         b = FakeBroker()
         _cycle(b, repo, _cfg(), triggered_picks=[_pick()])
