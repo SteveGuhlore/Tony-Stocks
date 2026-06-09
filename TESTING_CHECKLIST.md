@@ -1,8 +1,35 @@
 # Trading Bot Project - Testing Checklist
 
-_Last updated: 2026-05-19_
+_Last updated: 2026-06-09_
 
 Use this after every meaningful code change.
+
+## Case-type convention (happy / error / edge)
+
+Every module that touches money or the bot↔CC handoff must cover three case types,
+in priority order by blast radius (execution seam first, analytics second, display last):
+
+1. **Happy path** — the intended flow works end to end (trigger → fill → target/stop →
+   reconcile, verdict → exit, outcomes → grading).
+2. **Error cases** — dependencies misbehave: broker returns `realized_pl=None`, order
+   queries fail or age out of the window, the CC verdicts file is missing/malformed,
+   Alpaca payloads carry nulls/string numerics/pre-funding zeros. The rule is
+   **degrade, don't crash** — and for anything that places or closes orders,
+   **fail closed** (reject the trade, keep the loop alive).
+3. **Edge cases** — boundaries and hostile inputs: exactly-at-capacity gates
+   (`open_positions == max`), NaN/negative/string prices, same-day re-entry, multiple
+   SELL fills for one symbol after re-entries, zero-width stops, single-point curves.
+
+Write error/edge tests against **live-like doubles** (`tests/_doubles.py`), not the
+friendly `FakeBroker` happy path: `LiveLikeBroker` reports closes the way the real
+Alpaca paper API does (bare SELL fills, newest-first, no result/P&L), and the canned
+portfolio-history payloads carry the real warts. A test that only ever met `FakeBroker`
+proves nothing about production.
+
+Sandbox note: this container lacks `fastapi`/`httpx`/`alpaca-py`/`yfinance`/
+`pandas_market_calendars`, so the API-route test files and a few dep-bound tests only
+collect on the VM / Windows. Locally: run the suite with those files ignored, and
+`python -m py_compile` the route files you touch.
 
 ## Before coding
 

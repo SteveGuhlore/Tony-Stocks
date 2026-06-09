@@ -6,6 +6,57 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-09 evening — codebase audit + stress-test program (happy/error/edge) SHIPPED
+
+Full audit of the execution seam + bot↔CC tandem surfaces, per the mapped plan. **4 real
+bugs found and fixed**, each with a regression test proven to fail against the old code:
+
+1. **Stale close-fill grading** (`paper_engine` + `alpaca_paper`): a re-entered symbol has
+   SEVERAL SELL fills in the live order window; reconcile kept the *oldest* (dict keep-last
+   over Alpaca's newest-first order list) → wrong exit price/result/realized P&L on the
+   second close. Fixed both ends: `alpaca_paper.closed_positions()` dedupes per symbol
+   keeping the newest fill (+ carries `closed_at`), and the engine picks the most recent
+   record by `closed_at` (`_latest_close_records`) for reconcile AND CC exits.
+2. **Phantom CC close** (`paper_engine.apply_cc_exits`): the broker `close_position` result
+   was ignored — a flaky/errored live close (returns None) still marked the repo row closed,
+   leaving a REAL open position untracked and unprotected. Now: failed close → row stays
+   open, persistent verdict retries next cycle.
+3. **NaN kills the pick loop** (`order_router`): a NaN entry/stop slips every comparison
+   gate, then `int(risk // NaN)` raises and aborts the whole cycle's pick loop. `_to_float`
+   now drops NaN → fails closed ("invalid plan").
+4. **CC verdict substring exits** (`cc_verdicts`): exit matching was substring-based —
+   "disclosed" ⊃ "close", "do not sell" ⊃ "sell" would FLATTEN the position. Now
+   word-boundary token matching + a 2-token negation guard ("don't exit", "avoid selling"),
+   "get out" as a bigram. Explicit `exit: true` flag unchanged (always wins).
+
+Plus hardening: `equity_compare` keeps its empty-safe promise on junk bars (nulls/string
+numerics no longer 500 the route — per-bar try/except); equity-compare route URL-encodes
+query params.
+
+**Stress-test program added** (the user-approved happy/error/edge plan):
+- `TESTING_CHECKLIST.md` — new "Case-type convention" section (the contract + sandbox notes).
+- `tests/_doubles.py` — **live-like doubles**: `LiveLikeBroker` (closes = bare SELL fills,
+  newest-first, result/realized None — the REAL Alpaca contract), `AmnesiacBroker` (fill
+  aged out of the order window), canned Alpaca portfolio-history payloads with real warts
+  (pre-funding zeros, nulls, string numerics).
+- New tests: `test_paper_engine` (+6: live-like grading, stale-fill regression, vanished
+  position, mid-range manual close, CC-exit fresh record, failed-close retry),
+  `test_alpaca_paper_broker` (+4: closed_positions dedupe/skip/partial/error via sys.modules
+  alpaca stubs — run in sandbox too), `test_order_router` (+7 boundary/hostile-input),
+  `test_cc_verdicts` (+5 word-boundary/negation), `test_equity_compare` (+5 junk payloads),
+  `test_tony_divergence` (+5 malformed inputs), `test_api_paper` (+3 equity-compare route,
+  VM-only collect). `test_learning_e2e::test_missing_cc_dir...` updated to the loud-sink
+  contract (rc=1, local sinks still complete) — it predated the reliability fix.
+
+**Local suite: clean** (sandbox quarantine: 12 API test files + backtest_cli (yfinance) +
+1 alpaca-py-bound submit-bracket test — all dep-missing-only; they run on the VM/Windows).
+**VM deploy needed:** the fixes are in `paper_engine.py`, `alpaca_paper.py`,
+`order_router.py`, `cc_verdicts.py`, `equity_compare.py`, `api/routes/paper.py` — pull on
+the VM + restart `tradingbot-api`/`tradingbot-watch` per the deploy ritual (no dashboard
+rebuild needed; no schema changes). Then run the full suite there (fastapi/alpaca present).
+
+---
+
 ## 2026-06-09 open — full pre-market audit DONE; everything live & verified
 
 **State at the 06-09 open: all green and trading.** `main` HEAD = `c53553b`.

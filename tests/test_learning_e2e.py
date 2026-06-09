@@ -73,10 +73,13 @@ def test_full_tandem_loop_with_evolution(tmp_path):
     assert len(mom2["history"]) == 2                   # compounding
 
 
-def test_missing_cc_dir_still_completes(tmp_path):
+def test_missing_cc_dir_completes_local_sinks_but_fails_loud(tmp_path):
+    # Reliability contract: a broken CC bridge must NOT silently pass (rc=0 used to hide
+    # a dead handoff for days) — local sinks still complete, but the run exits non-zero
+    # so the systemd timer flags it.
     reports, vault = tmp_path / "reports", tmp_path / "vault"
     _seed(reports, "2026-06-01", ["target_hit"] * 6 + ["stop_hit"] * 2)
     blocker = tmp_path / "blocker"
     blocker.write_text("x")  # CC path under a file -> unwritable
-    assert run_learn(_args(reports, vault, blocker / "CC", "2026-06-01")) == 0
+    assert run_learn(_args(reports, vault, blocker / "CC", "2026-06-01")) == 1
     assert (vault / "learning" / "2026-06-01.md").exists()  # local sinks still done
