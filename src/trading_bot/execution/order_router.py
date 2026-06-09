@@ -36,9 +36,12 @@ def _to_float(val: Any) -> float | None:
     if val is None:
         return None
     try:
-        return float(val)
+        f = float(val)
     except (TypeError, ValueError):
         return None
+    # NaN must fail closed here: it slips through every comparison gate (NaN >= x is
+    # False) and then int(risk // NaN) raises, killing the whole cycle's pick loop.
+    return None if f != f else f
 
 
 def size_position(*, entry: Any, stop: Any, equity: Any, config: PaperTradingConfig) -> int:

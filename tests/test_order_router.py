@@ -145,3 +145,47 @@ class TestShouldTrade:
     def test_rejected_decision_has_zero_quantity(self):
         d = should_trade(**self._ok_args(kill_switch=True))
         assert d.quantity == 0
+
+
+class TestBoundaries:
+    """Edge cases at the exact gate thresholds and on hostile inputs. Capacity gates use
+    >= (the Nth slot fills, the N+1th is refused); bad numerics must fail CLOSED."""
+
+    def _ok_args(self, **over):
+        base = dict(symbol="ZETA", entry=100.0, stop=95.0, target=115.0,
+                    state=_state(), config=_cfg())
+        base.update(over)
+        return base
+
+    def test_last_position_slot_is_usable(self):
+        d = should_trade(**self._ok_args(state=_state(open_positions=7), config=_cfg(max_open_positions=8)))
+        assert d.approved is True
+
+    def test_last_daily_order_slot_is_usable(self):
+        d = should_trade(**self._ok_args(state=_state(orders_today=19), config=_cfg(max_daily_orders=20)))
+        assert d.approved is True
+
+    def test_string_numeric_plan_is_accepted(self):
+        # Picks deserialized from JSON/DB can carry numerics as strings.
+        d = should_trade(**self._ok_args(entry="100.0", stop="95.0"))
+        assert d.approved is True and d.quantity == 50
+
+    def test_non_numeric_plan_fails_closed(self):
+        for entry, stop in ((float("nan"), 95.0), ("oops", 95.0), (100.0, "oops")):
+            d = should_trade(**self._ok_args(entry=entry, stop=stop))
+            assert d.approved is False and d.quantity == 0
+
+    def test_negative_prices_fail_closed(self):
+        d = should_trade(**self._ok_args(entry=-100.0, stop=-105.0))
+        assert d.approved is False and d.quantity == 0
+
+    def test_penny_wide_stop_is_capped_by_notional(self):
+        # 1% of 100k = $1000 risk / $0.01 = 100k shares -> notional cap must bite.
+        d = should_trade(**self._ok_args(entry=100.0, stop=99.99))
+        assert d.approved is True
+        assert d.quantity == 50  # 5000 notional cap / 100 entry
+
+    def test_zero_notional_cap_means_uncapped(self):
+        qty = size_position(entry=100.0, stop=95.0, equity=100_000.0,
+                            config=_cfg(max_notional_per_position=0.0))
+        assert qty == 200  # pure risk sizing, no cap applied
