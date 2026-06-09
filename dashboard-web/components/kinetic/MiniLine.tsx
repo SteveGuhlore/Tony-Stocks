@@ -79,16 +79,17 @@ export function MiniLine({
   const leftCalc = (f: number) => `calc(${GUT}px + (100% - ${GUT}px) * ${f})`
 
   // x-axis time labels: pull timestamps from the first series whose points carry a
-  // parseable date `t`. Span > ~36h shows M/D, else HH:MM.
+  // parseable date `t`. Intraday (avg gap < 20h) shows a clock (M/D HH:MM); daily shows M/D.
   const refPts = series.find((s) => s.points.length >= 2 && !Number.isNaN(Date.parse(String(s.points[0].t))))?.points
   const spanMs =
     refPts && refPts.length >= 2 ? Date.parse(String(refPts[refPts.length - 1].t)) - Date.parse(String(refPts[0].t)) : 0
+  const intraday = refPts && refPts.length >= 2 ? spanMs / (refPts.length - 1) < 20 * 3600_000 : false
+  const clock = (d: Date) => `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
   const fmtTime = (t: EquityPoint["t"]) => {
     const d = new Date(t)
     if (Number.isNaN(d.getTime())) return ""
-    return spanMs > 36 * 3600_000
-      ? `${d.getMonth() + 1}/${d.getDate()}`
-      : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const md = `${d.getMonth() + 1}/${d.getDate()}`
+    return intraday ? `${md} ${clock(d)}` : md
   }
   const hoverTime = xTime && refPts && frac != null ? fmtTime(refPts[Math.round(frac * (refPts.length - 1))].t) : null
 
@@ -166,23 +167,30 @@ export function MiniLine({
         </div>
       )}
 
-      {/* legend — updates with the hovered value(s) + time */}
+      {/* legend — idle: static overall return per series; scrubbing: the time + each
+          series' value at the cursor (so you never see two numbers for the same line). */}
       <div className="flex gap-3 items-center" style={{ fontSize: 10, marginTop: 6, minHeight: 14 }}>
-        {hoverTime && <span className="text-mut">{hoverTime}</span>}
-        {series.map((s) => {
-          const v = frac != null ? valueAt(s.points, frac) : null
-          return (
+        {frac != null ? (
+          <>
+            {hoverTime && <span className="text-mut">{hoverTime}</span>}
+            {series.map((s) => {
+              const v = valueAt(s.points, frac)
+              return (
+                <span key={s.label} className="flex items-center gap-1">
+                  <span style={{ display: "inline-block", width: 10, height: 2, background: s.color }} />
+                  <b style={{ color: s.color }}>{v != null ? labelOf(v) : "—"}</b>
+                </span>
+              )
+            })}
+          </>
+        ) : (
+          series.map((s) => (
             <span key={s.label} className="flex items-center gap-1">
               <span style={{ display: "inline-block", width: 10, height: 2, background: s.color }} />
               {s.label}
-              {v != null && (
-                <b className="text-ink" style={{ marginLeft: 3 }}>
-                  {labelOf(v)}
-                </b>
-              )}
             </span>
-          )
-        })}
+          ))
+        )}
       </div>
     </div>
   )

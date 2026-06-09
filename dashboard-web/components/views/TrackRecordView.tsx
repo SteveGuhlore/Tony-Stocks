@@ -8,7 +8,7 @@ import { fmtPct } from "@/lib/format"
 export function TrackRecordView() {
   const { data } = useCommandCenter()
   const paper = usePaper()
-  const cmp = useEquityCompare() // both accounts on one shared time axis (Alpaca portfolio history)
+  const cmp = useEquityCompare("1W", "1H") // both accounts, one shared HOURLY time axis
   const a = data?.agreement
   const pct = (v: number | null | undefined) => (v == null ? "—" : `${Math.round(v)}%`)
   const r = (v: number | null | undefined) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}`)
