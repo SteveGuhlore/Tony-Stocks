@@ -6,6 +6,33 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-10 (open session) — sector-exposure cap + morning-prep dashboard fix
+
+**Dashboard morning-prep fix (shipped, on `main` + VM).** `PrepView`/`PrepRow` read field names that
+never matched `/api/morning-prep` (`p.plan`/`setup_category`/`catalyst`, and `Math.round` of a 0–1
+score) → the morning watchlist showed only symbol+conviction+"1"+empty Plan. Repointed to the real API
+shape (entry/stop/target/rr/setup/catalysts, what_changed_overnight); Plan column now renders
+entry→stop→target (+R:R), score ×100. tsc/vitest/next build green. Commit `f86989d`, fast-forwarded to
+`main`, VM on latest main.
+
+**Sector-exposure cap (NEW, branch `claude/sweet-faraday-y4586j`).** Portfolio concentration gate —
+the only prior risk controls were per-position; the book was heavily bank-concentrated at the open.
+Adds `paper_trading.max_positions_per_sector` (config **shipped at 8**; code default 0 = disabled).
+Gate lives in the pure `order_router.should_trade` (`open_sector_counts` on PortfolioState + `sector`
+arg + `_UNCAPPED_SECTORS`). Sector resolution is impure (paper_engine `_resolve_sectors`): layered
+`scan_results.sector` (new repo `sectors_for_symbols`) → `vault.sector_map.get_sector` fallback (which
+has gaps, e.g. HBAN/HST → Unknown) → "" uncapped. Gates NEW entries only; never force-closes; holds
+within a cycle (per-pick `_portfolio_state`). Tests: +7 order_router, +3 paper_engine, +4 config,
++5 storage. Spec: `docs/superpowers/specs/2026-06-10-sector-exposure-cap-design.md`. Phase 2 (notional
+%-cap) outlined, not built. **Deploy = restart `tradingbot-watch`** (config read at startup).
+
+**PRE-EXISTING RED (not mine, quarantined):**
+`test_api_command_center.py::test_cc_record_agreement_wins_over_teaching` fails on clean `main` too
+(asserts record agreement wins over the teaching ledger; ledger wins → `build_agreement` precedence
+bug). Unrelated to the above. Backlog it.
+
+---
+
 ## 2026-06-10 — audit fixes DEPLOYED to VM + naked-position auto-protect timer
 
 **Deploy.** The VM tree WAS divergent (on `feat/kinetic-dashboard` with load-bearing

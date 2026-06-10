@@ -979,6 +979,31 @@ class ScannerRepository:
             ).fetchall()
             return {str(row[0]).upper() for row in rows}
 
+    def sectors_for_symbols(self, symbols: Any) -> dict[str, str]:
+        """Map UPPER(symbol) -> latest non-empty ``scan_results.sector``.
+
+        Used by the sector-exposure cap to classify open positions + candidates. Reads
+        the scanner's own classification (most complete for the live universe); symbols
+        with no scanned sector are simply absent (caller falls back to the sector map).
+        """
+        syms = {str(s).upper() for s in (symbols or []) if s}
+        if not syms:
+            return {}
+        placeholders = ",".join("?" for _ in syms)
+        with connect(self.database_path) as conn:
+            rows = conn.execute(
+                f"SELECT symbol, sector FROM scan_results "
+                f"WHERE UPPER(symbol) IN ({placeholders}) AND COALESCE(sector, '') != '' "
+                f"ORDER BY scan_run_id DESC",
+                tuple(syms),
+            ).fetchall()
+        out: dict[str, str] = {}
+        for row in rows:
+            sym = str(row[0]).upper()
+            if sym not in out:  # first row per symbol = newest (ORDER BY scan_run_id DESC)
+                out[sym] = str(row[1])
+        return out
+
     def symbols_closed_today(self, *, account_label: str, day: str) -> set[str]:
         """Symbols with a paper position CLOSED on ``day`` (ET YYYY-MM-DD, by closed_at).
 

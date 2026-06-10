@@ -30,6 +30,65 @@ def _state(**over) -> PortfolioState:
     return PortfolioState(**base)
 
 
+class TestSectorCap:
+    """Sector-concentration gate: max concurrent open positions in one sector."""
+
+    def _args(self, **over):
+        base = dict(symbol="ZETA", entry=100.0, stop=95.0, target=115.0,
+                    sector="financials", state=_state(), config=_cfg(max_positions_per_sector=8))
+        base.update(over)
+        return base
+
+    def test_rejects_at_sector_limit(self):
+        d = should_trade(**self._args(
+            state=_state(open_sector_counts={"financials": 8}),
+        ))
+        assert d.approved is False
+        assert "sector cap" in d.reason.lower() and "financials" in d.reason.lower()
+        assert d.quantity == 0
+
+    def test_allows_under_sector_limit(self):
+        d = should_trade(**self._args(state=_state(open_sector_counts={"financials": 7})))
+        assert d.approved is True
+
+    def test_cap_zero_disables_gate(self):
+        d = should_trade(**self._args(
+            config=_cfg(max_positions_per_sector=0),
+            state=_state(open_sector_counts={"financials": 99}),
+        ))
+        assert d.approved is True
+
+    def test_other_sectors_do_not_count(self):
+        # Energy candidate is unaffected by a maxed-out financials bucket.
+        d = should_trade(**self._args(
+            sector="energy",
+            state=_state(open_sector_counts={"financials": 8}),
+        ))
+        assert d.approved is True
+
+    @pytest.mark.parametrize("sec", ["", "unknown", "benchmark", "market", "UNKNOWN", "  "])
+    def test_uncapped_buckets_never_blocked(self, sec):
+        d = should_trade(**self._args(
+            sector=sec,
+            state=_state(open_sector_counts={"unknown": 50, "benchmark": 50, "market": 50, "": 50}),
+        ))
+        assert d.approved is True
+
+    def test_normalizes_sector_case_and_whitespace(self):
+        d = should_trade(**self._args(
+            sector="  Financials ",
+            state=_state(open_sector_counts={"financials": 8}),
+        ))
+        assert d.approved is False
+        assert "sector cap" in d.reason.lower()
+
+    def test_backward_compat_no_sector_args(self):
+        # No sector + default empty counts + (default cap 0) => exact pre-existing behavior.
+        d = should_trade(symbol="ZETA", entry=100.0, stop=95.0, target=115.0,
+                         state=_state(), config=_cfg())
+        assert d.approved is True
+
+
 class TestSizePosition:
     def test_risk_pct_sizing(self):
         # 1% of 100k = $1000 risk; entry-stop = $5 => 200 shares (notional 20000),

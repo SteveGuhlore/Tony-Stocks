@@ -6,10 +6,16 @@ gate fails closed and a rejection carries a human-readable reason. Long equity o
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from trading_bot.execution.paper_config import PaperTradingConfig
+
+#: Sector buckets that are never concentration-capped. A risk gate must not reject a
+#: trade merely because we cannot classify it (fail-open on unknown), and benchmarks/
+#: ETFs are references, not a concentrated cohort. Values are normalized (lowercased).
+_UNCAPPED_SECTORS = frozenset({"", "unknown", "benchmark", "market"})
 
 
 @dataclass(frozen=True)
@@ -21,6 +27,9 @@ class PortfolioState:
     open_positions: int = 0
     orders_today: int = 0
     exited_today: frozenset[str] = frozenset()  # symbols already closed today (no same-day re-entry)
+    # Normalized sector -> count of currently-open positions in that sector. Built by the
+    # impure caller (paper_engine) so this router stays pure. Default empty -> sector cap no-ops.
+    open_sector_counts: Mapping[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -74,6 +83,7 @@ def should_trade(
     entry: Any,
     stop: Any,
     target: Any = None,
+    sector: str = "",
     state: PortfolioState,
     config: PaperTradingConfig,
     kill_switch: bool = False,
@@ -94,6 +104,13 @@ def should_trade(
         return OrderDecision(False, 0, f"no same-day re-entry: {sym} already exited today")
     if state.open_positions >= config.max_open_positions:
         return OrderDecision(False, 0, f"max_open_positions reached ({config.max_open_positions})")
+    sec = (sector or "").strip().lower()
+    sector_cap = config.max_positions_per_sector
+    if sector_cap > 0 and sec and sec not in _UNCAPPED_SECTORS:
+        if state.open_sector_counts.get(sec, 0) >= sector_cap:
+            return OrderDecision(
+                False, 0, f"sector cap reached for {sec} ({sector_cap} open)"
+            )
     if state.orders_today >= config.max_daily_orders:
         return OrderDecision(False, 0, f"max daily orders reached ({config.max_daily_orders})")
 

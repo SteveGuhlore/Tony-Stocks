@@ -272,6 +272,13 @@ paper_trading:
                                     # KNOWN: legacy positions were sized at ~$5k (5%) under the old
                                     # default cap and run off until target/stop; new entries are 1%.
   max_daily_orders: 200
+  max_positions_per_sector: 8       # concentration cap: max concurrent open positions in ONE
+                                    # sector (0 = disabled). Per-trade 1% risk does not protect
+                                    # against a correlated cohort (e.g. many regional banks) gapping
+                                    # together. Gates NEW entries only; never force-closes existing.
+                                    # Sector from scan_results.sector -> vault.sector_map fallback;
+                                    # unknown/benchmark are uncapped. Loaded at watch startup (restart
+                                    # to apply).
   bracket: true                    # entry + stop + target as one bracket
   time_in_force: gtc               # GTC so stop/target protection PERSISTS overnight.
                                    # Entry is a market order (fills at trigger, never rests),

@@ -35,6 +35,10 @@ class PaperTradingConfig:
     max_open_positions: int = 8
     max_notional_per_position: float = 5000.0
     max_daily_orders: int = 20
+    # Portfolio concentration gate: max concurrent open positions in any one sector.
+    # 0 = disabled (no sector cap). Per-position risk caps don't protect against a
+    # correlated cohort (e.g. 15 regional banks) gapping together on one headline.
+    max_positions_per_sector: int = 0
     bracket: bool = True
     # GTC by default: the entry is a market order (fills immediately, never rests), so
     # the only effect of "day" would be to expire the protective take-profit/stop-loss
@@ -96,6 +100,8 @@ def load_paper_trading_config(raw: dict[str, Any] | None) -> PaperTradingConfig:
     max_open = _coerce_int(data.get("max_open_positions", 8), 8)
     max_notional = _coerce_float(data.get("max_notional_per_position", 5000.0), 5000.0)
     max_daily = _coerce_int(data.get("max_daily_orders", 20), 20)
+    # Sector cap: clamp negatives to 0 (disabled). 0 = no cap; >0 = max open per sector.
+    max_per_sector = max(0, _coerce_int(data.get("max_positions_per_sector", 0), 0))
     base_url = str(data.get("base_url", PAPER_BASE_URL) or PAPER_BASE_URL)
 
     tif = str(data.get("time_in_force", "gtc")).strip().lower()
@@ -108,6 +114,7 @@ def load_paper_trading_config(raw: dict[str, Any] | None) -> PaperTradingConfig:
         "max_open_positions": max_open,
         "max_notional_per_position": max_notional,
         "max_daily_orders": max_daily,
+        "max_positions_per_sector": max_per_sector,
         "bracket": bool(data.get("bracket", True)),
         "time_in_force": tif,
         "gate_on_command_center": bool(data.get("gate_on_command_center", False)),

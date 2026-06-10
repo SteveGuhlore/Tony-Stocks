@@ -87,6 +87,25 @@ class TestLoadEnabled:
         assert load_paper_trading_config({"enabled": True, "time_in_force": "DAY"}).time_in_force == "day"
         assert load_paper_trading_config({"enabled": True, "time_in_force": "Gtc"}).time_in_force == "gtc"
 
+    def test_max_positions_per_sector_parsed(self):
+        cfg = load_paper_trading_config(self._full(max_positions_per_sector=8))
+        assert cfg.max_positions_per_sector == 8
+
+    def test_max_positions_per_sector_defaults_to_zero(self):
+        # Absent -> 0 (disabled), so the cap is opt-in and never silently engages.
+        assert load_paper_trading_config({"enabled": True}).max_positions_per_sector == 0
+        assert load_paper_trading_config(None).max_positions_per_sector == 0
+
+    def test_negative_sector_cap_clamps_to_zero(self):
+        cfg = load_paper_trading_config(self._full(max_positions_per_sector=-3))
+        assert cfg.max_positions_per_sector == 0
+
+    def test_zero_sector_cap_does_not_fail_closed(self):
+        # 0 is a valid "disabled" value, NOT a misconfiguration -> stays enabled.
+        cfg = load_paper_trading_config(self._full(max_positions_per_sector=0))
+        assert cfg.enabled is True
+        assert cfg.disabled_reason is None
+
     def test_invalid_time_in_force_defaults_to_gtc(self):
         # Invalid TIF falls back to the safe default (gtc = persistent protection).
         assert load_paper_trading_config({"enabled": True, "time_in_force": "ioc"}).time_in_force == "gtc"

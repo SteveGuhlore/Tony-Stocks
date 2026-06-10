@@ -10,23 +10,49 @@ account identity (``account_label``) keeps a second (CC) account isolated.
 """
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from trading_bot.execution.broker import Broker
 from trading_bot.execution.order_router import PortfolioState, should_trade
 from trading_bot.execution.paper_config import PaperTradingConfig
+from trading_bot.vault.sector_map import get_sector
+
+
+def _resolve_sectors(repo: Any, symbols: Any) -> dict[str, str]:
+    """Map UPPER(symbol) -> normalized sector for each symbol.
+
+    Layered for coverage: the scanner's own ``scan_results.sector`` first (most complete
+    for the live universe), then the ``vault.sector_map`` fallback (which has gaps, e.g.
+    HBAN/HST), then "" (unknown -> uncapped at the gate). Resolution lives here so the
+    pure router never touches the DB.
+    """
+    syms = {str(s).upper() for s in (symbols or []) if s}
+    if not syms:
+        return {}
+    try:
+        db = repo.sectors_for_symbols(syms)
+    except Exception:  # never break the cycle on a sector lookup
+        db = {}
+    resolved: dict[str, str] = {}
+    for sym in syms:
+        raw = db.get(sym) or get_sector(sym)
+        resolved[sym] = (raw or "").strip().lower()
+    return resolved
 
 
 def _portfolio_state(broker: Broker, repo: Any, account_label: str, day: str) -> PortfolioState:
     account = broker.account()
     open_symbols = repo.open_paper_position_symbols(account_label=account_label)
     exited_today = repo.symbols_closed_today(account_label=account_label, day=day)
+    sector_counts = Counter(_resolve_sectors(repo, open_symbols).values())
     return PortfolioState(
         equity=account.equity,
         open_symbols=frozenset(open_symbols),
         open_positions=len(open_symbols),
         orders_today=repo.count_paper_orders_today(account_label=account_label, day=day),
         exited_today=frozenset(exited_today),
+        open_sector_counts=dict(sector_counts),
     )
 
 
@@ -141,9 +167,10 @@ def open_triggered_picks(
     for pick in triggered_picks:
         symbol = str(pick.get("symbol", "")).upper()
         state = _portfolio_state(broker, repo, account_label, day)
+        sector = _resolve_sectors(repo, [symbol]).get(symbol, "")
         decision = should_trade(
             symbol=symbol, entry=pick.get("entry"), stop=pick.get("stop"),
-            target=pick.get("target"), state=state, config=config,
+            target=pick.get("target"), sector=sector, state=state, config=config,
             kill_switch=kill_switch, market_open=market_open,
         )
         if not decision.approved:

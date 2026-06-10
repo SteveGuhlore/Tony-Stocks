@@ -74,6 +74,34 @@ class TestOpening:
         assert summary["submitted"] == []
 
 
+class TestSectorCap:
+    """Sector concentration cap enforced within a single cycle (via the fallback sector map)."""
+
+    def test_third_same_sector_pick_blocked_within_one_cycle(self, repo):
+        # cap=2 financials; C/WFC/BAC all resolve Financials via vault.sector_map (no
+        # scan_results rows in this temp db -> fallback path exercised).
+        b = FakeBroker(equity=100_000.0)
+        picks = [_pick("C", snapshot_id=1), _pick("WFC", snapshot_id=2), _pick("BAC", snapshot_id=3)]
+        summary = _cycle(b, repo, _cfg(max_positions_per_sector=2), triggered_picks=picks)
+        opened = {s["symbol"] for s in summary["submitted"]}
+        assert opened == {"C", "WFC"}  # first two fill, third is gated
+        blocked = {r["symbol"]: r["reason"] for r in summary["rejected"]}
+        assert "BAC" in blocked and "sector cap" in blocked["BAC"].lower()
+
+    def test_other_sector_not_blocked_by_full_bucket(self, repo):
+        b = FakeBroker(equity=100_000.0)
+        picks = [_pick("C", snapshot_id=1), _pick("WFC", snapshot_id=2), _pick("XOM", snapshot_id=3)]
+        summary = _cycle(b, repo, _cfg(max_positions_per_sector=2), triggered_picks=picks)
+        opened = {s["symbol"] for s in summary["submitted"]}
+        assert opened == {"C", "WFC", "XOM"}  # energy unaffected by full financials bucket
+
+    def test_cap_disabled_opens_all_same_sector(self, repo):
+        b = FakeBroker(equity=100_000.0)
+        picks = [_pick("C", snapshot_id=1), _pick("WFC", snapshot_id=2), _pick("BAC", snapshot_id=3)]
+        summary = _cycle(b, repo, _cfg(max_positions_per_sector=0), triggered_picks=picks)
+        assert {s["symbol"] for s in summary["submitted"]} == {"C", "WFC", "BAC"}
+
+
 class TestReconciliation:
     def test_target_hit_closes_repo_position_with_outcome(self, repo):
         b = FakeBroker()

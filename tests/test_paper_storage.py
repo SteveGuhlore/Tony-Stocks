@@ -95,3 +95,49 @@ class TestPaperPositions:
         repo.close_paper_position("NONE", account_label="tony", result="closed",
                                   exit_price=1.0, realized_pl=0.0, closed_at="2026-06-03T00:00:00+00:00")
         assert repo.open_paper_position_symbols(account_label="tony") == set()
+
+
+def _scan_result_row(repo, *, scan_run_id, symbol, sector, score=80.0):
+    """Insert a minimal scan_results row carrying a sector (NOT-NULL cols zeroed)."""
+    cols_zero = [
+        "final_score", "trend_score", "momentum_score", "volume_score", "risk_score",
+        "setup_quality_score", "latest_close", "avg_volume_20", "dollar_volume_20",
+        "return_5d", "return_20d", "atr_14", "volatility_20d", "suggested_entry",
+        "suggested_stop", "suggested_target_1", "risk_reward_ratio",
+    ]
+    with connect(repo.database_path) as conn:
+        conn.execute(
+            f"INSERT INTO scan_results (scan_run_id, symbol, sector, reasons_json, "
+            f"warnings_json, created_at, {', '.join(cols_zero)}) "
+            f"VALUES (?, ?, ?, '[]', '[]', '2026-06-10T00:00:00+00:00', "
+            f"{', '.join('?' for _ in cols_zero)})",
+            (scan_run_id, symbol, sector, *([score] + [0.0] * (len(cols_zero) - 1))),
+        )
+
+
+class TestSectorsForSymbols:
+    def test_returns_latest_nonempty_sector_per_symbol(self, repo):
+        run1 = repo.create_scan_run(10, "demo", {})
+        run2 = repo.create_scan_run(10, "demo", {})
+        _scan_result_row(repo, scan_run_id=run1, symbol="C", sector="financials_old")
+        _scan_result_row(repo, scan_run_id=run2, symbol="C", sector="financials")  # newer wins
+        _scan_result_row(repo, scan_run_id=run2, symbol="XOM", sector="energy")
+        out = repo.sectors_for_symbols({"C", "XOM"})
+        assert out == {"C": "financials", "XOM": "energy"}
+
+    def test_empty_sector_rows_are_skipped(self, repo):
+        run = repo.create_scan_run(10, "demo", {})
+        _scan_result_row(repo, scan_run_id=run, symbol="ZZZ", sector="")  # blank -> not returned
+        assert repo.sectors_for_symbols({"ZZZ"}) == {}
+
+    def test_unscanned_symbol_absent(self, repo):
+        assert repo.sectors_for_symbols({"NOPE"}) == {}
+
+    def test_empty_input_returns_empty(self, repo):
+        assert repo.sectors_for_symbols(set()) == {}
+        assert repo.sectors_for_symbols(None) == {}
+
+    def test_case_insensitive_lookup(self, repo):
+        run = repo.create_scan_run(10, "demo", {})
+        _scan_result_row(repo, scan_run_id=run, symbol="C", sector="financials")
+        assert repo.sectors_for_symbols({"c"}) == {"C": "financials"}
