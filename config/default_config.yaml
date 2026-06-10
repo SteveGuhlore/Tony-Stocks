@@ -13,7 +13,10 @@ timeframe: daily
 max_symbols: 350
 min_price: 5
 max_price: 500
-min_avg_volume: 300000
+min_avg_volume: 150000   # scan admission floor on IEX single-exchange volume (~2-3% of
+                         # consolidated), so 150k IEX ≈ a liquid consolidated name. Lowered
+                         # 300k→150k to stop skipping liquid large-caps; the scorer's own
+                         # 500k floor (scoring_config) still docks genuinely thin names.
 min_dollar_volume: 2000000
 score_threshold_watchlist: 70
 score_threshold_high_quality: 80
