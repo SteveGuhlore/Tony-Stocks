@@ -1,8 +1,9 @@
 "use client"
 
 import { useMorningPrep } from "@/lib/hooks"
+import type { PrepCatalysts } from "@/lib/types"
 import { ViewHeader, Awaiting } from "./shared"
-import { fmtScore } from "@/lib/format"
+import { fmtPrice } from "@/lib/format"
 
 const CONV_COLOR: Record<string, string> = {
   high: "var(--pos)",
@@ -11,16 +12,41 @@ const CONV_COLOR: Record<string, string> = {
   low: "var(--mut)",
 }
 
+/** Normalized 0–1 score → whole-number 0–100 for display. */
+function fmtPrepScore(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—"
+  return String(Math.round(v * 100))
+}
+
+/** entry → stop → target (+ R:R), em-dash when no levels. */
+function fmtPlan(entry?: number | null, stop?: number | null, target?: number | null, rr?: number | null): string {
+  if (entry == null && stop == null && target == null) return "—"
+  const levels = `${fmtPrice(entry)} → ${fmtPrice(stop)} → ${fmtPrice(target)}`
+  return rr != null && !Number.isNaN(rr) ? `${levels}  (${rr.toFixed(1)}R)` : levels
+}
+
+/** Compact human catalyst summary from the catalyst tags dict. */
+function fmtCatalyst(c?: PrepCatalysts | null): string {
+  if (!c) return "—"
+  const parts: string[] = []
+  if (c.earnings_blackout) parts.push("earnings ⚠")
+  else if (c.upcoming_earnings_date) parts.push(`ER ${c.upcoming_earnings_date}`)
+  if (c.analyst_rec_trend) parts.push(c.analyst_rec_trend)
+  if (c.news_sentiment) parts.push(c.news_sentiment)
+  return parts.length ? parts.join(" · ") : "—"
+}
+
 export function PrepView({ onOpenSymbol }: { onOpenSymbol: (s: string) => void }) {
   const { data, isLoading } = useMorningPrep()
   const list = data?.shortlist ?? []
+  const sub = data?.et_date ? `${list.length} on the shortlist · ${data.et_date}` : `${list.length} on the shortlist`
 
   return (
     <div>
-      <ViewHeader title="Morning Prep" sub={data?.next_open_label ?? `${list.length} on the shortlist`} />
-      {data?.narrative && (
+      <ViewHeader title="Morning Prep" sub={sub} />
+      {data?.what_changed_overnight && (
         <p className="text-mut" style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>
-          <b className="text-ink">What changed overnight:</b> {data.narrative}
+          <b className="text-ink">What changed overnight:</b> {data.what_changed_overnight}
         </p>
       )}
       {isLoading ? (
@@ -42,7 +68,7 @@ export function PrepView({ onOpenSymbol }: { onOpenSymbol: (s: string) => void }
               <th style={{ textAlign: "left", padding: "5px 6px" }} className="desktop-only">
                 Catalyst
               </th>
-              <th style={{ textAlign: "left", padding: "5px 6px" }}>Plan</th>
+              <th style={{ textAlign: "left", padding: "5px 6px" }}>Plan (entry → stop → target)</th>
             </tr>
           </thead>
           <tbody>
@@ -65,16 +91,16 @@ export function PrepView({ onOpenSymbol }: { onOpenSymbol: (s: string) => void }
                   </span>
                 </td>
                 <td className="num" style={{ padding: "7px 6px" }}>
-                  <b>{fmtScore(p.score)}</b>
+                  <b>{fmtPrepScore(p.score)}</b>
                 </td>
                 <td className="text-mut desktop-only" style={{ padding: "7px 6px" }}>
-                  {p.setup_category ?? "—"}
+                  {p.setup ?? "—"}
                 </td>
                 <td className="text-mut desktop-only" style={{ padding: "7px 6px" }}>
-                  {p.catalyst ?? "—"}
+                  {fmtCatalyst(p.catalysts)}
                 </td>
-                <td className="text-mut" style={{ padding: "7px 6px" }}>
-                  {p.plan ?? "—"}
+                <td className="num text-mut" style={{ padding: "7px 6px", whiteSpace: "nowrap" }}>
+                  {fmtPlan(p.entry, p.stop, p.target, p.rr)}
                 </td>
               </tr>
             ))}

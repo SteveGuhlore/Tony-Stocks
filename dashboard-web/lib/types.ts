@@ -173,18 +173,31 @@ export interface CommandCenterResponse {
 }
 
 /* ---- morning prep ---- */
+export interface PrepCatalysts {
+  symbol?: string | null
+  upcoming_earnings_date?: string | null
+  earnings_blackout?: boolean | null
+  analyst_rec_trend?: string | null
+  news_sentiment?: string | null
+  revenue_growth?: number | null
+}
 export interface PrepRow {
   symbol: string
   conviction?: string | null
-  score: number | null
-  setup_category?: string | null
-  catalyst?: string | null
-  plan?: string | null
+  score: number | null // normalized 0–1
+  setup?: string | null
+  entry?: number | null
+  stop?: number | null
+  target?: number | null
+  rr?: number | null
+  catalysts?: PrepCatalysts | null
+  warnings?: string[] | null
 }
 export interface MorningPrepResponse {
   generated_at?: string
-  next_open_label?: string | null
-  narrative?: string | null
+  et_date?: string
+  phase?: string
+  what_changed_overnight?: string | null
   plan_for_open?: string | null
   shortlist: PrepRow[]
 }
