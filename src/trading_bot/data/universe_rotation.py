@@ -4,12 +4,16 @@ Selects symbols for each watch cycle so that:
 - Core / benchmark symbols are always included first
 - Open-snapshot symbols are always included (continuity)
 - Prior high-priority candidates are included (continuity)
-- Remaining slots rotate through the discovery universe (round-robin)
+- Remaining slots sample the discovery universe with an evenly-spaced stride,
+  so each cycle is a cross-section of the whole ranked list (all score bands /
+  sectors) rather than one contiguous band, while still covering every symbol
+  once per epoch.
 
 No duplicates. Max symbols per cycle is enforced.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -107,20 +111,31 @@ class WatchUniverseRotator:
                 if _add(s):
                     prev_added += 1
 
-        # 4. Discovery rotation
+        # 4. Discovery rotation — strided sampling across the full ranked list.
+        #
+        # all_symbols is ranked by funnel score, so a contiguous slice is one
+        # score band (and, in momentum regimes, largely one sector). Instead,
+        # pick an evenly-spaced comb: indices offset + floor(i*step) with
+        # step = available/bucket, so each cycle samples every score band and
+        # sector proportionally. Advancing the offset by 1 per cycle shifts
+        # the comb; tooth gaps are at most ceil(step), so every symbol is
+        # covered once per ceil(step) cycles (the epoch). floor() with
+        # step >= 1 guarantees distinct indices within a cycle.
         available = [s for s in self.all_symbols if s not in seen]
         bucket_id = self._bucket_index
         discovery_added = 0
 
         if available and len(result) < self.max_per_cycle:
-            start = self._bucket_index % len(available)
-            pool: list[str] = []
-            for i in range(min(self.bucket_size, len(available))):
-                pool.append(available[(start + i) % len(available)])
-            for s in pool:
-                if _add(s):
+            n = len(available)
+            take = min(self.bucket_size, n)
+            step = n / take
+            epoch = max(math.ceil(step), 1)
+            offset = self._bucket_index % epoch
+            for i in range(take):
+                idx = (offset + int(i * step)) % n
+                if _add(available[idx]):
                     discovery_added += 1
-            self._bucket_index = (self._bucket_index + len(pool)) % max(len(self.all_symbols), 1)
+            self._bucket_index += 1
 
         return RotationResult(
             symbols=result,

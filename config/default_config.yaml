@@ -10,7 +10,7 @@ cache_dir: data/cache
 log_dir: logs
 lookback_days: 120
 timeframe: daily
-max_symbols: 175
+max_symbols: 350
 min_price: 5
 max_price: 500
 min_avg_volume: 300000
@@ -89,8 +89,8 @@ market_data:
     enabled: true
     feed: iex
     timeframe: 1Day
-    max_symbols_per_scan: 175
-    max_symbols_per_batch: 175
+    max_symbols_per_scan: 350   # per-cycle scan cap; served by chunked batch requests
+    max_symbols_per_batch: 175  # wire chunk size — symbols per HTTP request (Alpaca-safe)
     batch_requests_enabled: true
     max_requests_per_minute: 175
     request_buffer_percent: 15
@@ -141,12 +141,12 @@ pre_screener:
 
 watch_universe_rotation:
   enabled: true
-  # NOTE: the TRUE per-cycle scan cap is market_data.alpaca.max_symbols_per_scan (175):
-  # run_scan truncates the rotation set to it, and _fetch_bars_batch sends symbols in ONE
-  # un-chunked request, so raising throughput needs batch-chunking code first (follow-up,
-  # not a config tweak). max_symbols_per_cycle must therefore stay aligned with that cap —
-  # presenting more than gets scanned just wastes the rotation slot. The expanded universe
-  # is covered by rotation over MORE cycles, not more symbols per cycle.
+  # The per-cycle scan cap is market_data.alpaca.max_symbols_per_scan (350); _fetch_bars_batch
+  # chunks wire requests at max_symbols_per_batch (175), so 350/cycle = 2 chunked requests.
+  # max_symbols_per_cycle must stay aligned with that cap — presenting more than gets scanned
+  # wastes the rotation slot. Discovery uses STRIDED sampling: each cycle picks an evenly-spaced
+  # comb across the whole ranked shortlist (all score bands / sectors), covering every symbol
+  # once per epoch instead of scanning one contiguous score band at a time.
   max_symbols_per_cycle: 350
   core_symbols:
     - SPY
@@ -154,7 +154,7 @@ watch_universe_rotation:
     - IWM
   core_max_symbols: 50
   rotating_bucket_size: 350   # fill discovery up to the per-cycle cap
-  rotation_strategy: round_robin
+  rotation_strategy: strided
   keep_previous_candidates: true
   always_include_open_snapshots: true
 

@@ -6,6 +6,46 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-10 (later) — V34B: true coverage + throughput BUILT (branch `feat/universe-expansion-2026-06-10`)
+
+**What:** the follow-up flagged in the previous handoff, approved by the operator and built TDD.
+Two coupled changes (spec: `docs/superpowers/specs/2026-06-10-true-coverage-throughput-design.md`):
+
+- **A (throughput):** `_fetch_bars_batch` now CHUNKS wire requests at `max_symbols_per_batch`
+  (175) instead of sending all symbols in one request — params rebuilt per chunk so page_tokens
+  can't leak across chunks; per-symbol output identical; existing counters track the extra
+  requests. This unlocked raising `max_symbols_per_scan` 175→**350** (= 2 chunked requests/cycle,
+  ~4 req against ~149/min headroom), top-level `max_symbols` 175→350. Intraday cap left at 175
+  (research-only budget). `max_symbols_per_cycle`/`rotating_bucket_size` stay 350, now honored
+  end-to-end.
+- **B (true coverage):** discovery rotation switched from a CONTIGUOUS rank-slice (one score
+  band ≈ one hot sector per cycle — the operator's "they run together" complaint) to **strided
+  sampling**: each cycle picks indices `offset + floor(i·step)`, `step = available/bucket`,
+  offset advancing by 1/cycle. Every cycle is a proportional cross-section of ALL score bands /
+  sectors; full coverage once per `ceil(step)` cycles; deterministic (no RNG); floor() with
+  step≥1 guarantees distinct indices. Precedence layers (core/open/carryover) untouched.
+  Simulated hot-sector regime (300/1000 energy at top): every cycle hits 8/8 sectors at exactly
+  30% energy — old code would have been ~86% energy in cycle 1.
+
+**Tests:** `tests/test_v34b_coverage_throughput.py` — 13 offline tests (chunk splits, uneven
+tail, counter tracking, pagination-stays-within-chunk; strided full-coverage invariant incl.
+non-divisible sizes, anti-clustering spread assert, no dupes, precedence, edge cases). Full
+suite: **1398 passed, 1 failed** — `test_cc_record_agreement_wins_over_teaching` is RED ON THE
+BASE COMMIT TOO (verified via stash), pre-existing/unrelated; quarantined per DEPLOY_RULES, do
+not normalize.
+
+**Also:** `expand-universe` gained probe flags `--min-avg-volume/--min-dollar-volume/
+--min-price/--max-price` (dry-run floor measurement; defaults unchanged when omitted; active
+floors printed). NOTE for VM probing: `/tmp/uexp` worktree is a DETACHED HEAD — `git pull` fails
+silently; use `git fetch origin && git checkout origin/feat/universe-expansion-2026-06-10`.
+
+**NOT deployed.** Rollout per spec: after close, VM `watch --max-cycles 3` dry validation
+(expect symbols_scanned ≈350, cycle < 5 min, rate_limit_warnings 0, discovery spans sectors)
+before restarting `tradingbot-watch`. Floor-loosening (150k/$2M admission) is a SEPARATE
+decision pending the operator's probe numbers.
+
+---
+
 ## 2026-06-10 (midday) — screened universe expansion BUILT (branch `feat/universe-expansion-2026-06-10`)
 
 **What:** quality-gated universe growth 1,031 → ~2k. Unlike expansions 1–3 (hardcoded curated

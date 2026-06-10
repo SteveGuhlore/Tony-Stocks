@@ -425,10 +425,15 @@ class AlpacaIEXProvider(MarketDataProvider):
         lookback_days: int,
         timeframe: str,
     ) -> dict[str, pd.DataFrame]:
-        """Call the multi-symbol Alpaca bars endpoint.
+        """Call the multi-symbol Alpaca bars endpoint, chunked.
 
         The BATCH_URL accepts a 'symbols' query param (comma-separated).
         Response: {"bars": {"PLTR": [...], "AAPL": [...]}, "next_page_token": ...}
+
+        Symbols are split into chunks of max_symbols_per_batch so no single
+        request exceeds Alpaca's per-request symbol limit or URL-length limits,
+        and pagination (limit=10000 total bars per response) stays bounded per
+        chunk. Per-symbol output is identical to a single-request fetch.
         """
         alpaca_tf = _normalize_timeframe(timeframe, self.alpaca_timeframe)
         end_date = datetime.now(UTC).date()
@@ -438,46 +443,49 @@ class AlpacaIEXProvider(MarketDataProvider):
             "APCA-API-SECRET-KEY": self.secret_key,
         }
         upper_symbols = [s.upper() for s in symbols]
-        params: dict[str, Any] = {
-            "symbols": ",".join(upper_symbols),
-            "timeframe": alpaca_tf,
-            "start": start_date.isoformat(),
-            "end": end_date.isoformat(),
-            "feed": self.feed,
-            "adjustment": self.adjustment,
-            "limit": 10000,
-        }
         bars_by_symbol: dict[str, list[dict[str, Any]]] = {s: [] for s in upper_symbols}
-        page_token: str | None = None
-        while True:
-            if page_token:
-                params["page_token"] = page_token
-            if self._rate_limiter:
-                self._rate_limiter.acquire()
-            resp = requests.get(
-                self.BATCH_URL,
-                headers=headers,
-                params=params,
-                timeout=self.timeout,
-            )
-            self._requests_this_cycle += 1
-            self._batch_requests_this_cycle += 1
-            if resp.status_code == 429:
-                self._rate_limit_warnings_this_cycle += 1
-                LOGGER.warning("Alpaca IEX batch rate limit (429). Sleeping 61s.")
-                time.sleep(61)
-                continue
-            if not resp.ok:
-                raise OSError(f"Alpaca IEX batch HTTP {resp.status_code}: {resp.text[:200]}")
-            body = resp.json()
-            raw = body.get("bars") or {}
-            for sym, bars in raw.items():
-                key = sym.upper()
-                if key in bars_by_symbol:
-                    bars_by_symbol[key].extend(bars or [])
-            page_token = body.get("next_page_token")
-            if not page_token:
-                break
+        chunk_size = max(1, int(self.max_symbols_per_batch))
+        for chunk_start in range(0, len(upper_symbols), chunk_size):
+            chunk = upper_symbols[chunk_start : chunk_start + chunk_size]
+            params: dict[str, Any] = {
+                "symbols": ",".join(chunk),
+                "timeframe": alpaca_tf,
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "feed": self.feed,
+                "adjustment": self.adjustment,
+                "limit": 10000,
+            }
+            page_token: str | None = None
+            while True:
+                if page_token:
+                    params["page_token"] = page_token
+                if self._rate_limiter:
+                    self._rate_limiter.acquire()
+                resp = requests.get(
+                    self.BATCH_URL,
+                    headers=headers,
+                    params=params,
+                    timeout=self.timeout,
+                )
+                self._requests_this_cycle += 1
+                self._batch_requests_this_cycle += 1
+                if resp.status_code == 429:
+                    self._rate_limit_warnings_this_cycle += 1
+                    LOGGER.warning("Alpaca IEX batch rate limit (429). Sleeping 61s.")
+                    time.sleep(61)
+                    continue
+                if not resp.ok:
+                    raise OSError(f"Alpaca IEX batch HTTP {resp.status_code}: {resp.text[:200]}")
+                body = resp.json()
+                raw = body.get("bars") or {}
+                for sym, bars in raw.items():
+                    key = sym.upper()
+                    if key in bars_by_symbol:
+                        bars_by_symbol[key].extend(bars or [])
+                page_token = body.get("next_page_token")
+                if not page_token:
+                    break
 
         result: dict[str, pd.DataFrame] = {}
         for symbol in upper_symbols:
