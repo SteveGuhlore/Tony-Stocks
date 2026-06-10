@@ -1,8 +1,52 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-09_
+_Last updated: 2026-06-10_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-10 — audit fixes DEPLOYED to VM + naked-position auto-protect timer
+
+**Deploy.** The VM tree is divergent (on `feat/kinetic-dashboard` with load-bearing
+uncommitted overlays: `config/default_config.yaml`, `dashboard-web/`, `vault/`, locally
+deleted tests), so `update_vm.sh`'s `git pull --ff-only` REFUSES — confirmed live. Deploy
+was surgical: `git fetch origin main` + `git checkout origin/main -- <specific files>`,
+then the full test suite on the VM (159 passed on the touched files, incl. the real
+alpaca-py + fastapi route tests my sandbox can't run), then `systemctl restart
+tradingbot-api tradingbot-watch`, then `preflight_check.sh`. All audit fixes live.
+⚠️ Next session: this VM still needs the git reconcile onto a clean `main` so deploys can
+go back to the one-command `update_vm.sh`. Never reset/stash/checkout-dot on it.
+
+**Two more bugs found during the deploy's preflight (naked-position audit):**
+- `reprotect_naked.py` reported ALL 53 bot positions naked when only 16 were. Root cause:
+  an OCO's protective stop leg sits at `status=held` and is invisible to a flat
+  `status=open` order query — it only appears with `nested=true`. The script queried the
+  SDK `GetOrdersRequest` without nesting (and this alpaca-py build silently DROPS a
+  `nested=True` kwarg), so it was blind to every held stop. An `--execute` would have
+  cancelled 37 WORKING OCOs. Fixed: detection now reads `/v2/orders?nested=true` over raw
+  REST (the exact method `preflight_check.sh` uses; verified by hand — DKNG/HOOD show a
+  `sell/stop` leg, AAL/BKR show only an orphaned TP limit). Dry-run now correctly shows
+  37 protected / 16 naked.
+- Closed-market re-protect churns: cancels submitted while the market is closed sit at
+  `status=pending_cancel` and never free the held qty until the open, so re-OCO can't fire.
+  Fixed: `reprotect_naked.py` self-gates on the Alpaca clock — `--execute` no-ops when
+  closed (dry-run still works; `--force` overrides).
+
+**Naked-position SAFETY NET (the "brackets always in place" ask):** new
+`tradingbot-reprotect.service` (oneshot `--execute`, bot account only) + `.timer`
+(`OnCalendar=Mon-Fri 09..16:00/15 America/New_York` — every 15 min in-session). Installed
++ enabled on the VM. A position that loses a bracket leg is re-OCO'd within ~15 min,
+idempotently (nested detector skips already-protected names), and the clock guard makes it
+a clean no-op off-hours. **Pending at next open (2026-06-10 09:30 ET):** tonight's 16
+`pending_cancel` TPs finalize at the open → the 09:30/09:45 timer ticks submit fresh OCOs →
+0 naked. Verify after ~09:45 ET: `preflight_check.sh` section 6 → `0/53 naked`.
+
+**STILL OPEN — root cause (next tested commit, NOT a hotfix):** the watch loop's own
+`open_protective_symbols` (`alpaca_paper.py`) counts ANY open SELL order — including an
+orphaned take-profit — as "protected," so the bot never re-stops these itself. The timer
+covers it operationally; the real fix is to require an actual stop leg there (same
+nested/held-leg logic), with tests. That's why positions go naked AND stay naked.
 
 ---
 
