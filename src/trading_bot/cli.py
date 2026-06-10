@@ -156,6 +156,11 @@ def build_parser() -> argparse.ArgumentParser:
     update_snapshots = subparsers.add_parser("update-snapshots", help="Update candidate snapshot follow-up outcomes.")
     update_snapshots.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
     update_snapshots.add_argument("--limit", type=int, default=500, help="Maximum open/watch snapshots to check.")
+    update_snapshots.add_argument("--skip-intraday-trigger", action="store_true", dest="skip_intraday_trigger",
+                                  help="Skip the intraday entry-trigger re-simulation (resolve outcomes from daily "
+                                       "bars only). Use for off-hours EOD resolution batches: prior-day triggers were "
+                                       "already captured live, so the after-hours intraday fetch is stale, slow, and "
+                                       "noisy. ~2x faster and silences 'stale data' warnings.")
 
     seed_demo = subparsers.add_parser("seed-demo-snapshots", help="Create demo-only historical snapshots for outcome testing.")
     seed_demo.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
@@ -973,6 +978,11 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
     use_planned_fill = bool(entry_trigger_cfg.get("use_planned_price_as_fill", True))
     intraday_lookback = int((settings.intraday or {}).get("lookback_days", 5))
 
+    skip_intraday_trigger = bool(getattr(args, "skip_intraday_trigger", False))
+    # Per-symbol daily-bar cache: the same symbol commonly has several open snapshot
+    # rows (one per pick-day, graded independently), so fetch its bars once per run.
+    daily_cache: dict[str, pd.DataFrame] = {}
+
     checked = 0
     updated = 0
     outcomes: dict[str, int] = {}
@@ -993,7 +1003,7 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
         try:
             working = dict(snapshot)
             intraday_bars = None
-            if entry_trigger_cfg.get("enabled", True):
+            if entry_trigger_cfg.get("enabled", True) and not skip_intraday_trigger:
                 if not real_only or provider.name == "alpaca_iex":
                     try:
                         intraday_bars = provider.fetch_ohlcv(
@@ -1043,7 +1053,11 @@ def run_update_snapshots(args: argparse.Namespace) -> dict[str, Any]:
                     repo.update_candidate_snapshot_followup(int(snapshot["id"]), **freeze_updates)
                     working.update(freeze_updates)
 
-            data = provider.fetch_ohlcv(str(snapshot["symbol"]), max(settings.lookback_days, 140, expire_after + 40), settings.timeframe)
+            sym = str(snapshot["symbol"])
+            data = daily_cache.get(sym)
+            if data is None:
+                data = provider.fetch_ohlcv(sym, max(settings.lookback_days, 140, expire_after + 40), settings.timeframe)
+                daily_cache[sym] = data
             result = calculate_snapshot_followup(
                 snapshot=working,
                 ohlcv=data,

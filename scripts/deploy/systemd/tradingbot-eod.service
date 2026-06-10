@@ -23,7 +23,7 @@ EnvironmentFile=/opt/trading-bot/.env
 Environment=PYTHONPATH=src
 # 1) Full outcome resolution: re-check ALL open snapshots (not just the watch
 #    loop's recent 120) so prior-day picks resolve once forward bars exist.
-ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli update-snapshots --config config/default_config.yaml --limit 2000
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli update-snapshots --config config/default_config.yaml --limit 2000 --skip-intraday-trigger
 # 2) Re-export resolved outcomes + drop the EOD bridge brief (guarantees the
 #    16:00 handoff even if the watch loop missed its checkpoints).
 ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli export-to-vault --config config/default_config.yaml --slot eod
