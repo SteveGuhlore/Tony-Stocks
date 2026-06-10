@@ -10,11 +10,12 @@ cache_dir: data/cache
 log_dir: logs
 lookback_days: 120
 timeframe: daily
-max_symbols: 350
-min_price: 5
-max_price: 500
-min_avg_volume: 100000   # scan admission floor on IEX single-exchange volume (~2-3% of
-                         # consolidated). Kept ALIGNED with the expand-universe admission
+max_symbols: 500
+min_price: 4
+max_price: 1000
+min_avg_volume: 50000    # scan admission floor on IEX single-exchange volume (~2-3% of
+                         # consolidated, so 50k IEX ≈ 1.5–2.5M consolidated shares — not
+                         # actually thin). Kept ALIGNED with the expand-universe admission
                          # floor so every symbol in the universe is actually scannable —
                          # a scan floor above the expansion floor would silently skip the
                          # lowest-volume additions every cycle (dead weight). The scorer's
@@ -94,7 +95,7 @@ market_data:
     enabled: true
     feed: iex
     timeframe: 1Day
-    max_symbols_per_scan: 350   # per-cycle scan cap; served by chunked batch requests
+    max_symbols_per_scan: 500   # per-cycle scan cap; served by chunked batch requests (3 chunks)
     max_symbols_per_batch: 175  # wire chunk size — symbols per HTTP request (Alpaca-safe)
     batch_requests_enabled: true
     max_requests_per_minute: 175
@@ -146,19 +147,19 @@ pre_screener:
 
 watch_universe_rotation:
   enabled: true
-  # The per-cycle scan cap is market_data.alpaca.max_symbols_per_scan (350); _fetch_bars_batch
-  # chunks wire requests at max_symbols_per_batch (175), so 350/cycle = 2 chunked requests.
+  # The per-cycle scan cap is market_data.alpaca.max_symbols_per_scan (500); _fetch_bars_batch
+  # chunks wire requests at max_symbols_per_batch (175), so 500/cycle = 3 chunked requests.
   # max_symbols_per_cycle must stay aligned with that cap — presenting more than gets scanned
   # wastes the rotation slot. Discovery uses STRIDED sampling: each cycle picks an evenly-spaced
   # comb across the whole ranked shortlist (all score bands / sectors), covering every symbol
   # once per epoch instead of scanning one contiguous score band at a time.
-  max_symbols_per_cycle: 350
+  max_symbols_per_cycle: 500
   core_symbols:
     - SPY
     - QQQ
     - IWM
   core_max_symbols: 50
-  rotating_bucket_size: 350   # fill discovery up to the per-cycle cap
+  rotating_bucket_size: 500   # fill discovery up to the per-cycle cap
   rotation_strategy: strided
   keep_previous_candidates: true
   always_include_open_snapshots: true
@@ -186,7 +187,9 @@ research_funnel:
   min_news_sentiment: -1.0       # used only when sentiment_mode: filter
   min_recommendation: null       # null = off
   min_revenue_growth: null       # null = off (e.g. -0.5 drops >50% revenue decline)
-  shortlist_size: 1000           # cap on the shortlist fed to the rotator (600 -> 1000 with the ~2k universe)
+  shortlist_size: 2200           # cap on the shortlist fed to the rotator — MUST be >= universe size
+                                 # or the lowest-ranked names never reach rotation (silent dead weight).
+                                 # Raised to 2200 to cover the wave-3 ~2k universe with headroom.
   weight_relative_strength: 1.0
   weight_sentiment: 0.5
   weight_recommendation: 0.5
