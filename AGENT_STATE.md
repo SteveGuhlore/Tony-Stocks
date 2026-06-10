@@ -6,6 +6,34 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-10 (late) — dashboard-web: all dead action buttons wired + X-ray data fixes
+
+Driven by a live button audit (every action button was dead). Frontend wiring (Fable 5 agent,
+reviewed: tsc clean, vitest 24/24, contracts verified) + Opus-side fixes. Backend control/
+personalize endpoints all pre-existed; no new backend.
+
+Opus-side: X-ray sub-score range rounded (was garbled floats); /command-center now serves live
+scoring weights so 'Live weights'+'Score drivers' populate (11d7cb1); TrackRecord relabeled
+'Bot trade win%' vs 'Tony call acc%' (+footnote) — they're different metrics shown side-by-side.
+
+Frontend wiring (Fable 5):
+- **`lib/api.ts`**: fixed control paths `/api/control/*` → `/api/controls/*` (they 404'd before);
+  every control POST now sends a fresh `Idempotency-Key` (crypto.randomUUID()); POST errors now
+  surface the backend `{error, detail}` body (e.g. `pin_required`); added `api.personalize`
+  (pins GET/POST, notes GET/POST, price-alerts POST).
+- **`lib/hooks.ts`**: new useMutation hooks (stop-watch, pause/resume-paper, flatten-all/-one,
+  trigger-scan, ack-alert, pin, note, price alert) with sonner toasts + query invalidation
+  (paper/cockpit/system-health/paper-equity); `usePins` / `useNotes` queries.
+- **`components/kinetic/ConfirmDialog.tsx`**: `onConfirm` now receives the typed PIN.
+- **SystemView / PaperBookView / Cockpit palette**: confirm specs call the real mutations
+  (PIN passed for flatten-all); added a Resume-paper button; pending states on buttons.
+- **SymbolDrawer**: Pin toggles + reflects state; Note/Alert reveal inline editors (note textarea
+  + recent notes; price input defaulting to last + above/below toggle); Flatten opens the
+  ConfirmDialog (requirePin) → `flatten-one {pin, symbol}`.
+- **Verified:** `npx tsc --noEmit` clean, `npm run build` green, vitest 24/24 green.
+
+---
+
 ## 2026-06-10 (evening) — FULL STACK LIVE: V34B + loosened floors + ~1.8k universe (main `a75f2bc` on VM)
 
 **Net result, deployed live on the VM (paper account), validated by clean restart + load gate:**

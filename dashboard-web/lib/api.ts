@@ -34,14 +34,55 @@ async function get<T>(
   return res.json() as Promise<T>
 }
 
-async function post<T>(path: string, body?: unknown): Promise<T> {
+async function post<T>(
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (!res.ok) throw new ApiError(res.status, `POST ${path} → ${res.status}`)
+  if (!res.ok) {
+    // Backend errors carry {ok:false, error:"pin_required", detail:"…"} — surface them.
+    let message = ""
+    try {
+      const data = (await res.json()) as { error?: string; detail?: string }
+      message = [data.error, data.detail].filter(Boolean).join(" — ")
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new ApiError(res.status, message || `POST ${path} → ${res.status}`)
+  }
   return res.json() as Promise<T>
+}
+
+/** Control-plane POST: /api/controls/* with a fresh Idempotency-Key per action. */
+function controlPost<B>(action: string) {
+  return (body: B) =>
+    post<ControlResult>(`/api/controls/${action}`, body, {
+      "Idempotency-Key": crypto.randomUUID(),
+    })
+}
+
+export interface ControlResult {
+  ok: boolean
+  action?: string
+  replayed?: boolean
+  detail?: string | null
+}
+
+export interface ControlBody {
+  pin?: string
+}
+
+export interface PersonalizeNote {
+  id?: number
+  symbol?: string
+  body?: string
+  created_at?: string
+  updated_at?: string
 }
 
 export const api = {
@@ -172,15 +213,30 @@ export const api = {
   systemHealth: () => get<SystemHealthResponse>("/api/system/health"),
   streamUrl: () => `${API_BASE}/api/events/stream`,
 
-  /* control endpoints (wired behind confirm dialogs; no-op in dev fence) */
+  /* control endpoints (wired behind confirm dialogs; env-fenced server-side) */
   control: {
-    stopWatch: (body: unknown) => post<{ status: string }>("/api/control/stop-watch", body),
-    pausePaper: (body: unknown) => post<{ status: string }>("/api/control/pause-paper", body),
-    resumePaper: (body: unknown) => post<{ status: string }>("/api/control/resume-paper", body),
-    flattenAll: (body: unknown) => post<{ status: string }>("/api/control/flatten-all", body),
-    flattenOne: (body: unknown) => post<{ status: string }>("/api/control/flatten-one", body),
-    reProtect: (body: unknown) => post<{ status: string }>("/api/control/re-protect", body),
-    triggerScan: (body: unknown) => post<{ status: string }>("/api/control/trigger-scan", body),
-    ackAlert: (body: unknown) => post<{ status: string }>("/api/control/ack-alert", body),
+    stopWatch: controlPost<ControlBody>("stop-watch"),
+    pausePaper: controlPost<ControlBody>("pause-paper"),
+    resumePaper: controlPost<ControlBody>("resume-paper"),
+    flattenAll: controlPost<ControlBody>("flatten-all"),
+    flattenOne:
+      controlPost<ControlBody & { symbol: string; position_version?: string | number }>("flatten-one"),
+    reProtect:
+      controlPost<ControlBody & { symbol: string; position_version?: string | number }>("re-protect"),
+    triggerScan: controlPost<ControlBody>("trigger-scan"),
+    ackAlert: controlPost<ControlBody & { event_id: number }>("ack-alert"),
+  },
+
+  /* personalize endpoints (operator convenience — pins / notes / price alerts) */
+  personalize: {
+    pins: () => get<{ pins: Array<{ symbol?: string }> }>("/api/personalize/pins"),
+    setPin: (body: { symbol: string; pinned: boolean }) =>
+      post<{ ok: boolean; symbol: string; pinned: boolean }>("/api/personalize/pins", body),
+    notes: (symbol?: string) =>
+      get<{ notes: PersonalizeNote[] }>("/api/personalize/notes", { symbol }),
+    addNote: (body: { symbol: string; body: string }) =>
+      post<{ ok: boolean; id: number }>("/api/personalize/notes", body),
+    addPriceAlert: (body: { symbol: string; target_price: number; direction: "above" | "below" }) =>
+      post<{ ok: boolean; id: number }>("/api/personalize/price-alerts", body),
   },
 }

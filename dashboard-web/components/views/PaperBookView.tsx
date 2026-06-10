@@ -1,6 +1,6 @@
 "use client"
 
-import { usePaper, usePaperEquityCurve } from "@/lib/hooks"
+import { usePaper, usePaperEquityCurve, useFlattenAll, usePausePaper } from "@/lib/hooks"
 import { ViewHeader, Kpis, Panel, Awaiting } from "./shared"
 import { MiniLine } from "@/components/kinetic/MiniLine"
 import { Button } from "@/components/kinetic/Button"
@@ -16,6 +16,8 @@ export function PaperBookView({
 }) {
   const { data, isLoading } = usePaper()
   const curve = usePaperEquityCurve()
+  const flattenAll = useFlattenAll()
+  const pausePaper = usePausePaper()
   const positions = data?.positions ?? []
   // Mark-to-market equity = baseline + realized + open unrealized. The /paper/positions
   // endpoint omits equity (it's null in the transform); base_equity comes from the curve.
@@ -101,6 +103,7 @@ export function PaperBookView({
       <div className="flex gap-2 flex-wrap">
         <Button
           variant="danger"
+          disabled={flattenAll.isPending}
           onClick={() =>
             onConfirm({
               title: "Flatten ALL positions?",
@@ -108,23 +111,24 @@ export function PaperBookView({
               confirmLabel: "Flatten all",
               danger: true,
               requirePin: true,
-              onConfirm: () => {},
+              onConfirm: (pin) => flattenAll.mutate({ pin }),
             })
           }
         >
-          💥 Flatten all
+          {flattenAll.isPending ? "💥 Flattening…" : "💥 Flatten all"}
         </Button>
         <Button
+          disabled={pausePaper.isPending}
           onClick={() =>
             onConfirm({
               title: "Pause paper trading?",
               body: "No new entries until resumed. Open positions keep their brackets.",
               confirmLabel: "Pause paper",
-              onConfirm: () => {},
+              onConfirm: (pin) => pausePaper.mutate({ pin }),
             })
           }
         >
-          ⏸ Pause paper
+          {pausePaper.isPending ? "⏸ Pausing…" : "⏸ Pause paper"}
         </Button>
       </div>
     </div>

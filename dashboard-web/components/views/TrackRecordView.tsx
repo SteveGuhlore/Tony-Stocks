@@ -22,12 +22,18 @@ export function TrackRecordView() {
       <ViewHeader title="Track Record" sub="two records racing — bot (cyan) vs Tony (amber)" />
       <Kpis
         items={[
-          { label: "Bot win rate", value: pct(botWr != null ? botWr * 100 : null) },
-          { label: "Tony win rate", value: pct(data?.tony_win_rate != null ? data.tony_win_rate * 100 : null) },
+          { label: "Bot trade win%", value: pct(botWr != null ? botWr * 100 : null) },
+          { label: "Tony call acc%", value: pct(data?.tony_win_rate != null ? data.tony_win_rate * 100 : null) },
           { label: "Bot avg R", value: r(paper.data?.avg_r) },
           { label: "Tony avg R", value: r(data?.tony_avg_r) },
         ]}
       />
+      <p className="text-mut" style={{ fontSize: 11, lineHeight: 1.6, margin: "2px 2px 12px" }}>
+        Not the same metric: <b className="text-ink">Bot trade win%</b> = closed paper trades that hit
+        target vs stop. <b className="text-ink">Tony call acc%</b> = his 2nd-pass calls that proved
+        right (he reviews, he doesn&apos;t trade). Equity below is dollar-weighted P/L — it moves
+        independently of both.
+      </p>
       <Panel title="Equity · bot vs Tony (indexed 100)">
         <MiniLine
           baseline={100}

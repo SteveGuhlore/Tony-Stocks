@@ -12,7 +12,8 @@ export interface ConfirmSpec {
   danger?: boolean
   /** require typed PIN for dangerous money-adjacent actions */
   requirePin?: boolean
-  onConfirm: () => void
+  /** receives the typed PIN when requirePin is set */
+  onConfirm: (pin?: string) => void
 }
 
 export function ConfirmDialog({ spec, onClose }: { spec: ConfirmSpec | null; onClose: () => void }) {
@@ -77,7 +78,7 @@ export function ConfirmDialog({ spec, onClose }: { spec: ConfirmSpec | null; onC
                 disabled={!pinOk}
                 style={{ opacity: pinOk ? 1 : 0.5 }}
                 onClick={() => {
-                  spec.onConfirm()
+                  spec.onConfirm(spec.requirePin ? pin.trim() : undefined)
                   onClose()
                 }}
               >

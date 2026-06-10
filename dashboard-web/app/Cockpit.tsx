@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useCockpit, usePaper, usePaperEquityCurve } from "@/lib/hooks"
+import { useCockpit, usePaper, usePaperEquityCurve, useFlattenAll, useTriggerScan } from "@/lib/hooks"
 import { useEventStream } from "@/lib/useEventStream"
 import { seedTicks } from "@/lib/priceStore"
 import { autoPhase, type Phase } from "@/lib/phase"
@@ -40,6 +40,9 @@ export default function Cockpit() {
   const [selected, setSelected] = useState<string | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null)
+  // .mutate is referentially stable — safe for the commands memo deps.
+  const { mutate: flattenAllMutate } = useFlattenAll()
+  const { mutate: triggerScanMutate } = useTriggerScan()
 
   const rows = useMemo(() => data?.rows ?? [], [data])
   const phase = manualPhase ?? autoPhase(data?.market)
@@ -86,7 +89,7 @@ export default function Cockpit() {
             confirmLabel: "Flatten all",
             danger: true,
             requirePin: true,
-            onConfirm: () => {},
+            onConfirm: (pin) => flattenAllMutate({ pin }),
           }),
       },
       {
@@ -98,11 +101,11 @@ export default function Cockpit() {
             title: "Trigger a manual scan?",
             body: "Kicks a manual scan cycle. No-op in dev fence.",
             confirmLabel: "Trigger scan",
-            onConfirm: () => {},
+            onConfirm: (pin) => triggerScanMutate({ pin }),
           }),
       },
     ],
-    [],
+    [flattenAllMutate, triggerScanMutate],
   )
 
   const counts = data?.counts
@@ -160,7 +163,12 @@ export default function Cockpit() {
         </main>
       </div>
 
-      <SymbolDrawer row={selectedRow} position={selectedPos} onClose={() => setSelected(null)} />
+      <SymbolDrawer
+        row={selectedRow}
+        position={selectedPos}
+        onClose={() => setSelected(null)}
+        onConfirm={setConfirm}
+      />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

@@ -1,6 +1,13 @@
 "use client"
 
-import { useSystemHealth } from "@/lib/hooks"
+import {
+  useSystemHealth,
+  useStopWatch,
+  usePausePaper,
+  useResumePaper,
+  useFlattenAll,
+  useTriggerScan,
+} from "@/lib/hooks"
 import { ViewHeader, Kpis, Panel, Awaiting } from "./shared"
 import { Button } from "@/components/kinetic/Button"
 import type { ConfirmSpec } from "@/components/kinetic/ConfirmDialog"
@@ -17,6 +24,11 @@ const SEV_COLOR: Record<string, string> = {
 
 export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmSpec) => void; streamState: StreamState }) {
   const { data, isLoading } = useSystemHealth()
+  const stopWatch = useStopWatch()
+  const pausePaper = usePausePaper()
+  const resumePaper = useResumePaper()
+  const flattenAll = useFlattenAll()
+  const triggerScan = useTriggerScan()
   const events = data?.events ?? []
   const w = data?.watch
   const hb = w?.last_heartbeat_at
@@ -41,31 +53,47 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
       <Panel title="Controls">
         <div className="flex gap-2 flex-wrap">
           <Button
+            disabled={stopWatch.isPending}
             onClick={() =>
               onConfirm({
                 title: "Stop the watch loop?",
                 body: "Writes data/STOP_WATCH_MODE on the VM — the scanner halts until restarted. No-op in dev fence.",
                 confirmLabel: "Stop watch",
-                onConfirm: () => {},
+                onConfirm: (pin) => stopWatch.mutate({ pin }),
               })
             }
           >
-            🛑 Stop watch loop
+            {stopWatch.isPending ? "🛑 Stopping…" : "🛑 Stop watch loop"}
           </Button>
           <Button
+            disabled={pausePaper.isPending}
             onClick={() =>
               onConfirm({
                 title: "Pause paper trading?",
                 body: "Writes data/STOP_PAPER_TRADING — no new entries until resumed. No-op in dev fence.",
                 confirmLabel: "Pause paper",
-                onConfirm: () => {},
+                onConfirm: (pin) => pausePaper.mutate({ pin }),
               })
             }
           >
-            ⏸ Pause paper trading
+            {pausePaper.isPending ? "⏸ Pausing…" : "⏸ Pause paper trading"}
+          </Button>
+          <Button
+            disabled={resumePaper.isPending}
+            onClick={() =>
+              onConfirm({
+                title: "Resume paper trading?",
+                body: "Clears data/STOP_PAPER_TRADING — entries may fire again on triggers.",
+                confirmLabel: "Resume paper",
+                onConfirm: (pin) => resumePaper.mutate({ pin }),
+              })
+            }
+          >
+            {resumePaper.isPending ? "▶ Resuming…" : "▶ Resume paper trading"}
           </Button>
           <Button
             variant="danger"
+            disabled={flattenAll.isPending}
             onClick={() =>
               onConfirm({
                 title: "Flatten all positions?",
@@ -73,23 +101,24 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
                 confirmLabel: "Flatten all",
                 danger: true,
                 requirePin: true,
-                onConfirm: () => {},
+                onConfirm: (pin) => flattenAll.mutate({ pin }),
               })
             }
           >
-            💥 Flatten all positions
+            {flattenAll.isPending ? "💥 Flattening…" : "💥 Flatten all positions"}
           </Button>
           <Button
+            disabled={triggerScan.isPending}
             onClick={() =>
               onConfirm({
                 title: "Trigger a manual scan?",
                 body: "Kicks a manual scan cycle (409s if one is already running). No-op in dev fence.",
                 confirmLabel: "Trigger scan",
-                onConfirm: () => {},
+                onConfirm: (pin) => triggerScan.mutate({ pin }),
               })
             }
           >
-            ↻ Trigger scan now
+            {triggerScan.isPending ? "↻ Triggering…" : "↻ Trigger scan now"}
           </Button>
         </div>
       </Panel>

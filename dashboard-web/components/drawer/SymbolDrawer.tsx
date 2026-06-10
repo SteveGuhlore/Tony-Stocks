@@ -1,30 +1,43 @@
 "use client"
 
 import { AnimatePresence, motion } from "motion/react"
+import { useState } from "react"
 import type { CockpitRow, PaperPosition } from "@/lib/types"
-import { useSymbolChart } from "@/lib/hooks"
+import {
+  useSymbolChart,
+  usePins,
+  useNotes,
+  useSetPin,
+  useAddNote,
+  useAddPriceAlert,
+  useFlattenOne,
+} from "@/lib/hooks"
 import { SymbolChart } from "./SymbolChart"
 import { Button } from "@/components/kinetic/Button"
+import type { ConfirmSpec } from "@/components/kinetic/ConfirmDialog"
 import { normalizeVerdict } from "@/lib/verdict"
 import { fmtPrice, fmtPct, fmtScore, fmtMoney, fmtRvol, changeClass } from "@/lib/format"
 import { subScoreArray, statusBadge, effectivePrice, scoreDelta } from "@/lib/rows"
 import { SUB_SCORE_LABELS, SUB_SCORE_KEYS } from "@/lib/tokens"
 import { duration, easing } from "@/lib/motion-tokens"
-import { toast } from "sonner"
 
 /** Dual-source symbol deep-dive (mockup 11): bot vs Tony, both scores. */
 export function SymbolDrawer({
   row,
   position,
   onClose,
+  onConfirm,
 }: {
   row: CockpitRow | null
   position: PaperPosition | null
   onClose: () => void
+  onConfirm: (s: ConfirmSpec) => void
 }) {
   return (
     <AnimatePresence>
-      {row && <DrawerInner key={row.symbol} row={row} position={position} onClose={onClose} />}
+      {row && (
+        <DrawerInner key={row.symbol} row={row} position={position} onClose={onClose} onConfirm={onConfirm} />
+      )}
     </AnimatePresence>
   )
 }
@@ -33,10 +46,12 @@ function DrawerInner({
   row,
   position,
   onClose,
+  onConfirm,
 }: {
   row: CockpitRow
   position: PaperPosition | null
   onClose: () => void
+  onConfirm: (s: ConfirmSpec) => void
 }) {
   const chart = useSymbolChart(row.symbol)
   const price = effectivePrice(row)
@@ -47,6 +62,24 @@ function DrawerInner({
   const tonyV = normalizeVerdict(row.tony?.verdict)
   const delta = scoreDelta(row)
   const badge = statusBadge(row)
+
+  // personalize state (pins / notes / price alerts) + flatten-one
+  const pins = usePins()
+  const notes = useNotes(row.symbol)
+  const setPin = useSetPin()
+  const addNote = useAddNote()
+  const addAlert = useAddPriceAlert()
+  const flattenOne = useFlattenOne()
+  const pinned = (pins.data?.pins ?? []).some(
+    (p) => (p.symbol ?? "").toUpperCase() === row.symbol.toUpperCase(),
+  )
+  const [panel, setPanel] = useState<"note" | "alert" | null>(null)
+  const [noteText, setNoteText] = useState("")
+  const [alertPrice, setAlertPrice] = useState(() => (price != null ? String(price) : ""))
+  const [alertDir, setAlertDir] = useState<"above" | "below">("above")
+  const alertPriceNum = Number(alertPrice)
+  const alertOk = alertPrice.trim() !== "" && Number.isFinite(alertPriceNum) && alertPriceNum > 0
+  const symbolNotes = notes.data?.notes ?? []
 
   return (
     <>
@@ -241,26 +274,192 @@ function DrawerInner({
         </Section>
 
         {/* actions */}
-        <div className="flex flex-wrap gap-2" style={{ padding: "15px 18px" }}>
-          <Button style={{ flex: 1, minWidth: 96 }} onClick={() => toast.success(`Pinned ${row.symbol}`)}>
-            ★ Pin
+        <div className="flex flex-wrap gap-2" style={{ padding: "15px 18px 0" }}>
+          <Button
+            style={{
+              flex: 1,
+              minWidth: 96,
+              ...(pinned
+                ? { background: "rgba(255,206,74,.16)", border: "1px solid var(--warn)", color: "var(--warn)" }
+                : {}),
+            }}
+            disabled={setPin.isPending}
+            aria-pressed={pinned}
+            onClick={() => setPin.mutate({ symbol: row.symbol, pinned: !pinned })}
+          >
+            {setPin.isPending ? "★ …" : pinned ? "★ Pinned" : "☆ Pin"}
           </Button>
-          <Button style={{ flex: 1, minWidth: 96 }} onClick={() => toast(`Note on ${row.symbol}`)}>
-            ✎ Note
+          <Button
+            style={{ flex: 1, minWidth: 96, ...(panel === "note" ? { border: "1px solid var(--cyan)" } : {}) }}
+            onClick={() => setPanel(panel === "note" ? null : "note")}
+          >
+            ✎ Note{symbolNotes.length ? ` (${symbolNotes.length})` : ""}
           </Button>
-          <Button style={{ flex: 1, minWidth: 96 }} onClick={() => toast(`Alert set on ${row.symbol}`)}>
+          <Button
+            style={{ flex: 1, minWidth: 96, ...(panel === "alert" ? { border: "1px solid var(--cyan)" } : {}) }}
+            onClick={() => setPanel(panel === "alert" ? null : "alert")}
+          >
             🔔 Alert
           </Button>
           {position && (
             <Button
               variant="danger"
               style={{ flex: 1, minWidth: 96 }}
-              onClick={() => toast.warning(`Flatten ${row.symbol} — confirm in System (dev no-op)`)}
+              disabled={flattenOne.isPending}
+              onClick={() =>
+                onConfirm({
+                  title: `Flatten ${row.symbol}?`,
+                  body: `Closes the open paper position in ${row.symbol} (${position.qty} shares). PIN required.`,
+                  confirmLabel: `Flatten ${row.symbol}`,
+                  danger: true,
+                  requirePin: true,
+                  onConfirm: (pin) => flattenOne.mutate({ pin, symbol: row.symbol }),
+                })
+              }
             >
-              💥 Flatten
+              {flattenOne.isPending ? "💥 Flattening…" : "💥 Flatten"}
             </Button>
           )}
         </div>
+
+        {/* inline note editor */}
+        {panel === "note" && (
+          <div style={{ padding: "12px 18px" }}>
+            <div style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 12 }}>
+              <div
+                style={{ fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 8 }}
+              >
+                Note on {row.symbol}
+              </div>
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                rows={3}
+                placeholder="What are you seeing?"
+                aria-label={`Note on ${row.symbol}`}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  background: "rgba(255,255,255,.04)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  color: "var(--ink)",
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  outline: "none",
+                }}
+              />
+              <div className="flex gap-2 justify-end" style={{ marginTop: 8 }}>
+                <Button onClick={() => setPanel(null)}>Cancel</Button>
+                <Button
+                  variant="primary"
+                  disabled={!noteText.trim() || addNote.isPending}
+                  style={{ opacity: noteText.trim() && !addNote.isPending ? 1 : 0.5 }}
+                  onClick={() =>
+                    addNote.mutate(
+                      { symbol: row.symbol, body: noteText.trim() },
+                      {
+                        onSuccess: () => {
+                          setNoteText("")
+                          setPanel(null)
+                        },
+                      },
+                    )
+                  }
+                >
+                  {addNote.isPending ? "Saving…" : "Save note"}
+                </Button>
+              </div>
+              {symbolNotes.length > 0 && (
+                <div style={{ marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 8 }}>
+                  {symbolNotes.slice(0, 3).map((n, i) => (
+                    <div key={n.id ?? i} className="text-mut" style={{ fontSize: 11, lineHeight: 1.6 }}>
+                      <span className="text-dim" style={{ fontSize: 9 }}>
+                        {n.created_at ?? ""}
+                      </span>{" "}
+                      {n.body}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* inline price-alert editor */}
+        {panel === "alert" && (
+          <div style={{ padding: "12px 18px" }}>
+            <div style={{ border: "1px solid var(--line)", borderRadius: 11, padding: 12 }}>
+              <div
+                style={{ fontSize: 9, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--dim)", marginBottom: 8 }}
+              >
+                Price alert on {row.symbol}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <input
+                  value={alertPrice}
+                  onChange={(e) => setAlertPrice(e.target.value)}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  placeholder="target price"
+                  aria-label="Alert target price"
+                  className="num"
+                  style={{
+                    width: 110,
+                    background: "rgba(255,255,255,.04)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 8,
+                    color: "var(--ink)",
+                    padding: "7px 10px",
+                    fontSize: 12,
+                    outline: "none",
+                  }}
+                />
+                <div className="flex" style={{ border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden" }}>
+                  {(["above", "below"] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setAlertDir(d)}
+                      aria-pressed={alertDir === d}
+                      style={{
+                        padding: "7px 12px",
+                        fontSize: 11,
+                        cursor: "pointer",
+                        border: "none",
+                        background: alertDir === d ? "rgba(55,224,255,.14)" : "transparent",
+                        color: alertDir === d ? "var(--cyan)" : "var(--mut)",
+                        fontWeight: alertDir === d ? 700 : 400,
+                      }}
+                    >
+                      {d === "above" ? "▲ above" : "▼ below"}
+                    </button>
+                  ))}
+                </div>
+                <Button
+                  variant="primary"
+                  className="ml-auto"
+                  disabled={!alertOk || addAlert.isPending}
+                  style={{ opacity: alertOk && !addAlert.isPending ? 1 : 0.5 }}
+                  onClick={() =>
+                    addAlert.mutate(
+                      { symbol: row.symbol, target_price: alertPriceNum, direction: alertDir },
+                      { onSuccess: () => setPanel(null) },
+                    )
+                  }
+                >
+                  {addAlert.isPending ? "Setting…" : "Set alert"}
+                </Button>
+              </div>
+              <div className="text-dim" style={{ fontSize: 9, marginTop: 7 }}>
+                fires when last trades {alertDir} {alertOk ? fmtPrice(alertPriceNum) : "—"} · defaults to last price
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ height: 15 }} />
       </motion.aside>
     </>
   )
