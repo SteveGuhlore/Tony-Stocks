@@ -39,10 +39,25 @@ not normalize.
 floors printed). NOTE for VM probing: `/tmp/uexp` worktree is a DETACHED HEAD — `git pull` fails
 silently; use `git fetch origin && git checkout origin/feat/universe-expansion-2026-06-10`.
 
-**NOT deployed.** Rollout per spec: after close, VM `watch --max-cycles 3` dry validation
-(expect symbols_scanned ≈350, cycle < 5 min, rate_limit_warnings 0, discovery spans sectors)
-before restarting `tradingbot-watch`. Floor-loosening (150k/$2M admission) is a SEPARATE
-decision pending the operator's probe numbers.
+**DEPLOYED LIVE 2026-06-10 ~15:08 ET** (mid-session, operator chose not to wait for close; paper
+account, restart only drops recoverable in-flight state). main fast-forwarded to `860c555` and
+pushed; VM `/opt/trading-bot` pulled (after stashing a VM-local `command_center_dir` config edit
+that is unrelated and superseded), `tradingbot-watch` restarted = active. Validation cycle
+confirmed: `Max symbols/scan: 350`, `batch fetching 350 symbols`, `batch_requests_used: 4`,
+`rate_limit_warnings: 0`, rotation `bucket 0: 350 (core=3 open=62 discovery=285)`, 116 scored,
+clean `stopped_by=max_cycles`. Throughput + strided coverage are LIVE and healthy.
+
+**OBSERVED (pre-existing, not a regression):** validation cycle skipped 234/350, dominated by
+`average volume below minimum`, hitting even large-caps (JPM/HD/TMO/ADI/SYK). Cause: the 300k
+`min_avg_volume` floor is applied to Alpaca **IEX single-exchange volume** (~2-3% of consolidated),
+so liquid names measure "below 300k" on IEX alone. This is the floor/dead-weight tension already
+specced — **dropping min_avg_volume 300k→150k is the direct lever to convert those skips into more
+scored predictions** without touching the scorer. Operator probe (expand-universe --min-avg-volume
+flags) and/or a scan-floor change is the pending next decision.
+
+**Rollout NOTE for next agent:** VM `python` is not on PATH; use `/opt/trading-bot/.venv/bin/python`.
+The `/tmp/uexp` probe worktree is a DETACHED HEAD (`git pull` no-ops) — use `git fetch && git
+checkout origin/<branch>`.
 
 ---
 
