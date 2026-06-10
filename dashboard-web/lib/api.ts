@@ -138,6 +138,32 @@ export const api = {
   symbolChart: (symbol: string, timeframe?: string) =>
     get<ChartResponse>(`/api/symbols/${encodeURIComponent(symbol)}/chart`, { timeframe }),
   morningPrep: () => get<MorningPrepResponse>("/api/morning-prep"),
+  // Score → outcome: win rate by score band, from the backtest analytics endpoint.
+  // Flattens the by_score_bucket records (target_hit_rate = per-band win rate).
+  analytics: async () => {
+    const raw = await get<{
+      backtest?: {
+        win_rate?: number | null
+        conclusive_outcomes?: number | null
+        by_score_bucket?: Array<Record<string, unknown>>
+      } | null
+    }>("/api/analytics/backtest")
+    const bt = raw.backtest
+    const num = (r: Record<string, unknown>, k: string) => Number(r[k] ?? 0)
+    const scoreBuckets = (bt?.by_score_bucket ?? []).map((b) => ({
+      band: String(b["score_bucket"] ?? ""),
+      winRate: b["target_hit_rate"] == null ? null : Number(b["target_hit_rate"]),
+      conclusive:
+        num(b, "target_hit_count") + num(b, "stop_hit_count") +
+        num(b, "partial_move_count") + num(b, "failed_setup_count"),
+      total: num(b, "total_snapshots"),
+    }))
+    return {
+      overallWinRate: bt?.win_rate ?? null,
+      conclusive: bt?.conclusive_outcomes ?? null,
+      scoreBuckets,
+    }
+  },
   systemHealth: () => get<SystemHealthResponse>("/api/system/health"),
   streamUrl: () => `${API_BASE}/api/events/stream`,
 

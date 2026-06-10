@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { useCockpit, useCommandCenter } from "@/lib/hooks"
+import { useCockpit, useCommandCenter, useAnalytics } from "@/lib/hooks"
 import { ViewHeader, Panel, Awaiting } from "./shared"
 import { subScoreArray } from "@/lib/rows"
 import { SUB_SCORE_LABELS, SUB_SCORE_KEYS } from "@/lib/tokens"
@@ -10,7 +10,17 @@ import { SUB_SCORE_LABELS, SUB_SCORE_KEYS } from "@/lib/tokens"
 export function ScannerXrayView() {
   const { data } = useCockpit()
   const cc = useCommandCenter()
+  const analytics = useAnalytics()
   const rows = data?.rows ?? []
+
+  // Score → outcome: per-band target-hit rate, sorted low→high so the trend reads
+  // left-to-right. Gated to "awaiting" until outcomes actually resolve (conclusive>0).
+  const scoreOutcome = useMemo(() => {
+    const buckets = analytics.data?.scoreBuckets ?? []
+    const sorted = [...buckets].sort((a, b) => parseInt(a.band) - parseInt(b.band))
+    const totalConclusive = sorted.reduce((n, b) => n + b.conclusive, 0)
+    return { sorted, totalConclusive }
+  }, [analytics.data])
 
   const dist = useMemo(() => {
     const buckets = new Array(10).fill(0)
@@ -154,6 +164,32 @@ export function ScannerXrayView() {
           ))
         ) : (
           <Awaiting what="sub-score data" />
+        )}
+      </Panel>
+
+      <Panel title="Score → outcome · target-hit rate by score band">
+        {scoreOutcome.totalConclusive > 0 ? (
+          <>
+            {scoreOutcome.sorted.map((b) => {
+              const wr = b.winRate == null ? null : Math.round(b.winRate * 100)
+              return (
+                <div key={b.band} className="flex items-center gap-2" style={{ margin: "5px 0", fontSize: 11 }}>
+                  <span className="text-mut" style={{ width: 70 }}>{b.band}</span>
+                  <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.06)", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${wr ?? 0}%`, background: (wr ?? 0) >= 50 ? "var(--pos)" : "var(--neg)" }} />
+                  </div>
+                  <span className="num" style={{ width: 36, textAlign: "right" }}>{wr == null ? "—" : `${wr}%`}</span>
+                  <span className="num text-dim" style={{ width: 44, textAlign: "right" }}>n={b.conclusive}</span>
+                </div>
+              )
+            })}
+            <p className="text-mut" style={{ fontSize: 11, lineHeight: 1.6, marginTop: 10 }}>
+              Target-hit rate among conclusive outcomes per score band — the test of whether a higher
+              score actually wins more. Fills in as picks resolve.
+            </p>
+          </>
+        ) : (
+          <Awaiting what="resolved outcomes (fills in as picks resolve)" />
         )}
       </Panel>
 

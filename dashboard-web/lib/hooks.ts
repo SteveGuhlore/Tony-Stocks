@@ -12,6 +12,10 @@ export function useCommandCenter() {
   return useQuery({ queryKey: ["command-center"], queryFn: api.commandCenter })
 }
 
+export function useAnalytics() {
+  return useQuery({ queryKey: ["analytics"], queryFn: api.analytics })
+}
+
 export function usePaper() {
   return useQuery({ queryKey: ["paper"], queryFn: api.paper })
 }
