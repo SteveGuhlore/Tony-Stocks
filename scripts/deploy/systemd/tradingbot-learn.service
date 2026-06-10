@@ -7,6 +7,9 @@ Wants=network-online.target
 # oneshot: the two ExecStart steps run sequentially, then the unit exits.
 # Both are read-only on trading (no orders, no config/risk edits) and fail-quiet.
 Type=oneshot
+# Grading + funnel-eval over the full universe can exceed the host's default 90s
+# start timeout; don't let systemd kill the run partway.
+TimeoutStartSec=infinity
 User=__RUN_USER__
 WorkingDirectory=/opt/trading-bot
 EnvironmentFile=/opt/trading-bot/.env

@@ -13,6 +13,10 @@ Wants=network-online.target
 # (scorecard starves at graded≈2). And tony-divergence (the 2nd-pass teaching log)
 # was never scheduled at all. This unit closes both gaps nightly.
 Type=oneshot
+# Full resolution re-fetches bars per open snapshot (rate-limited), so the run can
+# take 10–15 min — override the host's default 90s start timeout or systemd would
+# kill it mid-resolution.
+TimeoutStartSec=infinity
 User=__RUN_USER__
 WorkingDirectory=/opt/trading-bot
 EnvironmentFile=/opt/trading-bot/.env
