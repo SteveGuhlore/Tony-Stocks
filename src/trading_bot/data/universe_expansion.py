@@ -314,16 +314,27 @@ def build_yaml_blocks(
 
 
 def insert_blocks_into_yaml(text: str, blocks: str) -> str:
-    """Insert new symbol blocks immediately before the top-level ``filters:`` block
-    (which trails the symbols list in the live file). Raises if the anchor is missing
-    rather than guessing — additive-only safety."""
+    """Insert new symbol blocks at the END of the top-level ``symbols:`` list —
+    immediately before the first top-level key that follows it (``csv_path:`` in
+    the live file, ``filters:`` in older fixtures). Anchoring on ``filters:``
+    specifically corrupted the live file: blocks landed between ``csv_path:``
+    (null value) and ``filters:``, so YAML parsed them as the VALUE of csv_path.
+    Raises if no anchor is found rather than guessing — additive-only safety."""
     if not blocks:
         return text
     lines = text.splitlines(keepends=True)
+    in_symbols = False
     for i, line in enumerate(lines):
-        if line.startswith("filters:"):
+        if line.startswith("symbols:"):
+            in_symbols = True
+            continue
+        # First top-level key after the symbols block = insertion anchor.
+        if in_symbols and re.match(r"^[A-Za-z_][\w]*:", line):
             return "".join(lines[:i]) + blocks + "\n" + "".join(lines[i:])
-    raise ValueError("universe YAML missing top-level 'filters:' anchor; refusing to append blind")
+    if in_symbols:
+        # symbols: is the last top-level block — append at end of file.
+        return text + ("" if text.endswith("\n") else "\n") + blocks
+    raise ValueError("universe YAML missing top-level 'symbols:' anchor; refusing to append blind")
 
 
 def bump_max_universe_size(text: str, required: int) -> str:

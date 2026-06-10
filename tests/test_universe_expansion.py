@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import Counter
 
 import pytest
+import yaml
 
 from trading_bot.data.universe import load_universe_config
 from trading_bot.data.universe_expansion import (
@@ -192,9 +193,35 @@ class TestYamlEmission:
         out = insert_blocks_into_yaml(text, build_yaml_blocks([self._candidate()], TH))
         assert out.index('symbol: "ON"') < out.index("filters:")
 
+    def test_insert_before_csv_path_anchor_live_file_shape(self):
+        """REGRESSION (2026-06-10 live incident): the live file has a null
+        ``csv_path:`` between the symbols list and ``filters:``. Anchoring on
+        ``filters:`` inserted the blocks as the VALUE of csv_path, corrupting
+        the YAML (csv_path parsed as a list -> TypeError in load_universe_config
+        -> live watch service crash-looped). Blocks must land INSIDE symbols."""
+        text = (
+            "symbols:\n"
+            "  - symbol: SPY\n"
+            "    name: S&P 500 ETF\n"
+            "csv_path:\n"
+            "filters:\n"
+            "  max_universe_size: 1100\n"
+        )
+        out = insert_blocks_into_yaml(text, build_yaml_blocks([self._candidate()], TH))
+        assert out.index('symbol: "ON"') < out.index("csv_path:")
+        parsed = yaml.safe_load(out)
+        assert parsed["csv_path"] is None                      # NOT a list
+        assert [s["symbol"] for s in parsed["symbols"]] == ["SPY", "ON"]
+
+    def test_insert_when_symbols_is_last_block(self):
+        text = "symbols:\n  - symbol: SPY\n    name: S&P 500 ETF\n"
+        out = insert_blocks_into_yaml(text, build_yaml_blocks([self._candidate()], TH))
+        parsed = yaml.safe_load(out)
+        assert [s["symbol"] for s in parsed["symbols"]] == ["SPY", "ON"]
+
     def test_missing_anchor_refuses(self):
         with pytest.raises(ValueError):
-            insert_blocks_into_yaml("symbols:\n  - symbol: SPY\n", "  - symbol: \"ON\"\n")
+            insert_blocks_into_yaml("filters:\n  max_universe_size: 5\n", "  - symbol: \"ON\"\n")
 
     def test_bump_max_universe_size(self):
         text = "filters:\n  max_universe_size: 1100\n"
