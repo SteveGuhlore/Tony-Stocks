@@ -1,0 +1,14 @@
+[Unit]
+Description=Recurring trigger for tradingbot-reprotect (every 15 min during market hours, ET)
+
+[Timer]
+# Every 15 minutes across the regular session (09:30–16:00 ET), Mon–Fri. The 09:00
+# and 16:xx edges fire too but the service self-gates on the Alpaca clock, so off-hours
+# runs are clean no-ops. This is the safety net: a position that loses its bracket leg
+# is re-protected within ~15 min instead of staying naked until someone notices.
+OnCalendar=Mon-Fri 09..16:00/15 America/New_York
+# Don't fire catch-up runs on boot — the next scheduled tick (and the clock guard) handle it.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

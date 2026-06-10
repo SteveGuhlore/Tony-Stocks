@@ -54,6 +54,16 @@ def _protected_symbols(key: str, secret: str) -> set[str]:
     return out
 
 
+def _market_open(key: str, secret: str) -> bool:
+    """Alpaca clock: is the market open right now? Closed-market cancels don't finalize
+    until the next open (they sit at status=pending_cancel), so re-OCO can't free the
+    held qty — running --execute while closed just churns. The sweep self-gates on this."""
+    req = urllib.request.Request(f"{_PAPER_REST}/v2/clock",
+                                 headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret})
+    with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 - fixed paper host
+        return bool(json.load(r).get("is_open"))
+
+
 def _open_orders(client, sym: str):
     # Used only to drain a symbol's orders before re-OCO (the cancelable take-profit is
     # status=open and visible here). Naked DETECTION does not use this — it uses the
@@ -90,6 +100,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="config/default_config.yaml")
     ap.add_argument("--execute", action="store_true", help="Place live orders (default: dry-run).")
+    ap.add_argument("--force", action="store_true",
+                    help="Execute even if the market is closed (cancels won't finalize until the open).")
     args = ap.parse_args()
 
     settings = load_scanner_settings(args.config)
@@ -97,6 +109,15 @@ def main() -> None:
     repo = ScannerRepository(settings.database_path)
     broker = build_alpaca_paper_broker(cfg)
     client = broker._client  # direct client for order list + cancel
+
+    # Self-gate: re-protecting needs the cancels to finalize and free the held qty, which
+    # only happens while the market is open. Closed -> dry-run is still fine (audit), but
+    # --execute no-ops cleanly so the recurring sweep never leaves orphaned pending_cancels.
+    if args.execute and not args.force and not _market_open(broker.api_key, broker.secret_key):
+        print("Market CLOSED — skipping execute (cancels won't finalize until the open). "
+              "The sweep will re-protect at the next open; pass --force to override.")
+        return
+
     protected = _protected_symbols(broker.api_key, broker.secret_key)  # raw-REST nested ground truth
 
     # bot's intended stop/target per open symbol (re-protection levels)

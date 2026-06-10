@@ -1,0 +1,21 @@
+[Unit]
+Description=Trading Bot — re-protect naked positions (re-attach OCO stop+target; bot account only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# oneshot: sweep open positions, re-OCO any that lost their stop, then exit.
+# Self-gates on the Alpaca market clock (no-op when closed, so it never leaves
+# orphaned pending_cancels). Bot's OWN paper account only — never the CC.
+# Detection uses the raw-REST nested order query (held stop legs are invisible
+# to a flat status=open query). Read-only on config/risk; places only protective
+# OCO sells at the position's stored stop/target.
+Type=oneshot
+User=__RUN_USER__
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+Environment=PYTHONPATH=src
+ExecStart=/opt/trading-bot/.venv/bin/python scripts/reprotect_naked.py --config config/default_config.yaml --execute
+
+[Install]
+WantedBy=multi-user.target
