@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { useCockpit, useCommandCenter, useAnalytics } from "@/lib/hooks"
+import { useCockpit, useCommandCenter, useAnalytics, useScanSkipReasons } from "@/lib/hooks"
 import { ViewHeader, Panel, Awaiting } from "./shared"
 import { subScoreArray } from "@/lib/rows"
 import { SUB_SCORE_LABELS, SUB_SCORE_KEYS } from "@/lib/tokens"
@@ -11,7 +11,26 @@ export function ScannerXrayView() {
   const { data } = useCockpit()
   const cc = useCommandCenter()
   const analytics = useAnalytics()
+  const skipReasons = useScanSkipReasons()
   const rows = data?.rows ?? []
+
+  // Funnel drop reasons — pre-scoring rejections from the latest scan, sorted desc.
+  const drops = useMemo(() => {
+    const r = skipReasons.data?.skip_reasons ?? {}
+    const entries = Object.entries(r).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])
+    const max = Math.max(1, ...entries.map(([, n]) => n))
+    return { entries, max }
+  }, [skipReasons.data])
+
+  const DROP_LABELS: Record<string, string> = {
+    avg_volume_below_minimum: "Avg volume < floor",
+    liquidity_below_minimums: "Dollar volume < floor",
+    price_outside_bounds: "Price out of band",
+    not_enough_bars: "Too few bars",
+    not_enough_data: "No data",
+    missing_real_data: "Missing real data",
+    other_unknown: "Other",
+  }
 
   // Score → outcome: per-band target-hit rate, sorted low→high so the trend reads
   // left-to-right. Gated to "awaiting" until outcomes actually resolve (conclusive>0).
@@ -144,6 +163,22 @@ export function ScannerXrayView() {
           </div>
         ) : (
           <Awaiting what="funnel counts" />
+        )}
+      </Panel>
+
+      <Panel title="Funnel drop reasons · latest scan">
+        {drops.entries.length ? (
+          drops.entries.map(([k, n]) => (
+            <div key={k} className="flex items-center gap-2" style={{ margin: "5px 0", fontSize: 11 }}>
+              <span className="text-mut" style={{ width: 130 }}>{DROP_LABELS[k] ?? k}</span>
+              <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.06)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${(n / drops.max) * 100}%`, background: "var(--warn)" }} />
+              </div>
+              <span className="num" style={{ width: 48, textAlign: "right" }}>{n}</span>
+            </div>
+          ))
+        ) : (
+          <Awaiting what="scan drop data" />
         )}
       </Panel>
 

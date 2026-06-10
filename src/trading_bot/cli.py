@@ -694,6 +694,7 @@ def run_scan(args: argparse.Namespace) -> dict[str, Any]:
         universe_count=len(symbols),
         provider=provider.name,
         config_snapshot=asdict(settings),
+        skip_reasons=dict(skip_reason_counts),
     )
     repo.save_scan_results(scan_run_id, results)
     high_priority_symbols = [

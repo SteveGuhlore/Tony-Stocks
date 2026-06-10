@@ -277,3 +277,31 @@ def get_cockpit(request: Request, repo: ScannerRepository = Depends(get_repo)) -
         counts=counts,
         rows=rows,
     )
+
+
+class SkipReasonsResponse(BaseModel):
+    scanned_at: str | None = None
+    universe_count: int | None = None
+    skip_reasons: dict[str, int] = {}
+
+
+@router.get("/scan/skip-reasons", response_model=SkipReasonsResponse)
+def get_scan_skip_reasons(repo: ScannerRepository = Depends(get_repo)) -> SkipReasonsResponse:
+    """Pre-scoring funnel drop reasons (avg-vol / price / dollar-vol / bars) from the
+    latest scan run — powers the Scanner X-ray's funnel-attrition detail. Degrades to
+    empty when no scan has persisted reasons yet."""
+    import json as _json
+
+    run = repo.latest_scan_run()
+    if not run:
+        return SkipReasonsResponse()
+    raw = run.get("skip_reasons_json") or "{}"
+    try:
+        reasons = _json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (ValueError, TypeError):
+        reasons = {}
+    return SkipReasonsResponse(
+        scanned_at=run.get("created_at"),
+        universe_count=run.get("universe_count"),
+        skip_reasons={str(k): int(v) for k, v in reasons.items() if isinstance(v, (int, float))},
+    )

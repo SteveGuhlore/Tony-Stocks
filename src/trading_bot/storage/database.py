@@ -314,6 +314,9 @@ MIGRATIONS = (
     "ALTER TABLE scan_results ADD COLUMN relative_volume REAL NOT NULL DEFAULT 0",
     "ALTER TABLE scan_results ADD COLUMN trade_plan_valid INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE scan_results ADD COLUMN trade_plan_status TEXT NOT NULL DEFAULT 'valid'",
+    # Pre-scoring funnel drop reasons (avg-vol/price/dollar-vol/bars) per scan, for the
+    # Scanner X-ray's funnel-attrition panel.
+    "ALTER TABLE scan_runs ADD COLUMN skip_reasons_json TEXT NOT NULL DEFAULT '{}'",
 )
 
 

@@ -164,6 +164,11 @@ export const api = {
       scoreBuckets,
     }
   },
+  // Funnel drop reasons (pre-scoring rejections) from the latest scan run.
+  scanSkipReasons: () =>
+    get<{ scanned_at?: string | null; universe_count?: number | null; skip_reasons?: Record<string, number> }>(
+      "/api/scan/skip-reasons",
+    ),
   systemHealth: () => get<SystemHealthResponse>("/api/system/health"),
   streamUrl: () => `${API_BASE}/api/events/stream`,
 

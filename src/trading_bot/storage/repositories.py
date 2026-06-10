@@ -19,14 +19,26 @@ class ScannerRepository:
         self.database_path = Path(database_path)
         initialize_database(self.database_path)
 
-    def create_scan_run(self, universe_count: int, provider: str, config_snapshot: dict[str, Any]) -> int:
+    def create_scan_run(
+        self,
+        universe_count: int,
+        provider: str,
+        config_snapshot: dict[str, Any],
+        skip_reasons: dict[str, int] | None = None,
+    ) -> int:
         with connect(self.database_path) as conn:
             cursor = conn.execute(
                 """
-                INSERT INTO scan_runs (created_at, universe_count, provider, config_snapshot_json)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO scan_runs (created_at, universe_count, provider, config_snapshot_json, skip_reasons_json)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (utc_now_iso(), universe_count, provider, json.dumps(config_snapshot, default=str)),
+                (
+                    utc_now_iso(),
+                    universe_count,
+                    provider,
+                    json.dumps(config_snapshot, default=str),
+                    json.dumps(skip_reasons or {}, default=str),
+                ),
             )
             return int(cursor.lastrowid)
 

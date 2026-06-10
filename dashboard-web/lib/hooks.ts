@@ -16,6 +16,10 @@ export function useAnalytics() {
   return useQuery({ queryKey: ["analytics"], queryFn: api.analytics })
 }
 
+export function useScanSkipReasons() {
+  return useQuery({ queryKey: ["scan-skip-reasons"], queryFn: api.scanSkipReasons })
+}
+
 export function usePaper() {
   return useQuery({ queryKey: ["paper"], queryFn: api.paper })
 }
