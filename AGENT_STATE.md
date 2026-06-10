@@ -6,6 +6,58 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-10 (evening) — FULL STACK LIVE: V34B + loosened floors + ~1.8k universe (main `a75f2bc` on VM)
+
+**Net result, deployed live on the VM (paper account), validated by clean restart + load gate:**
+- **Throughput:** `_fetch_bars_batch` chunks at `max_symbols_per_batch` (175); scan cap raised to
+  **500/cycle** (3 chunked requests; rate_limit_warnings 0 across every validation cycle).
+- **True coverage:** discovery rotation is **strided** — each cycle samples an evenly-spaced comb
+  across the whole ranked shortlist (all sectors/score bands), full coverage once per epoch.
+- **Floors loosened (breadth, not quality):** price **$4–$1000**, avg_vol **50k IEX**
+  (~1.5–2.5M consolidated), dollar_vol **$1M**. Scan floors kept ALIGNED with expansion floors so
+  no added name is silently skip-scanned. Scorer quality gates (500k scoring floor, ATR/vol bands,
+  R/R, min_score 60, sector caps) all UNCHANGED.
+- **Universe:** 1,031 → **1,780** (749 screened additions; `dollar_volume_below_min` guard caught
+  164 thin names → no slop). `shortlist_size` 1000 → **2200** so the whole universe reaches rotation.
+- Live `tradingbot-watch` restarted clean, pre-screener saw 1,775 symbols, idling for market open
+  (no status=1). **Tomorrow's open is the first real live validation of the 500/cycle + 1.8k stack.**
+
+**Commits (all pushed to origin EXCEPT the universe YAML):** `860c555` V34B, `7c2f42d`/`2c8f2be`
+scan-floor 300k→150k→align100k, `6b76917` waves2+3 config (price/vol/cap/shortlist), `fed8b53`
+**writer fix** (see incident), `c55d3be` command_center_dir → `/opt/command-center`.
+
+### ⚠️ OPEN ITEMS for next session (in priority order)
+1. **Universe YAML is VM-LOCAL ONLY (commit `a75f2bc`), NOT on origin.** GitHub HTTPS push needs a
+   PAT/SSH (password auth is dead). VM has DIVERGED from origin (a75f2bc vs c55d3be, common parent
+   fed8b53) → `git rebase origin/main` then push with a token. Until pushed, the 1,780-symbol
+   universe is ephemeral (container reclaim = lost). Bot runs fine off the local file meanwhile.
+2. **749 additions are `unclassified` (sector="") → UNCAPPED by the sector-diversification gate.**
+   Used `--skip-sector-lookup` to dodge the throttled Finnhub leg that stalled the run 10+ min.
+   Backfill sectors (unattended overnight run is fine — throttle doesn't matter when nobody waits).
+   Expansion only classifies NEW adds, so a plain re-run won't fix existing unclassified names — a
+   dedicated sector-backfill pass is needed.
+3. **VM hygiene:** a junk `/opt/trading-bot/C:` dir exists from the old Windows command_center_dir
+   (now fixed in repo at c55d3be but VM hasn't pulled it; it's behind item 1's rebase). `rm -rf`
+   it after the rebase lands the path fix. Also `git config pull.ff only` is set on the VM now.
+
+### INCIDENT (root-caused + fixed, `fed8b53`)
+Wave-1 `--execute` wrote the 438 additions anchored on `filters:`, but the live YAML has a null
+`csv_path:` BETWEEN the symbols list and `filters:` — so blocks landed as the *value* of csv_path,
+YAML parsed it as a list, `load_universe_config` raised `TypeError`, `tradingbot-watch`
+crash-looped. Recovery: `git reset --hard` to a clean commit. Fix: `insert_blocks_into_yaml` now
+anchors at the END of the `symbols:` block (first top-level key after it), with regression tests
+reproducing the exact live-file shape + a verified round-trip against a copy of the real config.
+**Lesson encoded in the deploy ritual:** always run the load gate (`load_universe_config(...)`)
+BEFORE restarting the service after any `--execute`.
+
+### Probe data (for future floor decisions; dry-run, IEX volume)
+At asset-filtered 4,416 candidates: 150k/$2M → 251 survivors; 100k/$1M → 436; 50k/$1M/$4 → 749.
+ETFs (5,483) deliberately excluded. **Honest ceiling for clean non-ETF stock ≈ 1,800–2,200**;
+reaching 3k needs ETFs or sub-$1M-dollar-vol names (= dead weight). Operator chose to stop ~1.8k.
+`expand-universe` probe flags available: `--min-price/--max-price/--min-avg-volume/--min-dollar-volume`.
+
+---
+
 ## 2026-06-10 (later) — V34B: true coverage + throughput BUILT (branch `feat/universe-expansion-2026-06-10`)
 
 **What:** the follow-up flagged in the previous handoff, approved by the operator and built TDD.
