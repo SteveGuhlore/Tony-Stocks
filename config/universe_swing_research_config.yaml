@@ -6248,6 +6248,4504 @@ symbols:
     universe_role: primary_candidate
     demo_profile: base_building
 
+  # ── Staged expansion 4 (2026-06-10): screened liquid additions —
+  #    Alpaca /v2/assets discovery -> liquidity screen (price/volume/dollar-volume
+  #    floors mirror the scanner) -> Finnhub sector. Research/scanning only.
+  - symbol: "TSM"
+    name: "Taiwan Semiconductor Manufacturing Company Ltd."
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$206,391,947/day dollar vol."
+  - symbol: "NBIS"
+    name: "Nebius Group N.V. Class A Ordinary Shares"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$112,811,363/day dollar vol."
+  - symbol: "NOK"
+    name: "Nokia Corporation"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$108,254,921/day dollar vol."
+  - symbol: "CRWV"
+    name: "CoreWeave, Inc. Class A Common Stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$94,864,814/day dollar vol."
+  - symbol: "VRT"
+    name: "Vertiv Holdings Co Class A Common Stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$82,198,198/day dollar vol."
+  - symbol: "STM"
+    name: "STMicroelectronics N.V."
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$55,192,694/day dollar vol."
+  - symbol: "CLS"
+    name: "Celestica, Inc."
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$47,547,938/day dollar vol."
+  - symbol: "SATS"
+    name: "EchoStar Corporation Common Stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$39,064,032/day dollar vol."
+  - symbol: "B"
+    name: "Barrick Mining Corporation"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$36,694,204/day dollar vol."
+  - symbol: "TEL"
+    name: "TE Connectivity plc"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$36,164,759/day dollar vol."
+  - symbol: "RDW"
+    name: "Redwire Corporation"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$34,013,549/day dollar vol."
+  - symbol: "NVO"
+    name: "Novo-Nordisk A/S"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$33,901,406/day dollar vol."
+  - symbol: "TSEM"
+    name: "Tower Semiconductor Ltd. Ordinary Shares"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$32,042,235/day dollar vol."
+  - symbol: "MDLN"
+    name: "Medline Inc. Class A common stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$29,552,720/day dollar vol."
+  - symbol: "APLD"
+    name: "Applied Digital Corporation Common Stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$28,361,958/day dollar vol."
+  - symbol: "FERG"
+    name: "Ferguson Enterprises Inc."
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$26,960,098/day dollar vol."
+  - symbol: "AXTI"
+    name: "AXT Inc Common Stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$26,606,245/day dollar vol."
+  - symbol: "SAP"
+    name: "SAP SE"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$26,342,963/day dollar vol."
+  - symbol: "BLD"
+    name: "TopBuild Corp. Common Stock"
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$25,269,968/day dollar vol."
+  - symbol: "FIG"
+    name: "Figma, Inc."
+    tags: [mid_cap, discovery_screened]
+    universe_role: primary_candidate
+    demo_profile: base_building
+    notes: "Screened expansion; ~$25,251,541/day dollar vol."
+  - symbol: "TTMI"
+    name: "TTM Technologies, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,625,502/day dollar vol."
+  - symbol: "CPRT"
+    name: "Copart, Inc. (DE) Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,497,606/day dollar vol."
+  - symbol: "MOD"
+    name: "Modine Manufacturing Co"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,491,505/day dollar vol."
+  - symbol: "AJG"
+    name: "Arthur J. Gallagher & Co."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,361,504/day dollar vol."
+  - symbol: "MRSH"
+    name: "Marsh"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,304,823/day dollar vol."
+  - symbol: "BP"
+    name: "BP p.l.c."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,237,569/day dollar vol."
+  - symbol: "CPNG"
+    name: "Coupang, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,121,831/day dollar vol."
+  - symbol: "VALE"
+    name: "VALE S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$24,028,587/day dollar vol."
+  - symbol: "QXO"
+    name: "QXO, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$23,820,087/day dollar vol."
+  - symbol: "VIK"
+    name: "Viking Holdings Ltd"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$23,804,700/day dollar vol."
+  - symbol: "ONDS"
+    name: "Ondas Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$23,546,582/day dollar vol."
+  - symbol: "ASX"
+    name: "ASE Technology Holding Co., Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$23,207,446/day dollar vol."
+  - symbol: "PBR"
+    name: "PETROLEO BRASILEIRO S.A.-PETROBRAS ADS (REP 1 COMMON SHARE)"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,889,615/day dollar vol."
+  - symbol: "KVUE"
+    name: "Kenvue Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,875,420/day dollar vol."
+  - symbol: "FPS"
+    name: "Forgent Power Solutions, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,641,923/day dollar vol."
+  - symbol: "LPLA"
+    name: "LPL Financial Holdings Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,610,648/day dollar vol."
+  - symbol: "CRH"
+    name: "CRH Public Limited Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,528,323/day dollar vol."
+  - symbol: "CNQ"
+    name: "Canadian Natural Resources Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,438,620/day dollar vol."
+  - symbol: "BNY"
+    name: "Bank of New York Mellon Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$22,119,237/day dollar vol."
+  - symbol: "MKSI"
+    name: "MKS Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$21,844,188/day dollar vol."
+  - symbol: "RKT"
+    name: "Rocket Companies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$21,099,967/day dollar vol."
+  - symbol: "POET"
+    name: "POET Technologies Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$20,494,357/day dollar vol."
+  - symbol: "TLN"
+    name: "Talen Energy Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$20,126,371/day dollar vol."
+  - symbol: "BN"
+    name: "Brookfield Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$19,873,409/day dollar vol."
+  - symbol: "UMC"
+    name: "United Microelectronic Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$19,475,075/day dollar vol."
+  - symbol: "IBKR"
+    name: "Interactive Brokers Group, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$19,437,293/day dollar vol."
+  - symbol: "OKLO"
+    name: "Oklo Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$19,116,833/day dollar vol."
+  - symbol: "ONTO"
+    name: "Onto Innovation Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$18,967,674/day dollar vol."
+  - symbol: "PL"
+    name: "Planet Labs PBC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$18,430,808/day dollar vol."
+  - symbol: "HDB"
+    name: "HDFC Bank Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$18,192,414/day dollar vol."
+  - symbol: "CVE"
+    name: "Cenovus Energy Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$17,849,406/day dollar vol."
+  - symbol: "SN"
+    name: "SharkNinja, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$17,421,357/day dollar vol."
+  - symbol: "UL"
+    name: "Unilever plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$17,308,650/day dollar vol."
+  - symbol: "NVT"
+    name: "nVent Electric plc Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$17,096,697/day dollar vol."
+  - symbol: "AZN"
+    name: "AstraZeneca PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$17,044,393/day dollar vol."
+  - symbol: "GH"
+    name: "Guardant Health, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,885,474/day dollar vol."
+  - symbol: "TE"
+    name: "T1 Energy Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,713,679/day dollar vol."
+  - symbol: "FTAI"
+    name: "FTAI Aviation Ltd. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,638,699/day dollar vol."
+  - symbol: "EFX"
+    name: "Equifax, Incorporated"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,513,790/day dollar vol."
+  - symbol: "IBN"
+    name: "ICICI Bank Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,475,826/day dollar vol."
+  - symbol: "SMR"
+    name: "NuScale Power Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,447,138/day dollar vol."
+  - symbol: "WCN"
+    name: "Waste Connections, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,221,776/day dollar vol."
+  - symbol: "HBM"
+    name: "Hudbay Minerals Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$16,029,462/day dollar vol."
+  - symbol: "CP"
+    name: "Canadian Pacific Kansas City Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,997,528/day dollar vol."
+  - symbol: "SU"
+    name: "Suncor Energy, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,829,226/day dollar vol."
+  - symbol: "TECK"
+    name: "Teck Resources Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,709,182/day dollar vol."
+  - symbol: "RRX"
+    name: "Regal Rexnord Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,525,299/day dollar vol."
+  - symbol: "FISV"
+    name: "Fiserv, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,509,146/day dollar vol."
+  - symbol: "CRBG"
+    name: "Corebridge Financial, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,263,247/day dollar vol."
+  - symbol: "GAP"
+    name: "The Gap, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,246,811/day dollar vol."
+  - symbol: "TW"
+    name: "Tradeweb Markets Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,148,552/day dollar vol."
+  - symbol: "EXE"
+    name: "Expand Energy Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,108,784/day dollar vol."
+  - symbol: "P"
+    name: "Everpure, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$15,091,938/day dollar vol."
+  - symbol: "BB"
+    name: "BlackBerry Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$14,919,516/day dollar vol."
+  - symbol: "CCJ"
+    name: "Cameco Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$14,806,349/day dollar vol."
+  - symbol: "ROL"
+    name: "Rollins, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$14,335,456/day dollar vol."
+  - symbol: "JHX"
+    name: "James Hardie Industries plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$14,148,020/day dollar vol."
+  - symbol: "RIO"
+    name: "Rio Tinto plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$13,792,223/day dollar vol."
+  - symbol: "USAR"
+    name: "USA Rare Earth, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$13,486,806/day dollar vol."
+  - symbol: "SNX"
+    name: "TD SYNNEX Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$13,481,156/day dollar vol."
+  - symbol: "IOT"
+    name: "Samsara Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$13,451,601/day dollar vol."
+  - symbol: "SSNC"
+    name: "SS&C Technologies Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$13,095,225/day dollar vol."
+  - symbol: "COO"
+    name: "The Cooper Companies, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$13,045,778/day dollar vol."
+  - symbol: "H"
+    name: "Hyatt Hotels Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,962,917/day dollar vol."
+  - symbol: "ICLR"
+    name: "ICON plc Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,960,602/day dollar vol."
+  - symbol: "ENB"
+    name: "Enbridge, Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,877,753/day dollar vol."
+  - symbol: "FDS"
+    name: "Factset Research Systems"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,685,921/day dollar vol."
+  - symbol: "FLUT"
+    name: "Flutter Entertainment plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,645,558/day dollar vol."
+  - symbol: "GEN"
+    name: "Gen Digital Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,534,441/day dollar vol."
+  - symbol: "RGEN"
+    name: "Repligen Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,525,282/day dollar vol."
+  - symbol: "FLY"
+    name: "Firefly Aerospace Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,484,929/day dollar vol."
+  - symbol: "AMRZ"
+    name: "Amrize Ltd"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,343,539/day dollar vol."
+  - symbol: "KRMN"
+    name: "Karman Holdings Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,228,637/day dollar vol."
+  - symbol: "CHKP"
+    name: "Check Point Software Technologies Ltd. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,215,023/day dollar vol."
+  - symbol: "ELAN"
+    name: "Elanco Animal Health Incorporated Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$12,021,328/day dollar vol."
+  - symbol: "VG"
+    name: "Venture Global, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,996,031/day dollar vol."
+  - symbol: "SUNB"
+    name: "Sunbelt Rentals Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,927,811/day dollar vol."
+  - symbol: "PLNT"
+    name: "Planet Fitness, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,832,851/day dollar vol."
+  - symbol: "Q"
+    name: "Qnity Electronics, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,660,931/day dollar vol."
+  - symbol: "NVS"
+    name: "Novartis AG"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,646,143/day dollar vol."
+  - symbol: "CSGP"
+    name: "CoStar Group, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,637,091/day dollar vol."
+  - symbol: "SGI"
+    name: "Somnigroup International Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,615,304/day dollar vol."
+  - symbol: "PURR"
+    name: "Hyperliquid Strategies Inc Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,526,345/day dollar vol."
+  - symbol: "WMS"
+    name: "ADVANCED DRAINAGE SYSTEMS, INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,493,538/day dollar vol."
+  - symbol: "BTDR"
+    name: "Bitdeer Technologies Group Class A Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,484,580/day dollar vol."
+  - symbol: "SIRI"
+    name: "SiriusXM Holdings Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,464,549/day dollar vol."
+  - symbol: "VSXY"
+    name: "Victorias Secret & Co."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,452,109/day dollar vol."
+  - symbol: "ROIV"
+    name: "Roivant Sciences Ltd. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,404,744/day dollar vol."
+  - symbol: "TKR"
+    name: "The Timken Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,355,545/day dollar vol."
+  - symbol: "AU"
+    name: "AngloGold Ashanti plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,306,393/day dollar vol."
+  - symbol: "BR"
+    name: "Broadridge Financial Solutions Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$11,298,788/day dollar vol."
+  - symbol: "NI"
+    name: "NiSource Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,991,892/day dollar vol."
+  - symbol: "ARMK"
+    name: "ARAMARK"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,982,857/day dollar vol."
+  - symbol: "AAON"
+    name: "AAON, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,785,096/day dollar vol."
+  - symbol: "BNS"
+    name: "Bank of Nova Scotia"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,674,478/day dollar vol."
+  - symbol: "JBS"
+    name: "JBS N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,652,806/day dollar vol."
+  - symbol: "TMHC"
+    name: "Taylor Morrison Home Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,613,894/day dollar vol."
+  - symbol: "FRVO"
+    name: "Fervo Energy Company Class A common stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,595,640/day dollar vol."
+  - symbol: "GDDY"
+    name: "GoDaddy Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,548,988/day dollar vol."
+  - symbol: "EQX"
+    name: "Equinox Gold Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,498,031/day dollar vol."
+  - symbol: "TRP"
+    name: "TC Energy Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,459,093/day dollar vol."
+  - symbol: "INFQ"
+    name: "Infleqtion, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,145,306/day dollar vol."
+  - symbol: "BBIO"
+    name: "BridgeBio Pharma, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,131,690/day dollar vol."
+  - symbol: "AS"
+    name: "Amer Sports, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$10,079,146/day dollar vol."
+  - symbol: "FWONK"
+    name: "Liberty Media Corporation Series C Liberty Formula One Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,987,521/day dollar vol."
+  - symbol: "CELC"
+    name: "Celcuity Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,980,276/day dollar vol."
+  - symbol: "M"
+    name: "Macy's Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,967,221/day dollar vol."
+  - symbol: "LOGI"
+    name: "Logitech International S.A. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,952,483/day dollar vol."
+  - symbol: "HAS"
+    name: "Hasbro, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,709,595/day dollar vol."
+  - symbol: "SW"
+    name: "Smurfit WestRock plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,665,486/day dollar vol."
+  - symbol: "PSLV"
+    name: "Sprott Physical Silver Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,585,060/day dollar vol."
+  - symbol: "VSAT"
+    name: "ViaSat, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,492,626/day dollar vol."
+  - symbol: "ALC"
+    name: "Alcon Inc. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,450,118/day dollar vol."
+  - symbol: "VTRS"
+    name: "Viatris Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,422,354/day dollar vol."
+  - symbol: "VLTO"
+    name: "Veralto Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,412,681/day dollar vol."
+  - symbol: "CNH"
+    name: "CNH INDUSTRIAL N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,363,778/day dollar vol."
+  - symbol: "AER"
+    name: "Aercap Holdings N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,298,516/day dollar vol."
+  - symbol: "CCEP"
+    name: "Coca-Cola Europacific Partners plc Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,257,363/day dollar vol."
+  - symbol: "GFI"
+    name: "Gold Fields Ltd ADR"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$9,074,742/day dollar vol."
+  - symbol: "TEM"
+    name: "Tempus AI, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,998,933/day dollar vol."
+  - symbol: "SEI"
+    name: "Solaris Energy Infrastructure, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,727,791/day dollar vol."
+  - symbol: "ST"
+    name: "Sensata Technologies Holding plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,709,420/day dollar vol."
+  - symbol: "AAP"
+    name: "ADVANCE AUTO PARTS INC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,648,541/day dollar vol."
+  - symbol: "TD"
+    name: "Toronto Dominion Bank"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,570,738/day dollar vol."
+  - symbol: "KLAR"
+    name: "Klarna Group plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,496,908/day dollar vol."
+  - symbol: "AGI"
+    name: "Alamos Gold Inc. Class A Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,480,554/day dollar vol."
+  - symbol: "STLA"
+    name: "Stellantis N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,425,422/day dollar vol."
+  - symbol: "RCAT"
+    name: "Red Cat Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,398,301/day dollar vol."
+  - symbol: "EOSE"
+    name: "Eos Energy Enterprises, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,350,918/day dollar vol."
+  - symbol: "FCEL"
+    name: "FuelCell Energy, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,288,707/day dollar vol."
+  - symbol: "EVRG"
+    name: "Evergy, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,207,194/day dollar vol."
+  - symbol: "OC"
+    name: "Owens Corning"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,094,460/day dollar vol."
+  - symbol: "BAM"
+    name: "Brookfield Asset Management Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,063,171/day dollar vol."
+  - symbol: "XP"
+    name: "XP Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$8,010,269/day dollar vol."
+  - symbol: "INCY"
+    name: "Incyte Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,976,045/day dollar vol."
+  - symbol: "WH"
+    name: "Wyndham Hotels & Resorts, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,932,728/day dollar vol."
+  - symbol: "CNM"
+    name: "Core & Main, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,879,082/day dollar vol."
+  - symbol: "CNI"
+    name: "Canadian National Railway"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,851,762/day dollar vol."
+  - symbol: "TPG"
+    name: "TPG Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,843,624/day dollar vol."
+  - symbol: "SOLV"
+    name: "Solventum Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,774,268/day dollar vol."
+  - symbol: "SARO"
+    name: "StandardAero, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,725,262/day dollar vol."
+  - symbol: "TRI"
+    name: "Thomson Reuters Corporation Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,664,363/day dollar vol."
+  - symbol: "DXYZ"
+    name: "Destiny Tech100 Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,644,642/day dollar vol."
+  - symbol: "WIX"
+    name: "Wix.com Ltd. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,629,710/day dollar vol."
+  - symbol: "WY"
+    name: "Weyerhaeuser Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,607,141/day dollar vol."
+  - symbol: "AHR"
+    name: "American Healthcare REIT, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,590,295/day dollar vol."
+  - symbol: "RBA"
+    name: "RB Global, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,570,261/day dollar vol."
+  - symbol: "BUD"
+    name: "Anheuser-Busch INBEV SA/NV"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,570,006/day dollar vol."
+  - symbol: "KGS"
+    name: "Kodiak Gas Services, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,567,098/day dollar vol."
+  - symbol: "SITE"
+    name: "SiteOne Landscape Supply, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,536,783/day dollar vol."
+  - symbol: "LGN"
+    name: "Legence Corp. Class A Common stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,528,376/day dollar vol."
+  - symbol: "NYT"
+    name: "New York Times Co."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,501,651/day dollar vol."
+  - symbol: "SAN"
+    name: "Banco Santander S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,486,510/day dollar vol."
+  - symbol: "HSBC"
+    name: "HSBC Holdings PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,485,324/day dollar vol."
+  - symbol: "ORA"
+    name: "Ormat Technologies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,461,918/day dollar vol."
+  - symbol: "SOLS"
+    name: "Solstice Advanced Materials Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,455,387/day dollar vol."
+  - symbol: "KEEL"
+    name: "Keel Infrastructure Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,441,895/day dollar vol."
+  - symbol: "AES"
+    name: "AES Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,434,550/day dollar vol."
+  - symbol: "UEC"
+    name: "Uranium Energy Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,410,587/day dollar vol."
+  - symbol: "HSIC"
+    name: "Henry Schein, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,398,130/day dollar vol."
+  - symbol: "MT"
+    name: "ArcelorMittal"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,338,686/day dollar vol."
+  - symbol: "MKTX"
+    name: "MarketAxess Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,273,657/day dollar vol."
+  - symbol: "DAR"
+    name: "DARLING INGREDIENTS INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,252,016/day dollar vol."
+  - symbol: "UUUU"
+    name: "Energy Fuels Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,223,411/day dollar vol."
+  - symbol: "FLR"
+    name: "Fluor Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,212,583/day dollar vol."
+  - symbol: "CGNX"
+    name: "Cognex Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,172,698/day dollar vol."
+  - symbol: "ACI"
+    name: "Albertsons Companies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,172,369/day dollar vol."
+  - symbol: "ESI"
+    name: "Element Solutions Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,074,756/day dollar vol."
+  - symbol: "RELX"
+    name: "RELX PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,046,303/day dollar vol."
+  - symbol: "TRU"
+    name: "TransUnion"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,032,365/day dollar vol."
+  - symbol: "SF"
+    name: "Stifel Financial Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$7,012,756/day dollar vol."
+  - symbol: "GPC"
+    name: "Genuine Parts Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,995,280/day dollar vol."
+  - symbol: "EQH"
+    name: "Equitable Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,993,419/day dollar vol."
+  - symbol: "AMPX"
+    name: "Amprius Technologies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,895,462/day dollar vol."
+  - symbol: "UBS"
+    name: "UBS Group AG"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,877,274/day dollar vol."
+  - symbol: "ALSN"
+    name: "ALLISON TRANSMISSION HOLDINGS, INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,871,319/day dollar vol."
+  - symbol: "COMP"
+    name: "Compass, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,823,872/day dollar vol."
+  - symbol: "GTX"
+    name: "Garrett Motion Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,778,062/day dollar vol."
+  - symbol: "IAG"
+    name: "IAMGold Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,774,878/day dollar vol."
+  - symbol: "BBWI"
+    name: "Bath & Body Works, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,639,693/day dollar vol."
+  - symbol: "RAMP"
+    name: "LiveRamp Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,629,258/day dollar vol."
+  - symbol: "TTE"
+    name: "TotalEnergies SE"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,603,209/day dollar vol."
+  - symbol: "CX"
+    name: "Cemex S.A.B. de C.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,579,177/day dollar vol."
+  - symbol: "Z"
+    name: "Zillow Group, Inc. Class C Capital Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,576,792/day dollar vol."
+  - symbol: "PENG"
+    name: "Penguin Solutions, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,571,071/day dollar vol."
+  - symbol: "FRMI"
+    name: "Fermi Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,556,789/day dollar vol."
+  - symbol: "APG"
+    name: "APi Group Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,516,901/day dollar vol."
+  - symbol: "RAL"
+    name: "Ralliant Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,506,079/day dollar vol."
+  - symbol: "BFAM"
+    name: "BRIGHT HORIZONS FAMILY SOLUTIONS INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,503,467/day dollar vol."
+  - symbol: "FIGR"
+    name: "Figure Technology Solutions, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,466,542/day dollar vol."
+  - symbol: "PNW"
+    name: "Pinnacle West Capital Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,396,489/day dollar vol."
+  - symbol: "TIGO"
+    name: "Millicom International Cellular S.A. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,360,637/day dollar vol."
+  - symbol: "TNGX"
+    name: "Tango Therapeutics, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,259,538/day dollar vol."
+  - symbol: "CENX"
+    name: "Century Aluminum Company Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,244,506/day dollar vol."
+  - symbol: "ALGM"
+    name: "Allegro MicroSystems, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,232,897/day dollar vol."
+  - symbol: "YPF"
+    name: "YPF Sociedad Anonima"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,220,439/day dollar vol."
+  - symbol: "LQDA"
+    name: "Liquidia Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,210,789/day dollar vol."
+  - symbol: "AEHR"
+    name: "Aehr Test Systems Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,198,940/day dollar vol."
+  - symbol: "TS"
+    name: "Tenaris S. A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,113,236/day dollar vol."
+  - symbol: "OTEX"
+    name: "Open Text Corporation Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,112,462/day dollar vol."
+  - symbol: "CTRE"
+    name: "CareTrust REIT, Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$6,058,824/day dollar vol."
+  - symbol: "MFC"
+    name: "Manulife Financial Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,977,258/day dollar vol."
+  - symbol: "G"
+    name: "GENPACT LIMITED"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,967,023/day dollar vol."
+  - symbol: "GGB"
+    name: "Gerdau S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,928,421/day dollar vol."
+  - symbol: "FBIN"
+    name: "Fortune Brands Innovations, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,905,045/day dollar vol."
+  - symbol: "TTEK"
+    name: "Tetra Tech, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,892,185/day dollar vol."
+  - symbol: "XENE"
+    name: "Xenon Pharmaceuticals Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,876,260/day dollar vol."
+  - symbol: "SIG"
+    name: "Signet Jewelers Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,812,951/day dollar vol."
+  - symbol: "HLNE"
+    name: "Hamilton Lane Incorporated Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,811,150/day dollar vol."
+  - symbol: "BTU"
+    name: "Peabody Energy Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,772,600/day dollar vol."
+  - symbol: "FRO"
+    name: "Frontline Plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,754,191/day dollar vol."
+  - symbol: "NVST"
+    name: "Envista Holdings Corporation Common stock, $0.01 par value per share"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,753,331/day dollar vol."
+  - symbol: "SWK"
+    name: "Stanley Black & Decker, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,725,293/day dollar vol."
+  - symbol: "DB"
+    name: "Deutsche Bank Aktiengesellschaft"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,725,272/day dollar vol."
+  - symbol: "CHDN"
+    name: "Churchill Downs, Incorporated Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,719,335/day dollar vol."
+  - symbol: "SAIL"
+    name: "SailPoint, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,672,744/day dollar vol."
+  - symbol: "FRPT"
+    name: "Freshpet, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,643,017/day dollar vol."
+  - symbol: "FER"
+    name: "Ferrovial N.V. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,632,994/day dollar vol."
+  - symbol: "VOYG"
+    name: "Voyager Technologies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,614,601/day dollar vol."
+  - symbol: "PUMP"
+    name: "ProPetro Holding Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,599,426/day dollar vol."
+  - symbol: "PTON"
+    name: "Peloton Interactive, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,597,112/day dollar vol."
+  - symbol: "HMY"
+    name: "Harmony Gold Mining Company Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,584,426/day dollar vol."
+  - symbol: "SCI"
+    name: "Service Corporation International"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,580,011/day dollar vol."
+  - symbol: "NGG"
+    name: "National Grid PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,456,147/day dollar vol."
+  - symbol: "KSS"
+    name: "Kohls Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,451,914/day dollar vol."
+  - symbol: "TXNM"
+    name: "TXNM Energy, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,446,138/day dollar vol."
+  - symbol: "JBLU"
+    name: "JetBlue Airways Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,445,442/day dollar vol."
+  - symbol: "APGE"
+    name: "Apogee Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,420,360/day dollar vol."
+  - symbol: "AVT"
+    name: "Avnet, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,413,351/day dollar vol."
+  - symbol: "BCS"
+    name: "Barclays PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,391,252/day dollar vol."
+  - symbol: "CHYM"
+    name: "Chime Financial, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,366,792/day dollar vol."
+  - symbol: "ADT"
+    name: "ADT Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,357,332/day dollar vol."
+  - symbol: "UNM"
+    name: "Unum Group"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,355,973/day dollar vol."
+  - symbol: "UMAC"
+    name: "Unusual Machines, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,351,368/day dollar vol."
+  - symbol: "ALKS"
+    name: "Alkermes plc Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,344,669/day dollar vol."
+  - symbol: "PENN"
+    name: "PENN Entertainment, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,336,803/day dollar vol."
+  - symbol: "PRMB"
+    name: "Primo Brands Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,299,683/day dollar vol."
+  - symbol: "GLNG"
+    name: "Golar Lng Ltd"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,280,704/day dollar vol."
+  - symbol: "PBF"
+    name: "PBF ENERGY INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,279,020/day dollar vol."
+  - symbol: "LAZ"
+    name: "Lazard, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,267,734/day dollar vol."
+  - symbol: "DNTH"
+    name: "Dianthus Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,207,171/day dollar vol."
+  - symbol: "GLOB"
+    name: "GLOBANT S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,154,672/day dollar vol."
+  - symbol: "RYAN"
+    name: "Ryan Specialty Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,149,521/day dollar vol."
+  - symbol: "TXG"
+    name: "10x Genomics, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,141,635/day dollar vol."
+  - symbol: "OUST"
+    name: "Ouster, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,123,933/day dollar vol."
+  - symbol: "PSKY"
+    name: "Paramount Skydance Corporation Class B Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,114,340/day dollar vol."
+  - symbol: "HNGE"
+    name: "Hinge Health, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,067,677/day dollar vol."
+  - symbol: "NTSK"
+    name: "Netskope, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,064,775/day dollar vol."
+  - symbol: "SNY"
+    name: "Sanofi ADS"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,063,577/day dollar vol."
+  - symbol: "SQM"
+    name: "Sociedad Quimica y Minera de Chile SA"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,029,492/day dollar vol."
+  - symbol: "HCC"
+    name: "Warrior Met Coal, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$5,004,418/day dollar vol."
+  - symbol: "HR"
+    name: "Healthcare Realty Trust Incorporated"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,995,208/day dollar vol."
+  - symbol: "MGA"
+    name: "Magna International"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,988,700/day dollar vol."
+  - symbol: "JEF"
+    name: "Jefferies Financial Group Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,943,504/day dollar vol."
+  - symbol: "POST"
+    name: "POST HOLDINGS, INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,935,986/day dollar vol."
+  - symbol: "LYG"
+    name: "Lloyds Banking Group PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,912,771/day dollar vol."
+  - symbol: "ALM"
+    name: "Almonty Industries Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,894,701/day dollar vol."
+  - symbol: "SYM"
+    name: "Symbotic Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,886,012/day dollar vol."
+  - symbol: "BRX"
+    name: "BRIXMOR PROPERTY GROUP INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,828,726/day dollar vol."
+  - symbol: "NXE"
+    name: "NexGen Energy Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,821,191/day dollar vol."
+  - symbol: "VSNT"
+    name: "Versant Media Group, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,784,404/day dollar vol."
+  - symbol: "MWH"
+    name: "SOLV Energy, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,780,731/day dollar vol."
+  - symbol: "BCE"
+    name: "BCE, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,757,857/day dollar vol."
+  - symbol: "VISN"
+    name: "Vistance Networks, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,753,472/day dollar vol."
+  - symbol: "VGNT"
+    name: "Versigent PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,728,169/day dollar vol."
+  - symbol: "GFL"
+    name: "GFL Environmental Inc. Subordinate Voting Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,723,866/day dollar vol."
+  - symbol: "TDC"
+    name: "TERADATA CORPORATION"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,705,077/day dollar vol."
+  - symbol: "RXO"
+    name: "RXO, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,686,378/day dollar vol."
+  - symbol: "BYD"
+    name: "Boyd Gaming Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,642,048/day dollar vol."
+  - symbol: "TVTX"
+    name: "Travere Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,631,344/day dollar vol."
+  - symbol: "HXL"
+    name: "Hexcel Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,616,725/day dollar vol."
+  - symbol: "YETI"
+    name: "YETI Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,570,986/day dollar vol."
+  - symbol: "HRB"
+    name: "H&R Block, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,550,980/day dollar vol."
+  - symbol: "MBLY"
+    name: "Mobileye Global Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,540,651/day dollar vol."
+  - symbol: "VNOM"
+    name: "Viper Energy, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,539,737/day dollar vol."
+  - symbol: "FLO"
+    name: "Flowers Foods, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,528,361/day dollar vol."
+  - symbol: "LTH"
+    name: "Life Time Group Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,512,943/day dollar vol."
+  - symbol: "COHU"
+    name: "Cohu, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,504,622/day dollar vol."
+  - symbol: "CBSH"
+    name: "Commerce Bancshares, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,470,258/day dollar vol."
+  - symbol: "SATL"
+    name: "Satellogic Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,440,969/day dollar vol."
+  - symbol: "XRAY"
+    name: "DENTSPLY SIRONA Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,406,652/day dollar vol."
+  - symbol: "IBRX"
+    name: "ImmunityBio, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,405,674/day dollar vol."
+  - symbol: "DOX"
+    name: "Amdocs Limited Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,380,871/day dollar vol."
+  - symbol: "EXLS"
+    name: "ExlService Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,366,683/day dollar vol."
+  - symbol: "PSN"
+    name: "Parsons Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,361,236/day dollar vol."
+  - symbol: "MUFG"
+    name: "Mitsubishi UFJ Financial Group, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,361,047/day dollar vol."
+  - symbol: "STUB"
+    name: "StubHub Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,351,829/day dollar vol."
+  - symbol: "NAVN"
+    name: "Navan, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,339,673/day dollar vol."
+  - symbol: "COGT"
+    name: "Cogent Biosciences, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,332,777/day dollar vol."
+  - symbol: "TMDX"
+    name: "TransMedics Group, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,322,983/day dollar vol."
+  - symbol: "FIVN"
+    name: "Five9, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,313,615/day dollar vol."
+  - symbol: "WRBY"
+    name: "Warby Parker Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,310,954/day dollar vol."
+  - symbol: "SLS"
+    name: "SELLAS Life Sciences Group, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,265,287/day dollar vol."
+  - symbol: "ARCC"
+    name: "Ares Capital Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,200,044/day dollar vol."
+  - symbol: "MAT"
+    name: "Mattel, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,195,951/day dollar vol."
+  - symbol: "BANC"
+    name: "Banc of California, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,185,881/day dollar vol."
+  - symbol: "SYRE"
+    name: "Spyre Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,170,786/day dollar vol."
+  - symbol: "CNK"
+    name: "Cinemark Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,143,512/day dollar vol."
+  - symbol: "VIST"
+    name: "Vista Energy S.A.B. de C.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,129,689/day dollar vol."
+  - symbol: "VNT"
+    name: "Vontier Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,125,592/day dollar vol."
+  - symbol: "BULL"
+    name: "Webull Corporation Class A Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,113,913/day dollar vol."
+  - symbol: "CPRX"
+    name: "Catalyst Pharmaceuticals, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,112,018/day dollar vol."
+  - symbol: "ORKA"
+    name: "Oruka Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,096,592/day dollar vol."
+  - symbol: "LIVN"
+    name: "LivaNova PLC Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,078,615/day dollar vol."
+  - symbol: "BTE"
+    name: "Baytex Energy Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,060,004/day dollar vol."
+  - symbol: "STEP"
+    name: "StepStone Group Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,057,923/day dollar vol."
+  - symbol: "UGI"
+    name: "UGI Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,034,668/day dollar vol."
+  - symbol: "KALV"
+    name: "KalVista Pharmaceuticals, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$4,025,284/day dollar vol."
+  - symbol: "UAMY"
+    name: "United States Antimony Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,998,277/day dollar vol."
+  - symbol: "RLAY"
+    name: "Relay Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,979,909/day dollar vol."
+  - symbol: "LPX"
+    name: "Louisiana-Pacific Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,967,225/day dollar vol."
+  - symbol: "WSC"
+    name: "WillScot Holdings Corporation Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,950,598/day dollar vol."
+  - symbol: "OPCH"
+    name: "Option Care Health, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,943,926/day dollar vol."
+  - symbol: "TEX"
+    name: "Terex Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,936,655/day dollar vol."
+  - symbol: "MIAX"
+    name: "Miami International Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,932,377/day dollar vol."
+  - symbol: "GLBE"
+    name: "Global-E Online Ltd. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,926,518/day dollar vol."
+  - symbol: "MAC"
+    name: "The Macerich Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,925,935/day dollar vol."
+  - symbol: "BKH"
+    name: "Black Hills Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,919,391/day dollar vol."
+  - symbol: "TU"
+    name: "Telus Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,918,847/day dollar vol."
+  - symbol: "MTH"
+    name: "Meritage Homes Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,912,046/day dollar vol."
+  - symbol: "FAF"
+    name: "First American Financial Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,901,490/day dollar vol."
+  - symbol: "OGE"
+    name: "OGE Energy Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,877,032/day dollar vol."
+  - symbol: "LW"
+    name: "Lamb Weston Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,875,571/day dollar vol."
+  - symbol: "GNTX"
+    name: "Gentex Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,863,614/day dollar vol."
+  - symbol: "MAIR"
+    name: "Madison Air Solutions Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,847,147/day dollar vol."
+  - symbol: "PK"
+    name: "Park Hotels & Resorts Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,827,627/day dollar vol."
+  - symbol: "NTLA"
+    name: "Intellia Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,805,103/day dollar vol."
+  - symbol: "SKY"
+    name: "Champion Homes, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,802,340/day dollar vol."
+  - symbol: "SLM"
+    name: "SLM Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,800,941/day dollar vol."
+  - symbol: "NE"
+    name: "Noble Corporation plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,795,161/day dollar vol."
+  - symbol: "ASH"
+    name: "Ashland Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,787,975/day dollar vol."
+  - symbol: "SG"
+    name: "Sweetgreen, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,785,681/day dollar vol."
+  - symbol: "KBR"
+    name: "KBR, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,773,589/day dollar vol."
+  - symbol: "HAE"
+    name: "Haemonetics Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,733,370/day dollar vol."
+  - symbol: "CSTM"
+    name: "Constellium SE Class A Ordinary shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,732,542/day dollar vol."
+  - symbol: "UTI"
+    name: "Universal Technical Institute, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,671,205/day dollar vol."
+  - symbol: "RYN"
+    name: "Rayonier Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,664,237/day dollar vol."
+  - symbol: "VECO"
+    name: "Veeco Instruments Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,662,607/day dollar vol."
+  - symbol: "KRG"
+    name: "Kite Realty Group Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,660,936/day dollar vol."
+  - symbol: "NN"
+    name: "NextNav Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,620,765/day dollar vol."
+  - symbol: "SBRA"
+    name: "Sabra Health Care REIT, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,615,393/day dollar vol."
+  - symbol: "SSRM"
+    name: "SSR Mining Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,610,185/day dollar vol."
+  - symbol: "VVV"
+    name: "Valvoline Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,596,327/day dollar vol."
+  - symbol: "BKD"
+    name: "Brookdale Senior Living, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,584,149/day dollar vol."
+  - symbol: "NOG"
+    name: "Northern Oil and Gas, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,576,568/day dollar vol."
+  - symbol: "AROC"
+    name: "Archrock Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,576,490/day dollar vol."
+  - symbol: "DGXX"
+    name: "Digi Power X Inc. Subordinate Voting Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,573,091/day dollar vol."
+  - symbol: "ASST"
+    name: "Strive, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,555,022/day dollar vol."
+  - symbol: "ASB"
+    name: "Associated Banc-Corp"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,546,012/day dollar vol."
+  - symbol: "WU"
+    name: "The Western Union Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,541,979/day dollar vol."
+  - symbol: "GIL"
+    name: "Gildan Activewear Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,539,324/day dollar vol."
+  - symbol: "OUT"
+    name: "OUTFRONT Media Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,525,956/day dollar vol."
+  - symbol: "IRT"
+    name: "Independence Realty Trust Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,523,349/day dollar vol."
+  - symbol: "PCT"
+    name: "PureCycle Technologies, Inc. Common stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,523,132/day dollar vol."
+  - symbol: "XE"
+    name: "X-Energy, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,500,256/day dollar vol."
+  - symbol: "BKSY"
+    name: "BlackSky Technology Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,499,901/day dollar vol."
+  - symbol: "MC"
+    name: "MOELIS & COMPANY"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,492,436/day dollar vol."
+  - symbol: "INTR"
+    name: "Inter & Co. Inc. Class A Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,489,023/day dollar vol."
+  - symbol: "BLDP"
+    name: "Ballard Power Systems, Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,479,035/day dollar vol."
+  - symbol: "EBC"
+    name: "Eastern Bankshares, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,467,897/day dollar vol."
+  - symbol: "MEOH"
+    name: "Methanex Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,456,368/day dollar vol."
+  - symbol: "VIRT"
+    name: "Virtu Financial, Inc. Class A"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,444,852/day dollar vol."
+  - symbol: "YSS"
+    name: "York Space Systems Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,443,983/day dollar vol."
+  - symbol: "CGON"
+    name: "CG Oncology, Inc. Common stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,429,846/day dollar vol."
+  - symbol: "SMG"
+    name: "The Scotts Miracle-Gro Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,403,322/day dollar vol."
+  - symbol: "BAND"
+    name: "Bandwidth Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,385,724/day dollar vol."
+  - symbol: "SGHC"
+    name: "Super Group (SGHC) Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,382,537/day dollar vol."
+  - symbol: "KRC"
+    name: "Kilroy Realty Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,374,519/day dollar vol."
+  - symbol: "CCC"
+    name: "CCC Intelligent Solutions Holdings Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,371,735/day dollar vol."
+  - symbol: "RHI"
+    name: "Robert Half Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,358,097/day dollar vol."
+  - symbol: "MIR"
+    name: "Mirion Technologies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,342,333/day dollar vol."
+  - symbol: "ADEA"
+    name: "Adeia Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,338,351/day dollar vol."
+  - symbol: "FLG"
+    name: "Flagstar Bank, National Association"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,317,192/day dollar vol."
+  - symbol: "KT"
+    name: "KT Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,307,420/day dollar vol."
+  - symbol: "INDV"
+    name: "Indivior Pharmaceuticals, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,306,982/day dollar vol."
+  - symbol: "GTES"
+    name: "Gates Industrial Corporation plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,294,158/day dollar vol."
+  - symbol: "EQPT"
+    name: "EquipmentShare.com Inc Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,293,666/day dollar vol."
+  - symbol: "KD"
+    name: "Kyndryl Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,281,662/day dollar vol."
+  - symbol: "BORR"
+    name: "Borr Drilling Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,280,625/day dollar vol."
+  - symbol: "RXT"
+    name: "Rackspace Technology, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,267,014/day dollar vol."
+  - symbol: "GMAB"
+    name: "Genmab A/S ADS"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,262,736/day dollar vol."
+  - symbol: "PCVX"
+    name: "Vaxcyte, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,259,545/day dollar vol."
+  - symbol: "DNOW"
+    name: "DNOW Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,257,214/day dollar vol."
+  - symbol: "BEPC"
+    name: "Brookfield Renewable Corporation Class A Exchangeable Subordinate Voting Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,252,313/day dollar vol."
+  - symbol: "PPLI"
+    name: "People Incorporated Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,236,344/day dollar vol."
+  - symbol: "CAI"
+    name: "Caris Life Sciences, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,231,168/day dollar vol."
+  - symbol: "FR"
+    name: "First Industrial Realty Trust, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,227,770/day dollar vol."
+  - symbol: "LION"
+    name: "Lionsgate Studios Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,202,390/day dollar vol."
+  - symbol: "HLIT"
+    name: "Harmonic Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,197,853/day dollar vol."
+  - symbol: "LEG"
+    name: "Leggett & Platt, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,186,648/day dollar vol."
+  - symbol: "ORLA"
+    name: "Orla Mining Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,167,846/day dollar vol."
+  - symbol: "PARR"
+    name: "Par Pacific Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,161,057/day dollar vol."
+  - symbol: "SRRK"
+    name: "Scholar Rock Holding Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,156,975/day dollar vol."
+  - symbol: "RSI"
+    name: "Rush Street Interactive, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,154,174/day dollar vol."
+  - symbol: "ERAS"
+    name: "Erasca, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,153,944/day dollar vol."
+  - symbol: "FHB"
+    name: "First Hawaiian, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,151,459/day dollar vol."
+  - symbol: "HGV"
+    name: "Hilton Grand Vacations Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,144,095/day dollar vol."
+  - symbol: "HASI"
+    name: "HA Sustainable Infrastructure Capital, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,139,758/day dollar vol."
+  - symbol: "MRAM"
+    name: "Everspin Technologies, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,129,628/day dollar vol."
+  - symbol: "LNC"
+    name: "Lincoln National Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,102,891/day dollar vol."
+  - symbol: "BEP"
+    name: "Brookfield Renewable Partners L.P."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,093,975/day dollar vol."
+  - symbol: "WTRG"
+    name: "Essential Utilities, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,093,471/day dollar vol."
+  - symbol: "EYE"
+    name: "National Vision Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,085,494/day dollar vol."
+  - symbol: "UAA"
+    name: "Under Armour, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,080,430/day dollar vol."
+  - symbol: "WGS"
+    name: "GeneDx Holdings Corp. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,080,224/day dollar vol."
+  - symbol: "DXC"
+    name: "DXC Technology Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,060,945/day dollar vol."
+  - symbol: "BW"
+    name: "Babcock & Wilcox Enterprises, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,058,913/day dollar vol."
+  - symbol: "PHYS"
+    name: "Sprott Physical Gold Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,048,174/day dollar vol."
+  - symbol: "APPS"
+    name: "Digital Turbine, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$3,014,476/day dollar vol."
+  - symbol: "FNF"
+    name: "Fidelity National Financial, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,999,696/day dollar vol."
+  - symbol: "POR"
+    name: "Portland General Electric Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,998,613/day dollar vol."
+  - symbol: "PDFS"
+    name: "PDF Solutions, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,992,021/day dollar vol."
+  - symbol: "VCYT"
+    name: "Veracyte, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,977,518/day dollar vol."
+  - symbol: "AM"
+    name: "Antero Midstream Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,977,148/day dollar vol."
+  - symbol: "LWLG"
+    name: "Lightwave Logic, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,969,103/day dollar vol."
+  - symbol: "VNO"
+    name: "Vornado Realty Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,966,072/day dollar vol."
+  - symbol: "CALY"
+    name: "Callaway Golf Company"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,964,932/day dollar vol."
+  - symbol: "EXK"
+    name: "Endeavour Silver Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,958,074/day dollar vol."
+  - symbol: "KMT"
+    name: "Kennametal Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,957,917/day dollar vol."
+  - symbol: "APLE"
+    name: "Apple Hospitality REIT, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,955,579/day dollar vol."
+  - symbol: "BCRX"
+    name: "BioCryst Pharmaceuticals, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,947,541/day dollar vol."
+  - symbol: "KBH"
+    name: "KB Home"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,934,536/day dollar vol."
+  - symbol: "IMAX"
+    name: "Imax Corp"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,926,773/day dollar vol."
+  - symbol: "CRML"
+    name: "Critical Metals Corp. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,900,760/day dollar vol."
+  - symbol: "GT"
+    name: "The Goodyear Tire & Rubber Company Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,898,373/day dollar vol."
+  - symbol: "BIPC"
+    name: "Brookfield Infrastructure Corporation Class A Exchangeable Subordinate Voting Sh"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,889,600/day dollar vol."
+  - symbol: "MMYT"
+    name: "MakeMyTrip Limited Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,872,587/day dollar vol."
+  - symbol: "PBA"
+    name: "PEMBINA PIPELINE CORPORATION"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,867,374/day dollar vol."
+  - symbol: "NWS"
+    name: "News Corporation Class B Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,866,095/day dollar vol."
+  - symbol: "REZI"
+    name: "Resideo Technologies, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,862,161/day dollar vol."
+  - symbol: "OMF"
+    name: "OneMain Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,830,631/day dollar vol."
+  - symbol: "LINE"
+    name: "Lineage, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,812,763/day dollar vol."
+  - symbol: "PLAB"
+    name: "Photronics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,796,420/day dollar vol."
+  - symbol: "CLBT"
+    name: "Cellebrite DI Ltd. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,786,743/day dollar vol."
+  - symbol: "MGNI"
+    name: "Magnite, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,774,539/day dollar vol."
+  - symbol: "FULT"
+    name: "Fulton Financial Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,768,674/day dollar vol."
+  - symbol: "COUR"
+    name: "Coursera, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,764,157/day dollar vol."
+  - symbol: "TDS"
+    name: "Telephone and Data Systems Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,747,630/day dollar vol."
+  - symbol: "NVAX"
+    name: "Novavax, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,732,751/day dollar vol."
+  - symbol: "AESI"
+    name: "Atlas Energy Solutions Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,724,162/day dollar vol."
+  - symbol: "EPRT"
+    name: "Essential Properties Realty Trust, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,721,974/day dollar vol."
+  - symbol: "ETOR"
+    name: "eToro Group Ltd. Class A Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,717,415/day dollar vol."
+  - symbol: "ACHC"
+    name: "Acadia Healthcare Company, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,705,087/day dollar vol."
+  - symbol: "SLG"
+    name: "SL Green Realty Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,698,336/day dollar vol."
+  - symbol: "MBC"
+    name: "MasterBrand, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,697,663/day dollar vol."
+  - symbol: "LBRDK"
+    name: "Liberty Broadband Corporation Class C Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,687,588/day dollar vol."
+  - symbol: "EWTX"
+    name: "Edgewise Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,686,958/day dollar vol."
+  - symbol: "VRRM"
+    name: "Verra Mobility Corporation Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,681,101/day dollar vol."
+  - symbol: "DFTX"
+    name: "Definium Therapeutics, Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,650,454/day dollar vol."
+  - symbol: "SNN"
+    name: "Smith & Nephew plc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,647,653/day dollar vol."
+  - symbol: "LAC"
+    name: "Lithium Americas Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,621,251/day dollar vol."
+  - symbol: "SBS"
+    name: "COMPANHIA DE SANEAMENTO B SICO DO ESTADO DE SAO PAULO-SABESP ADS'S"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,593,342/day dollar vol."
+  - symbol: "BNL"
+    name: "Broadstone Net Lease, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,580,398/day dollar vol."
+  - symbol: "NESR"
+    name: "National Energy Services Reunited Corp Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,561,694/day dollar vol."
+  - symbol: "DHT"
+    name: "DHT HOLDINGS, INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,561,396/day dollar vol."
+  - symbol: "SBET"
+    name: "SharpLink, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,548,260/day dollar vol."
+  - symbol: "SHOO"
+    name: "Steven Madden, Ltd. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,544,972/day dollar vol."
+  - symbol: "ARQT"
+    name: "Arcutis Biotherapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,543,275/day dollar vol."
+  - symbol: "NVRI"
+    name: "Enviri Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,542,097/day dollar vol."
+  - symbol: "PEB"
+    name: "Pebblebrook Hotel Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,534,409/day dollar vol."
+  - symbol: "KN"
+    name: "KNOWLES CORPORATION"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,507,359/day dollar vol."
+  - symbol: "NAMS"
+    name: "NewAmsterdam Pharma Company N.V. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,499,558/day dollar vol."
+  - symbol: "HOMB"
+    name: "Home BancShares, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,490,418/day dollar vol."
+  - symbol: "PGY"
+    name: "Pagaya Technologies Ltd. Class A Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,472,438/day dollar vol."
+  - symbol: "HIW"
+    name: "Highwoods Properties Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,466,780/day dollar vol."
+  - symbol: "PRM"
+    name: "Perimeter Solutions, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,461,764/day dollar vol."
+  - symbol: "AVEX"
+    name: "AEVEX Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,447,587/day dollar vol."
+  - symbol: "HTFL"
+    name: "Heartflow, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,427,194/day dollar vol."
+  - symbol: "PRA"
+    name: "ProAssurance Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,423,345/day dollar vol."
+  - symbol: "HYMC"
+    name: "Hycroft Mining Holding Corporation Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,413,757/day dollar vol."
+  - symbol: "MTG"
+    name: "MGIC Investment Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,412,346/day dollar vol."
+  - symbol: "REPL"
+    name: "Replimune Group, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,409,178/day dollar vol."
+  - symbol: "MRP"
+    name: "Millrose Properties, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,400,612/day dollar vol."
+  - symbol: "WAY"
+    name: "Waystar Holding Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,392,192/day dollar vol."
+  - symbol: "MDA"
+    name: "MDA Space Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,388,064/day dollar vol."
+  - symbol: "PBH"
+    name: "Prestige Consumer Healthcare Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,381,540/day dollar vol."
+  - symbol: "BRUN"
+    name: "Boost Run Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,368,563/day dollar vol."
+  - symbol: "ASPI"
+    name: "ASP Isotopes Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,360,029/day dollar vol."
+  - symbol: "RDN"
+    name: "Radian Group Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,347,159/day dollar vol."
+  - symbol: "AEVA"
+    name: "Aeva Technologies, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,335,056/day dollar vol."
+  - symbol: "CXT"
+    name: "Crane NXT, Co."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,324,013/day dollar vol."
+  - symbol: "MLYS"
+    name: "Mineralys Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,315,918/day dollar vol."
+  - symbol: "SVM"
+    name: "Silvercorp Metals Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,309,213/day dollar vol."
+  - symbol: "SFD"
+    name: "Smithfield Foods, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,303,768/day dollar vol."
+  - symbol: "UPWK"
+    name: "Upwork Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,301,499/day dollar vol."
+  - symbol: "GENI"
+    name: "Genius Sports Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,296,937/day dollar vol."
+  - symbol: "PECO"
+    name: "Phillips Edison & Company, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,286,349/day dollar vol."
+  - symbol: "TAL"
+    name: "TAL Education Group"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,285,869/day dollar vol."
+  - symbol: "GEO"
+    name: "The GEO Group, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,280,816/day dollar vol."
+  - symbol: "FSM"
+    name: "Fortuna Mining Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,277,780/day dollar vol."
+  - symbol: "CSIQ"
+    name: "Canadian Solar Inc. Common Shares (ON)"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,266,948/day dollar vol."
+  - symbol: "DBRG"
+    name: "DigitalBridge Group, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,255,926/day dollar vol."
+  - symbol: "OGN"
+    name: "Organon & Co."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,253,341/day dollar vol."
+  - symbol: "CWEN"
+    name: "Clearway Energy, Inc. Class C Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,247,528/day dollar vol."
+  - symbol: "PPC"
+    name: "Pilgrim's Pride Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,237,733/day dollar vol."
+  - symbol: "VELO"
+    name: "Velo3D, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,236,896/day dollar vol."
+  - symbol: "AQN"
+    name: "Algonquin Power & Utilities Corp"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,233,173/day dollar vol."
+  - symbol: "AEG"
+    name: "Aegon Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,226,520/day dollar vol."
+  - symbol: "CRSR"
+    name: "Corsair Gaming, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,226,080/day dollar vol."
+  - symbol: "ARXS"
+    name: "Arxis, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,225,790/day dollar vol."
+  - symbol: "PBI"
+    name: "Pitney Bowes Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,224,953/day dollar vol."
+  - symbol: "SLGN"
+    name: "Silgan Holdings Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,217,862/day dollar vol."
+  - symbol: "PGNY"
+    name: "Progyny, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,215,779/day dollar vol."
+  - symbol: "AXGN"
+    name: "Axogen, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,211,748/day dollar vol."
+  - symbol: "HAYW"
+    name: "Hayward Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,203,342/day dollar vol."
+  - symbol: "AVNS"
+    name: "Avanos Medical, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,193,693/day dollar vol."
+  - symbol: "SGML"
+    name: "Sigma Lithium Corporation Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,179,782/day dollar vol."
+  - symbol: "DX"
+    name: "Dynex Capital, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,179,129/day dollar vol."
+  - symbol: "FBP"
+    name: "First BanCorp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,175,492/day dollar vol."
+  - symbol: "OPLN"
+    name: "OPENLANE, Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,155,284/day dollar vol."
+  - symbol: "CALX"
+    name: "CALIX, INC."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,150,940/day dollar vol."
+  - symbol: "UGP"
+    name: "Ultrapar Participacoes S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,140,848/day dollar vol."
+  - symbol: "CMPS"
+    name: "COMPASS Pathways Plc American Depository Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,140,025/day dollar vol."
+  - symbol: "KOPN"
+    name: "Kopin Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,139,794/day dollar vol."
+  - symbol: "EC"
+    name: "Ecopetrol S.A"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,137,273/day dollar vol."
+  - symbol: "AIP"
+    name: "Arteris, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,124,627/day dollar vol."
+  - symbol: "SOC"
+    name: "Sable Offshore Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,117,596/day dollar vol."
+  - symbol: "SBLK"
+    name: "Star Bulk Carriers Corp. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,107,692/day dollar vol."
+  - symbol: "WTTR"
+    name: "Select Water Solutions, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,105,387/day dollar vol."
+  - symbol: "MDU"
+    name: "MDU Resources Group, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,097,169/day dollar vol."
+  - symbol: "BRBR"
+    name: "BellRing Brands, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,096,823/day dollar vol."
+  - symbol: "JAN"
+    name: "Janus Living, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,095,366/day dollar vol."
+  - symbol: "CBRL"
+    name: "Cracker Barrel Old Country Store, Inc Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,094,671/day dollar vol."
+  - symbol: "TGB"
+    name: "Taseko Mines Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,093,944/day dollar vol."
+  - symbol: "BVN"
+    name: "Compania de Minas Buenaventura S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,091,634/day dollar vol."
+  - symbol: "CMBT"
+    name: "CMB.TECH NV"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,080,565/day dollar vol."
+  - symbol: "STAA"
+    name: "STAAR Surgical Company Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,079,373/day dollar vol."
+  - symbol: "SRAD"
+    name: "Sportradar Group AG Class A Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,074,943/day dollar vol."
+  - symbol: "CUZ"
+    name: "Cousins Properties Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,074,446/day dollar vol."
+  - symbol: "PRCT"
+    name: "PROCEPT BioRobotics Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,073,453/day dollar vol."
+  - symbol: "PAGS"
+    name: "PagSeguro Digital Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,059,703/day dollar vol."
+  - symbol: "PUK"
+    name: "PRUDENTIAL PLC ADS (REP 2 ORD SHARES)"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,054,559/day dollar vol."
+  - symbol: "LAUR"
+    name: "Laureate Education, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,054,125/day dollar vol."
+  - symbol: "HTZ"
+    name: "Hertz Global Holdings, Inc Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,052,437/day dollar vol."
+  - symbol: "LPTH"
+    name: "LightPath Technologies, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,041,453/day dollar vol."
+  - symbol: "MICC"
+    name: "The Magnum Ice Cream Company N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,031,399/day dollar vol."
+  - symbol: "AMTM"
+    name: "Amentum Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,027,766/day dollar vol."
+  - symbol: "CNXC"
+    name: "Concentrix Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,018,957/day dollar vol."
+  - symbol: "PPTA"
+    name: "Perpetua Resources Corp. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,018,390/day dollar vol."
+  - symbol: "BLSH"
+    name: "Bullish"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,016,170/day dollar vol."
+  - symbol: "PRGO"
+    name: "PERRIGO COMPANY PLC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,012,616/day dollar vol."
+  - symbol: "FIBK"
+    name: "First Interstate BancSystem, Inc. Common Stock (DE)"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,010,155/day dollar vol."
+  - symbol: "ABCL"
+    name: "AbCellera Biologics Inc. Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,003,667/day dollar vol."
+  - symbol: "FUN"
+    name: "Six Flags Entertainment Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$2,002,750/day dollar vol."
+  - symbol: "ARR"
+    name: "ARMOUR Residential REIT, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,991,399/day dollar vol."
+  - symbol: "FFBC"
+    name: "First Financial Bancorp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,990,394/day dollar vol."
+  - symbol: "OBDC"
+    name: "Blue Owl Capital Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,987,675/day dollar vol."
+  - symbol: "RITM"
+    name: "Rithm Capital Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,987,173/day dollar vol."
+  - symbol: "NWL"
+    name: "Newell Brands Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,982,924/day dollar vol."
+  - symbol: "PHG"
+    name: "KONINKLIJKE PHILIPS  N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,977,330/day dollar vol."
+  - symbol: "DCH"
+    name: "Dauch Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,975,959/day dollar vol."
+  - symbol: "AUB"
+    name: "Atlantic Union Bankshares Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,974,942/day dollar vol."
+  - symbol: "CLOV"
+    name: "Clover Health Investments, Corp. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,973,071/day dollar vol."
+  - symbol: "ADTN"
+    name: "ADTRAN Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,970,996/day dollar vol."
+  - symbol: "DAN"
+    name: "Dana Incorporated"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,969,831/day dollar vol."
+  - symbol: "ERO"
+    name: "Ero Copper Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,959,914/day dollar vol."
+  - symbol: "BGC"
+    name: "BGC Group, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,950,390/day dollar vol."
+  - symbol: "GBTG"
+    name: "Global Business Travel Group, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,943,705/day dollar vol."
+  - symbol: "LC"
+    name: "LendingClub Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,929,433/day dollar vol."
+  - symbol: "SFNC"
+    name: "Simmons First National Corporation Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,928,156/day dollar vol."
+  - symbol: "LFST"
+    name: "LifeStance Health Group, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,916,997/day dollar vol."
+  - symbol: "ADPT"
+    name: "Adaptive Biotechnologies Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,911,197/day dollar vol."
+  - symbol: "RCI"
+    name: "Rogers Communications, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,910,182/day dollar vol."
+  - symbol: "FSK"
+    name: "FS KKR Capital Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,902,979/day dollar vol."
+  - symbol: "CTRI"
+    name: "Centuri Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,895,666/day dollar vol."
+  - symbol: "CRI"
+    name: "Carter's Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,873,429/day dollar vol."
+  - symbol: "AZTA"
+    name: "Azenta, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,865,452/day dollar vol."
+  - symbol: "DEI"
+    name: "Douglas Emmett, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,863,546/day dollar vol."
+  - symbol: "TBBB"
+    name: "BBB Foods Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,862,590/day dollar vol."
+  - symbol: "SNDX"
+    name: "Syndax Pharmaceuticals, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,858,220/day dollar vol."
+  - symbol: "TALO"
+    name: "Talos Energy, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,845,349/day dollar vol."
+  - symbol: "HYLN"
+    name: "Hyliion Holdings Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,844,882/day dollar vol."
+  - symbol: "SERV"
+    name: "Serve Robotics Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,843,644/day dollar vol."
+  - symbol: "NP"
+    name: "Neptune Insurance Holdings Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,840,369/day dollar vol."
+  - symbol: "TWO"
+    name: "Two Harbors Investment Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,831,719/day dollar vol."
+  - symbol: "PSNL"
+    name: "Personalis, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,831,493/day dollar vol."
+  - symbol: "SEM"
+    name: "SELECT MEDICAL HOLDINGS CORP"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,822,852/day dollar vol."
+  - symbol: "NRIX"
+    name: "Nurix Therapeutics, Inc. Common stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,816,258/day dollar vol."
+  - symbol: "TMC"
+    name: "TMC the metals company Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,805,507/day dollar vol."
+  - symbol: "CDP"
+    name: "COPT Defense Properties"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,803,652/day dollar vol."
+  - symbol: "QURE"
+    name: "uniQure N.V. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,789,794/day dollar vol."
+  - symbol: "INGM"
+    name: "Ingram Micro Holding Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,789,304/day dollar vol."
+  - symbol: "NNE"
+    name: "Nano Nuclear Energy Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,763,703/day dollar vol."
+  - symbol: "IE"
+    name: "Ivanhoe Electric Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,758,455/day dollar vol."
+  - symbol: "CAE"
+    name: "CAE INC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,753,397/day dollar vol."
+  - symbol: "PTRN"
+    name: "Pattern Group Inc. Series A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,737,984/day dollar vol."
+  - symbol: "BHVN"
+    name: "Biohaven Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,730,819/day dollar vol."
+  - symbol: "CVBF"
+    name: "CVB Financial Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,715,156/day dollar vol."
+  - symbol: "REYN"
+    name: "Reynolds Consumer Products Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,679,571/day dollar vol."
+  - symbol: "BBVA"
+    name: "Banco Bilbao Vizcaya Argentaria, S.A."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,675,900/day dollar vol."
+  - symbol: "AMN"
+    name: "AMN Healthcare Services"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,668,090/day dollar vol."
+  - symbol: "CWK"
+    name: "Cushman & Wakefield Ltd."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,659,178/day dollar vol."
+  - symbol: "CRK"
+    name: "Comstock Resources, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,648,341/day dollar vol."
+  - symbol: "REAL"
+    name: "The RealReal, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,641,207/day dollar vol."
+  - symbol: "DYN"
+    name: "Dyne Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,637,257/day dollar vol."
+  - symbol: "AKR"
+    name: "Acadia Realty Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,624,288/day dollar vol."
+  - symbol: "TYRA"
+    name: "Tyra Biosciences, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,615,240/day dollar vol."
+  - symbol: "TH"
+    name: "Target Hospitality Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,603,699/day dollar vol."
+  - symbol: "CURB"
+    name: "Curbline Properties Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,597,495/day dollar vol."
+  - symbol: "RUM"
+    name: "Rumble Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,593,430/day dollar vol."
+  - symbol: "IDYA"
+    name: "IDEAYA Biosciences, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,580,023/day dollar vol."
+  - symbol: "SMPL"
+    name: "The Simply Good Foods Company Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,566,813/day dollar vol."
+  - symbol: "AMRX"
+    name: "Amneal Pharmaceuticals, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,566,121/day dollar vol."
+  - symbol: "MAN"
+    name: "ManpowerGroup"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,558,135/day dollar vol."
+  - symbol: "MNTS"
+    name: "Momentus Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,554,402/day dollar vol."
+  - symbol: "ABSI"
+    name: "Absci Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,540,632/day dollar vol."
+  - symbol: "HTGC"
+    name: "Hercules Capital, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,537,364/day dollar vol."
+  - symbol: "ADMA"
+    name: "ADMA Biologics Inc Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,533,595/day dollar vol."
+  - symbol: "VRDN"
+    name: "Viridian Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,524,991/day dollar vol."
+  - symbol: "RVLV"
+    name: "Revolve Group, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,523,100/day dollar vol."
+  - symbol: "ATEN"
+    name: "A10 NETWORKS INC"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,520,080/day dollar vol."
+  - symbol: "GO"
+    name: "Grocery Outlet Holding Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,518,227/day dollar vol."
+  - symbol: "NTST"
+    name: "NetSTREIT Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,508,599/day dollar vol."
+  - symbol: "OI"
+    name: "O-I Glass, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,506,777/day dollar vol."
+  - symbol: "KMPR"
+    name: "Kemper Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,504,202/day dollar vol."
+  - symbol: "HAWK"
+    name: "HawkEye 360, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,502,732/day dollar vol."
+  - symbol: "BETA"
+    name: "Beta Technologies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,498,417/day dollar vol."
+  - symbol: "BXMT"
+    name: "Blackstone Mortgage Trust, Inc. (NEW)"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,494,673/day dollar vol."
+  - symbol: "NUAI"
+    name: "New Era Energy & Digital, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,492,776/day dollar vol."
+  - symbol: "GLIBK"
+    name: "Liberty Capital Corporation Series C GCI Group Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,490,894/day dollar vol."
+  - symbol: "TAC"
+    name: "TransAlta Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,486,172/day dollar vol."
+  - symbol: "SSL"
+    name: "Sasol Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,482,606/day dollar vol."
+  - symbol: "CGAU"
+    name: "Centerra Gold Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,478,472/day dollar vol."
+  - symbol: "ASTC"
+    name: "Astrotech Corporation (DE) Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,478,121/day dollar vol."
+  - symbol: "LBTYA"
+    name: "Liberty Global Ltd. Class A Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,471,813/day dollar vol."
+  - symbol: "PWP"
+    name: "Perella Weinberg Partners Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,471,174/day dollar vol."
+  - symbol: "MWA"
+    name: "Mueller Water Products, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,468,737/day dollar vol."
+  - symbol: "TROX"
+    name: "TRONOX LIMITED CL A ORDINARY SHARES"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,462,583/day dollar vol."
+  - symbol: "CERT"
+    name: "Certara, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,456,635/day dollar vol."
+  - symbol: "BWIN"
+    name: "The Baldwin Insurance Group, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,450,864/day dollar vol."
+  - symbol: "ATRC"
+    name: "AtriCure, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,434,483/day dollar vol."
+  - symbol: "ENOV"
+    name: "Enovis Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,432,981/day dollar vol."
+  - symbol: "SHO"
+    name: "Sunstone Hotel Investors, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,429,984/day dollar vol."
+  - symbol: "WVE"
+    name: "Wave Life Sciences Ltd. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,421,008/day dollar vol."
+  - symbol: "IMNM"
+    name: "Immunome, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,419,187/day dollar vol."
+  - symbol: "ULCC"
+    name: "Frontier Group Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,415,250/day dollar vol."
+  - symbol: "OCUL"
+    name: "Ocular Therapeutix, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,411,573/day dollar vol."
+  - symbol: "ARX"
+    name: "Accelerant Holdings"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,403,754/day dollar vol."
+  - symbol: "OTF"
+    name: "Blue Owl Technology Finance Corp."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,399,662/day dollar vol."
+  - symbol: "GRPN"
+    name: "Groupon, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,397,884/day dollar vol."
+  - symbol: "GPGI"
+    name: "GPGI, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,388,307/day dollar vol."
+  - symbol: "BUSE"
+    name: "First Busey Corporation Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,381,819/day dollar vol."
+  - symbol: "WLTH"
+    name: "Wealthfront Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,378,047/day dollar vol."
+  - symbol: "DJT"
+    name: "Trump Media & Technology Group Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,375,586/day dollar vol."
+  - symbol: "ECVT"
+    name: "Ecovyst Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,374,261/day dollar vol."
+  - symbol: "QDEL"
+    name: "QuidelOrtho Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,361,159/day dollar vol."
+  - symbol: "NRGV"
+    name: "Energy Vault Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,360,322/day dollar vol."
+  - symbol: "EVC"
+    name: "Entravision Communication"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,356,480/day dollar vol."
+  - symbol: "NEOG"
+    name: "Neogen Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,355,536/day dollar vol."
+  - symbol: "ASM"
+    name: "Avino Silver & Gold Mines Ltd. (Canada)"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,342,372/day dollar vol."
+  - symbol: "NUVB"
+    name: "Nuvation Bio Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,336,729/day dollar vol."
+  - symbol: "ALMS"
+    name: "Alumis Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,321,375/day dollar vol."
+  - symbol: "DRH"
+    name: "Diamondrock Hospitality Company Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,308,109/day dollar vol."
+  - symbol: "USAS"
+    name: "Americas Gold and Silver Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,298,755/day dollar vol."
+  - symbol: "ABR"
+    name: "Arbor Realty Trust, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,297,977/day dollar vol."
+  - symbol: "NEXT"
+    name: "NextDecade Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,295,040/day dollar vol."
+  - symbol: "RCUS"
+    name: "Arcus Biosciences, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,286,755/day dollar vol."
+  - symbol: "SLDE"
+    name: "Slide Insurance Holdings, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,279,277/day dollar vol."
+  - symbol: "XNDU"
+    name: "Xanadu Quantum Technologies Limited Class B Subordinate Voting Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,279,196/day dollar vol."
+  - symbol: "ACVA"
+    name: "ACV Auctions Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,276,545/day dollar vol."
+  - symbol: "KURA"
+    name: "Kura Oncology, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,267,000/day dollar vol."
+  - symbol: "RLJ"
+    name: "RLJ Lodging Trust"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,258,428/day dollar vol."
+  - symbol: "UA"
+    name: "Under Armour, Inc. Class C Common Stock, $0.0003 1/3 par value"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,247,706/day dollar vol."
+  - symbol: "CXW"
+    name: "CoreCivic, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,247,312/day dollar vol."
+  - symbol: "ORC"
+    name: "Orchid Island Capital, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,243,947/day dollar vol."
+  - symbol: "FCPT"
+    name: "Four Corners Property Trust, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,240,808/day dollar vol."
+  - symbol: "ARIS"
+    name: "Aris Mining Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,240,267/day dollar vol."
+  - symbol: "HLMN"
+    name: "Hillman Solutions Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,239,217/day dollar vol."
+  - symbol: "NMRK"
+    name: "Newmark Group, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,239,144/day dollar vol."
+  - symbol: "UNIT"
+    name: "Uniti Group Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,236,072/day dollar vol."
+  - symbol: "ADNT"
+    name: "Adient plc Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,217,280/day dollar vol."
+  - symbol: "GRND"
+    name: "Grindr Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,215,135/day dollar vol."
+  - symbol: "AMPG"
+    name: "Amplitech Group, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,207,304/day dollar vol."
+  - symbol: "GNL"
+    name: "Global Net Lease, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,202,063/day dollar vol."
+  - symbol: "NAT"
+    name: "Nordic American Tanker"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,201,852/day dollar vol."
+  - symbol: "LAR"
+    name: "Lithium Argentina AG"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,199,020/day dollar vol."
+  - symbol: "NB"
+    name: "NioCorp Developments Ltd. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,198,824/day dollar vol."
+  - symbol: "FTRE"
+    name: "Fortrea Holdings Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,180,225/day dollar vol."
+  - symbol: "GMRS"
+    name: "GMR Solutions Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,178,140/day dollar vol."
+  - symbol: "AVTX"
+    name: "Avalo Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,175,225/day dollar vol."
+  - symbol: "VSTS"
+    name: "Vestis Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,172,907/day dollar vol."
+  - symbol: "IMSR"
+    name: "Terrestrial Energy Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,166,488/day dollar vol."
+  - symbol: "ZVRA"
+    name: "Zevra Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,162,091/day dollar vol."
+  - symbol: "HPP"
+    name: "Hudson Pacific Properties, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,160,862/day dollar vol."
+  - symbol: "TRIN"
+    name: "Trinity Capital Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,159,869/day dollar vol."
+  - symbol: "WWW"
+    name: "Wolverine World Wide, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,157,928/day dollar vol."
+  - symbol: "MRTN"
+    name: "Marten Transport, Ltd. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,154,682/day dollar vol."
+  - symbol: "PFS"
+    name: "Provident Financial Services, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,149,858/day dollar vol."
+  - symbol: "TTI"
+    name: "TETRA Technologies, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,143,973/day dollar vol."
+  - symbol: "PAY"
+    name: "Paymentus Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,142,828/day dollar vol."
+  - symbol: "ARDX"
+    name: "Ardelyx, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,137,431/day dollar vol."
+  - symbol: "VITL"
+    name: "Vital Farms, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,131,584/day dollar vol."
+  - symbol: "LZ"
+    name: "LegalZoom.com, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,127,007/day dollar vol."
+  - symbol: "DHC"
+    name: "Diversified Healthcare Trust Common Shares of Beneficial Interest"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,125,719/day dollar vol."
+  - symbol: "ZGN"
+    name: "Ermenegildo Zegna N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,125,455/day dollar vol."
+  - symbol: "MRVI"
+    name: "Maravai LifeSciences Holdings, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,121,520/day dollar vol."
+  - symbol: "GNW"
+    name: "Genworth Financial, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,112,558/day dollar vol."
+  - symbol: "TBLA"
+    name: "Taboola.com Ltd. Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,109,904/day dollar vol."
+  - symbol: "INVA"
+    name: "Innoviva, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,108,889/day dollar vol."
+  - symbol: "EFOR"
+    name: "Everforth, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,105,300/day dollar vol."
+  - symbol: "NOMD"
+    name: "Nomad Foods Limited"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,104,443/day dollar vol."
+  - symbol: "EVLV"
+    name: "Evolv Technologies Holdings, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,103,519/day dollar vol."
+  - symbol: "OCFC"
+    name: "OceanFirst Financial Corp. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,103,279/day dollar vol."
+  - symbol: "CADL"
+    name: "Candel Therapeutics, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,101,285/day dollar vol."
+  - symbol: "CWH"
+    name: "Camping World Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,099,572/day dollar vol."
+  - symbol: "NG"
+    name: "NovaGold Resources Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,099,101/day dollar vol."
+  - symbol: "DRVN"
+    name: "Driven Brands Holdings Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,097,738/day dollar vol."
+  - symbol: "METC"
+    name: "Ramaco Resources, Inc. Class A Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,096,850/day dollar vol."
+  - symbol: "AVO"
+    name: "Mission Produce, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,096,620/day dollar vol."
+  - symbol: "BFLY"
+    name: "Butterfly Network, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,093,479/day dollar vol."
+  - symbol: "SGRY"
+    name: "Surgery Partners, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,092,014/day dollar vol."
+  - symbol: "ODD"
+    name: "ODDITY Tech Ltd. Class A Ordinary Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,088,416/day dollar vol."
+  - symbol: "XPRO"
+    name: "Expro Group Holdings N.V."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,081,045/day dollar vol."
+  - symbol: "TIC"
+    name: "TIC Solutions, Inc"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,078,029/day dollar vol."
+  - symbol: "JBIO"
+    name: "Jade Biosciences, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,069,283/day dollar vol."
+  - symbol: "HE"
+    name: "Hawaiian Electric Industries, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,065,646/day dollar vol."
+  - symbol: "TLK"
+    name: "PT Telekomunikasi Indonesia"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,064,418/day dollar vol."
+  - symbol: "BLMN"
+    name: "Bloomin' Brands, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,061,105/day dollar vol."
+  - symbol: "IART"
+    name: "Integra LifeSciences Holdings Corporation Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,058,969/day dollar vol."
+  - symbol: "WTI"
+    name: "W&T Offshore, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,053,701/day dollar vol."
+  - symbol: "GPRE"
+    name: "Green Plains Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,049,733/day dollar vol."
+  - symbol: "SBH"
+    name: "Sally Beauty Holdings, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,044,840/day dollar vol."
+  - symbol: "VYX"
+    name: "NCR Voyix Corporation"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,042,263/day dollar vol."
+  - symbol: "MPT"
+    name: "Medical Properties Trust, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,037,195/day dollar vol."
+  - symbol: "LBTYK"
+    name: "Liberty Global Ltd. Class C Common Shares"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,036,340/day dollar vol."
+  - symbol: "KEP"
+    name: "Korea Electric Power Corp"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,036,167/day dollar vol."
+  - symbol: "LSPD"
+    name: "Lightspeed Commerce Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,034,440/day dollar vol."
+  - symbol: "SPIR"
+    name: "Spire Global, Inc."
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,027,003/day dollar vol."
+  - symbol: "OMDA"
+    name: "Omada Health, Inc. Common Stock"
+    tags: [small_cap, discovery_screened]
+    universe_role: speculative_candidate
+    demo_profile: high_volatility_whipsaw
+    notes: "Screened expansion; ~$1,007,488/day dollar vol."
+
 csv_path:
 filters:
   min_price: 3
@@ -6259,4 +10757,4 @@ filters:
   # pool (~1000 symbols). This is the TOTAL loaded universe; per-cycle scan stays
   # bounded by watch_universe_rotation.max_symbols_per_cycle, so rate-limit load is
   # unchanged — rotation just covers the larger list over more cycles.
-  max_universe_size: 1100
+  max_universe_size: 1880
