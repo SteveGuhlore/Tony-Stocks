@@ -34,10 +34,18 @@ symbols/cycle. **FOLLOW-UP (separate, tested change) to raise true per-cycle thr
 `_fetch_bars_batch` at max_symbols_per_batch, then raise scan + rotation caps in tandem with a
 load check. Until then, expansion = bigger ranked pool, slower full-coverage.
 
-**NOT merged to main, NOT on the VM (operator wanted live trading untouched).** Rollout (after
-close): merge branch → VM pull → baseline `funnel-eval --save-report` → `expand-universe`
-(dry-run, eyeball) → `--execute` → restart tradingbot-watch → re-run funnel-eval after ~1 week;
-if KEPT-vs-DROPPED degrades, trim via quarantine/role demotion instead of growing.
+**LIVE DRY-RUN FINDING (2026-06-10, VM): the liquid-stock pool is ~saturated.** 13,852 active
+assets -> 9,899 screened -> only **154 survivors** at the scanner's own floors (7,875 fail the
+300k share-volume floor; 984 liquid names already in the universe — expansions 1-3 captured the
+liquid tape). Top survivors were ETFs/funds (LQD/SOXL/TLT/IBIT...), so a `fund_etf` name filter
+was added (REIT "Trust" names kept). **Realistic add ≈ 100-115 genuine stocks -> universe ~1,150,
+NOT 2k** — growing past that requires lowering floors to names the scanner itself skips.
+funnel-eval baseline recorded (2026-06-10): 52 picks, 63% win rate, all stages
+insufficient_data (no dropped cohort exists — picks only exist for survivors).
+
+**Rollout:** baseline funnel-eval DONE, dry-run validated on VM, branch merged to main →
+VM pull → after close: `expand-universe --execute` → restart tradingbot-watch → re-run
+funnel-eval after ~1 week; if KEPT-vs-DROPPED degrades, trim via quarantine/role demotion.
 New unclassified-sector names are UNCAPPED by the sector gate (visible in the run report).
 
 ---

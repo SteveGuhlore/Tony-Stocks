@@ -73,6 +73,25 @@ class TestFilterAssets:
         assert kept == []
         assert rejected["instrument_type"] == 3
 
+    def test_drops_etfs_and_funds_by_name(self):
+        # Live dry-run finding: the most liquid non-universe "stocks" on /v2/assets
+        # are funds (LQD/SOXL/TLT...). They must not become primary candidates.
+        assets = [
+            _asset("LQD", name="iShares iBoxx USD Investment Grade Corporate Bond"),
+            _asset("SOXL", name="Direxion Daily Semiconductor Bull 3X Shares"),
+            _asset("BITO", name="ProShares Bitcoin Strategy ETF"),
+            _asset("GDX", name="VanEck Gold Miners ETF"),
+            _asset("FT", name="First Trust Rising Dividend Achievers"),
+        ]
+        kept, rejected = filter_assets(assets, [], [])
+        assert kept == []
+        assert rejected["fund_etf"] == 5
+
+    def test_reit_with_trust_in_name_is_kept(self):
+        # "trust" alone must NOT trigger the fund filter — REITs carry it legitimately.
+        kept, _ = filter_assets([_asset("ESS", name="Essex Property Trust Common Stock")], [], [])
+        assert [a["symbol"] for a in kept] == ["ESS"]
+
     def test_duplicate_listings_counted_once(self):
         kept, rejected = filter_assets([_asset("DUP"), _asset("DUP")], [], [])
         assert len(kept) == 1

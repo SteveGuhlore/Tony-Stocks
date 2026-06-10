@@ -44,6 +44,17 @@ _NAME_EXCLUDE_TOKENS = (
     " notes", "depositary", "% ",
 )
 
+#: ETF/fund name heuristics. /v2/assets lists ETFs as us_equity; without this the
+#: most liquid "additions" are bond/leveraged/index funds (LQD, SOXL, TLT...) that
+#: would be scored as regular stocks and paper-traded. Verified against a live
+#: dry-run: the top unclassified survivors were all funds. ("trust" alone is NOT
+#: excluded — REIT names legitimately carry it.)
+_FUND_NAME_TOKENS = (
+    "etf", "etn", " fund", "ishares", "spdr", "proshares", "direxion", "vanguard",
+    "invesco", "wisdomtree", "global x", "vaneck", "xtrackers", "first trust",
+    "index", "1x ", "2x ", "3x ",
+)
+
 #: Plain 1-5 letter tickers only: kills ".", "-", "/" share-class symbols outright.
 _SYMBOL_RE = re.compile(r"^[A-Z]{1,5}$")
 
@@ -136,6 +147,9 @@ def filter_assets(
         name_l = str(a.get("name") or "").lower()
         if any(tok in name_l for tok in _NAME_EXCLUDE_TOKENS):
             rejected["instrument_type"] += 1
+            continue
+        if any(tok in name_l for tok in _FUND_NAME_TOKENS):
+            rejected["fund_etf"] += 1
             continue
         kept.append(a)
     return kept, rejected
