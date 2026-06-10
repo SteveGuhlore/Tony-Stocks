@@ -1200,13 +1200,23 @@ def _run_paper_trading_cycle(repo: Any, broker: Any, cfg: Any, now_et: datetime,
             account_label=cfg.account_label, market_open=market_open, kill_switch=kill_switch,
             cc_exits=cc_exits, now_iso=utc_now_iso(), day=day,
         )
-        if summary["submitted"] or summary["reconciled"] or summary["cc_closed"]:
+        if summary["submitted"] or summary["reconciled"] or summary["cc_closed"] or summary["rejected"]:
             print(
                 f"  Paper trading: submitted={len(summary['submitted'])} "
-                f"reconciled={len(summary['reconciled'])} cc_closed={len(summary['cc_closed'])}"
+                f"reconciled={len(summary['reconciled'])} cc_closed={len(summary['cc_closed'])} "
+                f"rejected={len(summary['rejected'])}"
             )
             for item in summary["submitted"]:
                 LOGGER.info("Paper order submitted: %s", item)
+            # Surface sector-cap blocks (the new concentration gate) so the operator can see
+            # the cap working. Other rejections (duplicate/already-held) are high-volume every
+            # cycle, so only the sector-cap reason is logged to avoid spamming the journal.
+            sector_capped = sorted(
+                {r["symbol"] for r in summary["rejected"]
+                 if "sector cap" in str(r.get("reason", "")).lower()}
+            )
+            if sector_capped:
+                LOGGER.info("Paper sector-cap blocked %d pick(s): %s", len(sector_capped), sector_capped)
     except Exception as exc:  # never break the watch loop on a paper-trading error
         LOGGER.warning("Paper trading cycle failed: %s", exc)
 
