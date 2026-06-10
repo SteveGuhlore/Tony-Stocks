@@ -35,8 +35,51 @@ export function ScannerXrayView() {
     return n ? sums.map((s) => Math.round(s / n)) : null
   }, [rows])
 
+  // Sub-score SPREAD (min · median · max per dimension) — averages alone hide which
+  // dimension is the bottleneck vs which is broadly strong.
+  const spread = useMemo(() => {
+    const cols: number[][] = [[], [], [], [], []]
+    for (const r of rows) {
+      if (!r.sub_scores) continue
+      subScoreArray(r.sub_scores).forEach((v, i) => cols[i].push(v))
+    }
+    if (!cols[0].length) return null
+    return cols.map((arr) => {
+      const s = [...arr].sort((a, b) => a - b)
+      return { min: s[0], med: s[Math.floor(s.length / 2)], max: s[s.length - 1] }
+    })
+  }, [rows])
+
+  // PRICE BANDS — where the picks concentrate (more meaningful now the universe spans $4–$1000).
+  const priceBands = useMemo(() => {
+    const edges = [0, 10, 25, 50, 100, 250, Infinity]
+    const labels = ["<$10", "$10–25", "$25–50", "$50–100", "$100–250", "$250+"]
+    const counts = new Array(labels.length).fill(0)
+    for (const r of rows) {
+      const p = r.close
+      if (p == null) continue
+      for (let i = 0; i < edges.length - 1; i++) {
+        if (p >= edges[i] && p < edges[i + 1]) { counts[i]++; break }
+      }
+    }
+    return { labels, counts, max: Math.max(1, ...counts) }
+  }, [rows])
+
   const weights = cc.data?.weights
   const proposed = cc.data?.proposed_weights
+
+  // SCORE DRIVERS — each dimension's share of the composite = avg sub-score × its live weight.
+  // Shows what actually moves the score, not just the raw sub-scores. Weight keys are e.g.
+  // "trend_weight" / "setup_quality_weight", so match by sub-score-key prefix.
+  const drivers = useMemo(() => {
+    if (!avgSub || !weights) return null
+    const parts = SUB_SCORE_KEYS.map((k, i) => {
+      const w = Object.entries(weights).find(([wk]) => wk.toLowerCase().startsWith(k))?.[1] ?? 0
+      return { key: k, contrib: avgSub[i] * w }
+    })
+    const total = parts.reduce((a, p) => a + p.contrib, 0) || 1
+    return parts.map((p) => ({ ...p, pct: Math.round((p.contrib / total) * 100) }))
+  }, [avgSub, weights])
 
   return (
     <div>
@@ -111,6 +154,58 @@ export function ScannerXrayView() {
           ))
         ) : (
           <Awaiting what="sub-score data" />
+        )}
+      </Panel>
+
+      <Panel title="Sub-score range · min · median · max">
+        {spread ? (
+          SUB_SCORE_KEYS.map((k, i) => {
+            const s = spread[i]
+            return (
+              <div key={k} className="flex items-center gap-2" style={{ margin: "5px 0", fontSize: 11 }}>
+                <span className="text-mut" style={{ width: 90 }}>{SUB_SCORE_LABELS[k]}</span>
+                <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.06)", borderRadius: 4, position: "relative" }}>
+                  <div style={{ position: "absolute", left: `${s.min}%`, width: `${Math.max(0, s.max - s.min)}%`, top: 0, bottom: 0, background: "rgba(55,224,255,.35)", borderRadius: 4 }} />
+                  <div style={{ position: "absolute", left: `${s.med}%`, top: -1, bottom: -1, width: 2, background: "var(--cyan)" }} />
+                </div>
+                <span className="num text-dim" style={{ width: 76, textAlign: "right" }}>{s.min}·{s.med}·{s.max}</span>
+              </div>
+            )
+          })
+        ) : (
+          <Awaiting what="sub-score data" />
+        )}
+      </Panel>
+
+      <Panel title="Score drivers · avg × live weight">
+        {drivers ? (
+          drivers.map((d) => (
+            <div key={d.key} className="flex items-center gap-2" style={{ margin: "5px 0", fontSize: 11 }}>
+              <span className="text-mut" style={{ width: 90 }}>{SUB_SCORE_LABELS[d.key]}</span>
+              <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.06)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${d.pct}%`, background: "var(--lime)" }} />
+              </div>
+              <span className="num" style={{ width: 36, textAlign: "right" }}>{d.pct}%</span>
+            </div>
+          ))
+        ) : (
+          <Awaiting what="weight configuration" />
+        )}
+      </Panel>
+
+      <Panel title="Price bands">
+        {rows.length ? (
+          priceBands.labels.map((l, i) => (
+            <div key={l} className="flex items-center gap-2" style={{ margin: "5px 0", fontSize: 11 }}>
+              <span className="text-mut" style={{ width: 90 }}>{l}</span>
+              <div style={{ flex: 1, height: 7, background: "rgba(255,255,255,.06)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${(priceBands.counts[i] / priceBands.max) * 100}%`, background: "var(--cyan)" }} />
+              </div>
+              <span className="num" style={{ width: 36, textAlign: "right" }}>{priceBands.counts[i]}</span>
+            </div>
+          ))
+        ) : (
+          <Awaiting what="picks" />
         )}
       </Panel>
 
