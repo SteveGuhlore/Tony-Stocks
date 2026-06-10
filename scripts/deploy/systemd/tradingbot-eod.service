@@ -1,0 +1,31 @@
+[Unit]
+Description=Trading Bot — post-close EOD resolution + divergence regrade + bridge brief (read-only; no orders)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# oneshot: the three ExecStart steps run sequentially, then the unit exits.
+# All read-only on trading (no orders, no config/risk edits) and fail-quiet.
+#
+# Why this exists: the watch loop only re-resolves the ~120 most-recent snapshots
+# per cycle, so with ~300+ new snapshots/day older picks fall out of that window
+# before their forward daily bar exists and stay 'insufficient_future_data' forever
+# (scorecard starves at graded≈2). And tony-divergence (the 2nd-pass teaching log)
+# was never scheduled at all. This unit closes both gaps nightly.
+Type=oneshot
+User=__RUN_USER__
+WorkingDirectory=/opt/trading-bot
+EnvironmentFile=/opt/trading-bot/.env
+Environment=PYTHONPATH=src
+# 1) Full outcome resolution: re-check ALL open snapshots (not just the watch
+#    loop's recent 120) so prior-day picks resolve once forward bars exist.
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli update-snapshots --config config/default_config.yaml --limit 2000
+# 2) Re-export resolved outcomes + drop the EOD bridge brief (guarantees the
+#    16:00 handoff even if the watch loop missed its checkpoints).
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli export-to-vault --config config/default_config.yaml --slot eod
+# 3) Regrade the Tony divergence ledger (the dashboard's "2nd pass" panel) from
+#    the freshly-resolved outcomes × the CC verdict archive.
+ExecStart=/opt/trading-bot/.venv/bin/python -m trading_bot.cli tony-divergence --config config/default_config.yaml
+
+[Install]
+WantedBy=multi-user.target

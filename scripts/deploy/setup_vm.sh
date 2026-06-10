@@ -60,7 +60,8 @@ if [ -d "$BOT_DIR/dashboard-web" ]; then
 fi
 
 echo ">> Installing systemd units (substituting run user '$RUN_USER')..."
-for unit in "$BOT_DIR"/scripts/deploy/systemd/*.service; do
+for unit in "$BOT_DIR"/scripts/deploy/systemd/*.service "$BOT_DIR"/scripts/deploy/systemd/*.timer; do
+  [ -e "$unit" ] || continue
   name="$(basename "$unit")"
   sed "s/__RUN_USER__/$RUN_USER/g" "$unit" | sudo tee "/etc/systemd/system/$name" >/dev/null
 done
@@ -77,6 +78,8 @@ cat <<EOF
   3. Enable services:
        sudo systemctl enable --now tradingbot-api tradingbot-offhours cc-dashboard cc-runner
        # tradingbot-web only if you built the Next.js dashboard above
+       # Timers (nightly learn + post-close EOD resolution/divergence/bridge):
+       sudo systemctl enable --now tradingbot-learn.timer tradingbot-eod.timer
   4. Verify + tunnel to dashboards: see docs/DEPLOYMENT.md
 
   SAFETY: bot and CC must use DIFFERENT Alpaca paper accounts (never shared keys).

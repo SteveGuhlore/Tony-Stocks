@@ -1,0 +1,14 @@
+[Unit]
+Description=Post-close trigger for tradingbot-eod (16:30 America/New_York)
+
+[Timer]
+# 16:30 ET — 30 min after the 16:00 close, so the day's daily bar has settled.
+# Resolves prior-day snapshots (forward bars now exist), regrades the Tony
+# divergence ledger, and drops the EOD bridge brief even if the watch loop was
+# down at the 15:30/16:00 checkpoints (the gap we hit during deploys).
+OnCalendar=*-*-* 16:30:00 America/New_York
+# If the VM was asleep/off at 16:30, run as soon as it's back up.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
