@@ -313,7 +313,9 @@ def insert_blocks_into_yaml(text: str, blocks: str) -> str:
 def bump_max_universe_size(text: str, required: int) -> str:
     """Raise filters.max_universe_size if it would truncate the grown universe
     (universe.py slices the loaded list to this value)."""
-    m = re.search(r"(max_universe_size:\s*)(\d+)", text)
+    # Anchor to the start of a (possibly indented) line so a comment that happens to
+    # contain "max_universe_size: N" can't be matched/corrupted ahead of the real key.
+    m = re.search(r"^(\s*max_universe_size:\s*)(\d+)", text, re.MULTILINE)
     if not m:
         return text
     current = int(m.group(2))

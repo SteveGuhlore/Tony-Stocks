@@ -183,6 +183,16 @@ class TestYamlEmission:
         # already large enough -> unchanged
         assert bump_max_universe_size(text, 900) == text
 
+    def test_bump_ignores_comment_mentioning_key(self):
+        # A comment containing the key name + a number must NOT be matched/corrupted
+        # ahead of the real filters.max_universe_size line.
+        text = ("filters:\n"
+                "  # historical: max_universe_size: 600 then 1100\n"
+                "  max_universe_size: 1100\n")
+        out = bump_max_universe_size(text, 2200)
+        assert "max_universe_size: 600 then 1100" in out      # comment untouched
+        assert "  max_universe_size: 2200\n" in out            # real key bumped
+
 
 class TestRunExpansion:
     def _fixture_yaml(self, tmp_path):

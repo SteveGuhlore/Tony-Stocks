@@ -3821,7 +3821,7 @@ def run_expand_universe(args: argparse.Namespace) -> dict[str, Any]:
         run_expansion,
     )
     from trading_bot.data.symbol_quarantine import configured_quarantine_entries  # noqa: PLC0415
-    from trading_bot.data.universe import load_universe  # noqa: PLC0415
+    from trading_bot.data.universe import load_universe_config  # noqa: PLC0415
 
     settings = load_scanner_settings(args.config)
     api_key = os.environ.get("ALPACA_API_KEY", "")
@@ -3832,7 +3832,9 @@ def run_expand_universe(args: argparse.Namespace) -> dict[str, Any]:
     finnhub_key = os.environ.get("FINNHUB_API_KEY", "")
 
     universe_path = settings.universe_config_path
-    existing = load_universe(universe_path)
+    # Untruncated symbol list (load_universe slices at max_universe_size) — the dedupe set
+    # and the max_universe_size bump must see EVERY symbol already in the file.
+    existing = list(load_universe_config(universe_path).symbols)
     quarantined = {e.symbol.upper() for e in configured_quarantine_entries(settings)}
     print(f"Universe expansion — current universe: {len(existing)} symbols ({universe_path})")
     print(f"Mode: {'EXECUTE (will write YAML)' if args.execute else 'DRY-RUN (report only)'}")
