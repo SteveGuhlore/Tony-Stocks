@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     app.state.db_path = os.environ.get("DATABASE_PATH", str(_PROJECT_ROOT / "data" / "trading_bot.db"))
     app.state.vault_dir = os.environ.get("VAULT_DIR", str(_PROJECT_ROOT / "vault"))
     app.state.reports_dir = os.environ.get("REPORTS_DIR", str(_PROJECT_ROOT / "reports"))
+    app.state.scoring_config_path = os.environ.get("SCORING_CONFIG_PATH", str(_PROJECT_ROOT / "config" / "scoring_config.yaml"))
 
     live_queue: asyncio.Queue = asyncio.Queue()
     app.state.live_event_queue = live_queue

@@ -75,7 +75,12 @@ export function ScannerXrayView() {
     if (!cols[0].length) return null
     return cols.map((arr) => {
       const s = [...arr].sort((a, b) => a - b)
-      return { min: s[0], med: s[Math.floor(s.length / 2)], max: s[s.length - 1] }
+      // Round to ints — sub-scores are floats; raw decimals render as garbled "37.27·90.45·100".
+      return {
+        min: Math.round(s[0]),
+        med: Math.round(s[Math.floor(s.length / 2)]),
+        max: Math.round(s[s.length - 1]),
+      }
     })
   }, [rows])
 

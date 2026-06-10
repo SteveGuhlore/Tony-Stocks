@@ -195,4 +195,20 @@ def get_command_center(request: Request) -> CommandCenterResponse:
         picks=build_picks(verdicts),
         record=build_record(record_raw),
         agreement=agreement,
+        weights=_live_weights(request),
     )
+
+
+def _live_weights(request: Request) -> dict[str, float] | None:
+    """Live scoring weights from scoring_config.yaml — powers the X-ray's
+    'Live weights' + 'Score drivers' panels. Degrades to None if unavailable."""
+    from dataclasses import asdict  # noqa: PLC0415
+
+    path = getattr(request.app.state, "scoring_config_path", "config/scoring_config.yaml")
+    try:
+        from trading_bot.scoring.score_engine import load_scoring_config  # noqa: PLC0415
+
+        cfg = load_scoring_config(path)
+        return {k: float(v) for k, v in asdict(cfg.weights).items()}
+    except Exception:
+        return None

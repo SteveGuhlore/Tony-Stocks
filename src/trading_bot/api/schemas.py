@@ -304,3 +304,4 @@ class CommandCenterResponse(BaseModel):
     picks: dict[str, CommandCenterPick]
     record: CommandCenterRecord | None
     agreement: CommandCenterAgreement | None
+    weights: dict[str, float] | None = None

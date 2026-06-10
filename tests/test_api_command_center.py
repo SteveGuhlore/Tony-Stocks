@@ -158,7 +158,8 @@ def test_endpoint_empty_when_files_missing(client):
     r = c.get("/api/command-center")
     assert r.status_code == 200
     data = r.json()
-    assert data == {"picks": {}, "record": None, "agreement": None}
+    assert data["picks"] == {} and data["record"] is None and data["agreement"] is None
+    assert "weights" in data
 
 
 def test_endpoint_maps_full_payload(client):
@@ -202,4 +203,9 @@ def test_endpoint_survives_malformed_json(client):
     (reports / "tony_stocks_verdicts.json").write_text("{ not json", encoding="utf-8")
     (reports / "tony_stocks_record.json").write_text("[1,2,", encoding="utf-8")
     data = c.get("/api/command-center").json()
-    assert data == {"picks": {}, "record": None, "agreement": None}
+    # Malformed verdict/record files degrade to empty; weights come from scoring_config
+    # (independent of those files), so they may still populate.
+    assert data["picks"] == {}
+    assert data["record"] is None
+    assert data["agreement"] is None
+    assert "weights" in data
