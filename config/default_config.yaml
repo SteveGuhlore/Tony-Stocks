@@ -133,7 +133,7 @@ intraday:
 pre_screener:
   enabled: true
   # If fewer than this many symbols pass the filter, fall back to the full list.
-  min_symbols_after_filter: 50
+  min_symbols_after_filter: 100
   # Use avg_volume_20 / latest_close from recent scan results as a cache.
   use_snapshot_cache: true
   # Ignore symbols with no scan_results row within this many days.
@@ -141,13 +141,16 @@ pre_screener:
 
 watch_universe_rotation:
   enabled: true
-  max_symbols_per_cycle: 350
+  # 2026-06-10: 350 -> 500 alongside the screened universe expansion (~2k symbols,
+  # funnel shortlist 1000): full coverage in ~2 cycles instead of ~3. 500 = 3 Alpaca
+  # batch requests/cycle — well inside the 175/min limiter.
+  max_symbols_per_cycle: 500
   core_symbols:
     - SPY
     - QQQ
     - IWM
   core_max_symbols: 50
-  rotating_bucket_size: 350   # fill discovery up to the per-cycle cap (scan ~full universe each cycle)
+  rotating_bucket_size: 500   # fill discovery up to the per-cycle cap (scan ~full universe each cycle)
   rotation_strategy: round_robin
   keep_previous_candidates: true
   always_include_open_snapshots: true
@@ -175,7 +178,7 @@ research_funnel:
   min_news_sentiment: -1.0       # used only when sentiment_mode: filter
   min_recommendation: null       # null = off
   min_revenue_growth: null       # null = off (e.g. -0.5 drops >50% revenue decline)
-  shortlist_size: 600            # cap on the shortlist fed to the rotator
+  shortlist_size: 1000           # cap on the shortlist fed to the rotator (600 -> 1000 with the ~2k universe)
   weight_relative_strength: 1.0
   weight_sentiment: 0.5
   weight_recommendation: 0.5

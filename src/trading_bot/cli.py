@@ -291,6 +291,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tony_divergence.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
 
+    expand_universe_p = subparsers.add_parser(
+        "expand-universe",
+        help="Quality-gated universe expansion: Alpaca /v2/assets discovery -> liquidity screen -> "
+             "Finnhub sector -> append to universe YAML. Dry-run by default; research only, never trades.",
+    )
+    expand_universe_p.add_argument("--config", default="config/default_config.yaml", help="Path to scanner YAML config file.")
+    expand_universe_p.add_argument("--max-add", type=int, default=1000, dest="max_add",
+                                   help="Cap on symbols added, ranked by 20-day dollar volume (default 1000).")
+    expand_universe_p.add_argument("--lookback-days", type=int, default=45, dest="lookback_days",
+                                   help="Calendar days of daily bars fetched for the liquidity screen (default 45).")
+    expand_universe_p.add_argument("--execute", action="store_true",
+                                   help="Write the additions to the universe YAML (default: dry-run report only).")
+    expand_universe_p.add_argument("--skip-sector-lookup", action="store_true", dest="skip_sector_lookup",
+                                   help="Skip Finnhub sector classification (additions land unclassified/uncapped).")
+
     learn_p = subparsers.add_parser(
         "learn",
         help="Nightly self-learning pass: grade outcomes, evolve knowledge, narrate, bridge to CC. Read-only on trading.",
@@ -3788,6 +3803,92 @@ def _load_json_list(path: str) -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
+def run_expand_universe(args: argparse.Namespace) -> dict[str, Any]:
+    """Quality-gated universe expansion (research only — adds scan candidates, never trades).
+
+    Discover via Alpaca /v2/assets (free) -> screen on the scanner's own liquidity
+    floors via batch daily bars -> Finnhub sector for the chosen additions -> append
+    YAML blocks. Dry-run unless --execute. Requires ALPACA keys in .env (real run is
+    a VM/operator action; demo mode has nothing to discover against).
+    """
+    import os  # noqa: PLC0415
+
+    from trading_bot.data.universe_expansion import (  # noqa: PLC0415
+        ScreenThresholds,
+        fetch_active_assets,
+        fetch_daily_closes_volumes,
+        fetch_finnhub_industry,
+        run_expansion,
+    )
+    from trading_bot.data.symbol_quarantine import configured_quarantine_entries  # noqa: PLC0415
+    from trading_bot.data.universe import load_universe  # noqa: PLC0415
+
+    settings = load_scanner_settings(args.config)
+    api_key = os.environ.get("ALPACA_API_KEY", "")
+    secret_key = os.environ.get("ALPACA_SECRET_KEY", "")
+    if not (api_key and secret_key):
+        print("expand-universe requires ALPACA_API_KEY / ALPACA_SECRET_KEY in .env (no demo mode).")
+        return {"error": "missing_alpaca_keys"}
+    finnhub_key = os.environ.get("FINNHUB_API_KEY", "")
+
+    universe_path = settings.universe_config_path
+    existing = load_universe(universe_path)
+    quarantined = {e.symbol.upper() for e in configured_quarantine_entries(settings)}
+    print(f"Universe expansion — current universe: {len(existing)} symbols ({universe_path})")
+    print(f"Mode: {'EXECUTE (will write YAML)' if args.execute else 'DRY-RUN (report only)'}")
+
+    print("Fetching active US-equity assets from Alpaca /v2/assets ...")
+    assets = fetch_active_assets(api_key, secret_key)
+    print(f"  {len(assets)} active assets returned")
+
+    def _bars(symbols: list[str]) -> dict[str, tuple[list[float], list[float]]]:
+        print(f"Screening {len(symbols)} candidates via batch daily bars "
+              f"(~{(len(symbols) + 174) // 175} requests) ...")
+        return fetch_daily_closes_volumes(
+            symbols, api_key, secret_key, lookback_days=args.lookback_days,
+        )
+
+    sector_fetcher = None
+    if finnhub_key and not args.skip_sector_lookup:
+        sector_fetcher = lambda sym: fetch_finnhub_industry(sym, finnhub_key)  # noqa: E731
+    elif not finnhub_key:
+        print("NOTE: no FINNHUB_API_KEY — additions will be unclassified (uncapped by the sector gate).")
+
+    report = run_expansion(
+        universe_path=universe_path,
+        existing_symbols=existing,
+        quarantined_symbols=quarantined,
+        assets=assets,
+        bars_fetcher=_bars,
+        sector_fetcher=sector_fetcher,
+        thresholds=ScreenThresholds(),
+        max_add=args.max_add,
+        execute=bool(args.execute),
+    )
+
+    print(f"\nDiscovered: {report.discovered}  after asset filter: {report.after_asset_filter}")
+    print("Rejections:")
+    for reason, count in report.screened_out.most_common():
+        print(f"  {reason}: {count}")
+    print(f"Survivors (passed liquidity screen): {report.survivors}")
+    print(f"Adding (top {args.max_add} by dollar volume): {len(report.added)}")
+    print("Sector distribution of additions:")
+    for sector, count in report.sector_distribution.most_common():
+        print(f"  {sector}: {count}")
+    if report.unknown_sector:
+        print(f"Unclassified (uncapped by sector gate): {len(report.unknown_sector)} "
+              f"e.g. {report.unknown_sector[:10]}")
+    if report.written:
+        print(f"\nWROTE {len(report.added)} additions to {report.yaml_path}")
+        print("Restart tradingbot-watch (after close) to scan the expanded universe.")
+    elif report.added:
+        print("\nDry-run complete. Re-run with --execute to write the YAML.")
+    return {
+        "discovered": report.discovered, "survivors": report.survivors,
+        "added": len(report.added), "written": report.written,
+    }
+
+
 def run_tony_divergence(args: argparse.Namespace) -> dict[str, Any]:
     """Build + persist the Tony teaching/divergence ledger: grade Tony's verdicts
     against the bot's resolved outcomes. Research only — pure separation stays; nothing
@@ -4753,6 +4854,8 @@ def main() -> None:
         run_funnel_eval(args)
     elif args.command == "tony-divergence":
         run_tony_divergence(args)
+    elif args.command == "expand-universe":
+        run_expand_universe(args)
     elif args.command == "learn":
         run_learn(args)
     elif args.command == "off-hours-prep":

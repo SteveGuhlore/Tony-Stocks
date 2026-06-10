@@ -6,6 +6,37 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-10 (midday) — screened universe expansion BUILT (branch `feat/universe-expansion-2026-06-10`)
+
+**What:** quality-gated universe growth 1,031 → ~2k. Unlike expansions 1–3 (hardcoded curated
+lists, zero screening), stage 4 is a PIPELINE: Alpaca free `/v2/assets` discovery → dedupe
+(universe+quarantine) → liquidity screen on the scanner's own floors (≥20 IEX daily bars,
+$5–500 close, avg_vol≥300k, dollar_vol≥$5M) via batch bars (~23 requests for ~4k candidates) →
+Finnhub profile2 sector (free, throttled, survivors only) mapped to the YAML's canonical
+sectors → rank by dollar volume → cap (`--max-add`, default 1000) → append quoted-symbol YAML
+blocks before the `filters:` anchor + auto-bump `max_universe_size`. Spec:
+`docs/superpowers/specs/2026-06-10-universe-expansion-design.md`.
+
+**Code:** `src/trading_bot/data/universe_expansion.py` (pure core + injected fetchers), CLI
+`expand-universe [--max-add N] [--lookback-days 45] [--execute] [--skip-sector-lookup]`
+(dry-run default; refuses without Alpaca keys — no demo mode). Tests:
+`tests/test_universe_expansion.py` (35, offline) incl. round-trip through the real
+`load_universe_config` (boolean tickers like ON stay quoted strings). Roles by liquidity:
+dollar_vol ≥ $25M → primary_candidate else speculative_candidate.
+
+**Knobs retuned on the branch (apply with the expansion):** rotation max_symbols_per_cycle
+350→500, rotating_bucket_size 350→500, funnel shortlist_size 600→1000, pre_screener
+min_symbols_after_filter 50→100. enrich_per_run stays 50 (Finnhub free tier; ~2k warm ≈ 3.3h
+once, then daily cache).
+
+**NOT merged to main, NOT on the VM (operator wanted live trading untouched).** Rollout (after
+close): merge branch → VM pull → baseline `funnel-eval --save-report` → `expand-universe`
+(dry-run, eyeball) → `--execute` → restart tradingbot-watch → re-run funnel-eval after ~1 week;
+if KEPT-vs-DROPPED degrades, trim via quarantine/role demotion instead of growing.
+New unclassified-sector names are UNCAPPED by the sector gate (visible in the run report).
+
+---
+
 ## 2026-06-10 (open session) — sector-exposure cap + morning-prep dashboard fix
 
 **Dashboard morning-prep fix (shipped, on `main` + VM).** `PrepView`/`PrepRow` read field names that
