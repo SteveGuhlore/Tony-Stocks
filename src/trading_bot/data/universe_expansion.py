@@ -294,6 +294,8 @@ def build_yaml_blocks(
             lines.append(f"    sector: {c.sector}\n")
         lines.append(f"    universe_role: {role}\n")
         lines.append(f"    demo_profile: {profile}\n")
+        # Provenance for later pruning: how it got in + its screened liquidity.
+        lines.append(f"    notes: \"Screened expansion; ~${int(c.dollar_volume):,}/day dollar vol.\"\n")
     return "".join(lines)
 
 

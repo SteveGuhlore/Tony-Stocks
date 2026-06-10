@@ -24,10 +24,15 @@ blocks before the `filters:` anchor + auto-bump `max_universe_size`. Spec:
 `load_universe_config` (boolean tickers like ON stay quoted strings). Roles by liquidity:
 dollar_vol ≥ $25M → primary_candidate else speculative_candidate.
 
-**Knobs retuned on the branch (apply with the expansion):** rotation max_symbols_per_cycle
-350→500, rotating_bucket_size 350→500, funnel shortlist_size 600→1000, pre_screener
+**Knobs retuned on the branch:** funnel shortlist_size 600→1000, pre_screener
 min_symbols_after_filter 50→100. enrich_per_run stays 50 (Finnhub free tier; ~2k warm ≈ 3.3h
-once, then daily cache).
+once, then daily cache). **Rotation cap stays 350 (NOT 500).** Code review caught it: the TRUE
+per-cycle scan cap is `market_data.alpaca.max_symbols_per_scan` (175) — `run_scan` truncates the
+rotation set to it, and `_fetch_bars_batch` sends symbols in ONE un-chunked request. So a bigger
+rotation cap just wastes slots; the expanded universe is covered over MORE cycles, not more
+symbols/cycle. **FOLLOW-UP (separate, tested change) to raise true per-cycle throughput:** chunk
+`_fetch_bars_batch` at max_symbols_per_batch, then raise scan + rotation caps in tandem with a
+load check. Until then, expansion = bigger ranked pool, slower full-coverage.
 
 **NOT merged to main, NOT on the VM (operator wanted live trading untouched).** Rollout (after
 close): merge branch → VM pull → baseline `funnel-eval --save-report` → `expand-universe`

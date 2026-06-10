@@ -141,16 +141,19 @@ pre_screener:
 
 watch_universe_rotation:
   enabled: true
-  # 2026-06-10: 350 -> 500 alongside the screened universe expansion (~2k symbols,
-  # funnel shortlist 1000): full coverage in ~2 cycles instead of ~3. 500 = 3 Alpaca
-  # batch requests/cycle — well inside the 175/min limiter.
-  max_symbols_per_cycle: 500
+  # NOTE: the TRUE per-cycle scan cap is market_data.alpaca.max_symbols_per_scan (175):
+  # run_scan truncates the rotation set to it, and _fetch_bars_batch sends symbols in ONE
+  # un-chunked request, so raising throughput needs batch-chunking code first (follow-up,
+  # not a config tweak). max_symbols_per_cycle must therefore stay aligned with that cap —
+  # presenting more than gets scanned just wastes the rotation slot. The expanded universe
+  # is covered by rotation over MORE cycles, not more symbols per cycle.
+  max_symbols_per_cycle: 350
   core_symbols:
     - SPY
     - QQQ
     - IWM
   core_max_symbols: 50
-  rotating_bucket_size: 500   # fill discovery up to the per-cycle cap (scan ~full universe each cycle)
+  rotating_bucket_size: 350   # fill discovery up to the per-cycle cap
   rotation_strategy: round_robin
   keep_previous_candidates: true
   always_include_open_snapshots: true
