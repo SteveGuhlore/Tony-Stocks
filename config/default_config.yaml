@@ -241,7 +241,10 @@ tony_stocks:
 vault:
   enabled: true
   vault_dir: vault
-  command_center_dir: C:/Users/alexa/Downloads/AI Operations Command Center
+  # VM/production path (VM is the deploy target per DEPLOY_RULES). Windows dev machines
+  # should override locally — committing the Windows path made the VM bridge write into
+  # a literal './C:/Users/...' junk directory under /opt/trading-bot.
+  command_center_dir: /opt/command-center
   bridge_enabled: true
 
 # Nightly self-learning loop (read-only on trading; design:
