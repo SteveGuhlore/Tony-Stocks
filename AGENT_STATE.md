@@ -8,15 +8,28 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ## 2026-06-10 — audit fixes DEPLOYED to VM + naked-position auto-protect timer
 
-**Deploy.** The VM tree is divergent (on `feat/kinetic-dashboard` with load-bearing
-uncommitted overlays: `config/default_config.yaml`, `dashboard-web/`, `vault/`, locally
-deleted tests), so `update_vm.sh`'s `git pull --ff-only` REFUSES — confirmed live. Deploy
-was surgical: `git fetch origin main` + `git checkout origin/main -- <specific files>`,
-then the full test suite on the VM (159 passed on the touched files, incl. the real
-alpaca-py + fastapi route tests my sandbox can't run), then `systemctl restart
-tradingbot-api tradingbot-watch`, then `preflight_check.sh`. All audit fixes live.
-⚠️ Next session: this VM still needs the git reconcile onto a clean `main` so deploys can
-go back to the one-command `update_vm.sh`. Never reset/stash/checkout-dot on it.
+**Deploy.** The VM tree WAS divergent (on `feat/kinetic-dashboard` with load-bearing
+uncommitted overlays), so the initial deploy was surgical: `git fetch origin main` +
+`git checkout origin/main -- <specific files>`, full test suite on the VM (159 passed,
+incl. the real alpaca-py + fastapi route tests my sandbox can't run), `systemctl restart
+tradingbot-api tradingbot-watch`, `preflight_check.sh`. All audit fixes live.
+
+**VM RECONCILED ONTO CLEAN `main` (done 2026-06-10).** Full tarball backup first
+(`/opt/trading-bot.bak.20260610-0018.tgz`, excludes .venv/node_modules/.next). Inventory
+showed the ONLY load-bearing local code delta was `config/default_config.yaml` 1 line
+(`command_center_dir: /opt/command-center` — main carries the Windows dev path
+`C:/Users/alexa/...`); dashboard-web was identical to main (no rebuild); 29 tracked vault
+signal pages = live data. Ritual: stop watch/api/offhours → `mv vault` aside →
+`git checkout -f -B main origin/main` + set upstream → restore vault + re-apply the config
+line via sed → restart → verify. Result: `## main...origin/main`, `git pull --ff-only` →
+"Already up to date" (normal flow restored), 64 tests pass, preflight green except the
+16-naked (auto-fixes at the open). **Deploys are now the one-command
+`bash scripts/deploy/update_vm.sh` again.** Steady-state local deltas: `config` (the CC-dir
+line) + `vault/` (live data) always show modified — that's expected and doesn't block a
+pull unless origin touches those files. The old `feat/kinetic-dashboard` branch still
+exists locally (harmless). Backup tarball can be deleted once confident.
+Remaining cleanup (optional, removes the last caveat): un-track `vault/` (git rm --cached +
+gitignore) and make `command_center_dir` env-based so config stops being a per-machine diff.
 
 **Two more bugs found during the deploy's preflight (naked-position audit):**
 - `reprotect_naked.py` reported ALL 53 bot positions naked when only 16 were. Root cause:
