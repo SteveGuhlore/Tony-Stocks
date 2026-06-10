@@ -305,6 +305,17 @@ def build_parser() -> argparse.ArgumentParser:
                                    help="Write the additions to the universe YAML (default: dry-run report only).")
     expand_universe_p.add_argument("--skip-sector-lookup", action="store_true", dest="skip_sector_lookup",
                                    help="Skip Finnhub sector classification (additions land unclassified/uncapped).")
+    # Probe flags: override the liquidity floors per-run so a DRY-RUN prints the exact
+    # survivor count at each candidate floor before any --execute. Default to the
+    # ScreenThresholds defaults (None = use default) so omitting them changes nothing.
+    expand_universe_p.add_argument("--min-avg-volume", type=float, default=None, dest="min_avg_volume",
+                                   help="Override min avg daily share volume floor (default 300000).")
+    expand_universe_p.add_argument("--min-dollar-volume", type=float, default=None, dest="min_dollar_volume",
+                                   help="Override min avg daily dollar-volume floor (default 5000000).")
+    expand_universe_p.add_argument("--min-price", type=float, default=None, dest="min_price",
+                                   help="Override min price floor (default 5.0).")
+    expand_universe_p.add_argument("--max-price", type=float, default=None, dest="max_price",
+                                   help="Override max price ceiling (default 500.0).")
 
     learn_p = subparsers.add_parser(
         "learn",
@@ -3831,6 +3842,15 @@ def run_expand_universe(args: argparse.Namespace) -> dict[str, Any]:
         return {"error": "missing_alpaca_keys"}
     finnhub_key = os.environ.get("FINNHUB_API_KEY", "")
 
+    # Probe floors: override only what's passed; omitted flags keep ScreenThresholds defaults.
+    _defaults = ScreenThresholds()
+    thresholds = ScreenThresholds(
+        min_price=args.min_price if args.min_price is not None else _defaults.min_price,
+        max_price=args.max_price if args.max_price is not None else _defaults.max_price,
+        min_avg_volume=args.min_avg_volume if args.min_avg_volume is not None else _defaults.min_avg_volume,
+        min_dollar_volume=args.min_dollar_volume if args.min_dollar_volume is not None else _defaults.min_dollar_volume,
+    )
+
     universe_path = settings.universe_config_path
     # Untruncated symbol list (load_universe slices at max_universe_size) — the dedupe set
     # and the max_universe_size bump must see EVERY symbol already in the file.
@@ -3838,6 +3858,8 @@ def run_expand_universe(args: argparse.Namespace) -> dict[str, Any]:
     quarantined = {e.symbol.upper() for e in configured_quarantine_entries(settings)}
     print(f"Universe expansion — current universe: {len(existing)} symbols ({universe_path})")
     print(f"Mode: {'EXECUTE (will write YAML)' if args.execute else 'DRY-RUN (report only)'}")
+    print(f"Floors: price ${thresholds.min_price:g}-${thresholds.max_price:g}  "
+          f"avg_vol >= {thresholds.min_avg_volume:,.0f}  dollar_vol >= ${thresholds.min_dollar_volume:,.0f}")
 
     print("Fetching active US-equity assets from Alpaca /v2/assets ...")
     assets = fetch_active_assets(api_key, secret_key)
@@ -3863,7 +3885,7 @@ def run_expand_universe(args: argparse.Namespace) -> dict[str, Any]:
         assets=assets,
         bars_fetcher=_bars,
         sector_fetcher=sector_fetcher,
-        thresholds=ScreenThresholds(),
+        thresholds=thresholds,
         max_add=args.max_add,
         execute=bool(args.execute),
     )
