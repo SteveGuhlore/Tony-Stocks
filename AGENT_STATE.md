@@ -1,8 +1,35 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-10_
+_Last updated: 2026-06-12_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-12 — Scanner staging twin kit (branch `claude/dazzling-wozniak-hif2h1`)
+
+Built the scanner half of the tandem staging sandbox (CC half already lives at
+`/opt/command-center-staging`). Per `docs/SCANNER_STAGING_HANDOFF.md` in the CC repo.
+
+- **`scripts/setup_staging.sh`** (new): builds `/opt/trading-bot-staging` as a git worktree
+  (clone fallback), own venv, isolated `.env` (idempotent — never clobbers filled-in staging
+  Alpaca keys), generated staging config with `vault.command_center_dir` →
+  `/opt/command-center-staging`, env repoints `TONY_VERDICTS_FILE` / `TONY_RECORD_FILE` /
+  `TONY_OUTCOMES_FILE` / `TONY_INSIGHTS_FILE` → staging-CC's `workspace/trading-reports/`.
+  Writes `tradingbot-{api,watch}-staging` units to `/tmp` (API on :8002). Never touches
+  production.
+- **`scripts/promote_staging.sh`** (new): gates = full pytest + `full_e2e_sync_test.py
+  --quick --no-live-llm` + `:8002` liveness; prints (never runs) the ff-only `main` deploy.
+- **`src/trading_bot/agent_bridge.py`**: insights path now honors `TONY_INSIGHTS_FILE`
+  (was the one hardcoded exchange path); `tests/test_agent_bridge_batch.py` updated + new test.
+- **`docs/DEVELOPMENT.md`** (new): soak workflow, mirror-bridge either/or rule, the
+  schema-change trigger for spinning up the twin, on-demand rule.
+- Tests: 1398 passed; 4 pre-existing fails in `test_degraded_data_contract.py` /
+  `test_api_command_center.py::test_cc_record_agreement_wins_over_teaching` (fail identically
+  on the untouched tree in this container — quarantined, not introduced here).
+- NOT done: nothing run on the VM. Scripts are hand-run there after market close.
+- Note: handoff doc's `/opt/TradingBotAgentProject` path was stale — real prod dir is
+  `/opt/trading-bot` (user fixing the handoff doc).
 
 ---
 

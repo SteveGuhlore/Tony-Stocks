@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
-_INSIGHTS_FILE = Path(__file__).parents[2] / "reports" / "agent_insights.json"
+
+def _insights_file() -> Path:
+    # TONY_INSIGHTS_FILE lets a staging twin write insights into staging-CC's
+    # reports exchange instead of this checkout's reports/ (same override the
+    # Command Center honors for the file it reads).
+    env = os.environ.get("TONY_INSIGHTS_FILE")
+    if env:
+        return Path(env)
+    return Path(__file__).parents[2] / "reports" / "agent_insights.json"
 
 
 def record_agent_insight(
@@ -24,8 +33,8 @@ def record_agent_insight(
         "symbols": symbols or [],
         "status": "new",
     })
-    _INSIGHTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _INSIGHTS_FILE.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    _insights_file().parent.mkdir(parents=True, exist_ok=True)
+    _insights_file().write_text(json.dumps(entries, indent=2), encoding="utf-8")
 
 
 def load_agent_insights(limit: int = 20) -> list[dict]:
@@ -34,10 +43,10 @@ def load_agent_insights(limit: int = 20) -> list[dict]:
 
 
 def _load_all() -> list[dict]:
-    if not _INSIGHTS_FILE.exists():
+    if not _insights_file().exists():
         return []
     try:
-        return json.loads(_INSIGHTS_FILE.read_text(encoding="utf-8"))
+        return json.loads(_insights_file().read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
 
@@ -49,7 +58,7 @@ def record_agent_insights_batch(rows: list[dict], on_date: Optional[str] = None,
     creating duplicates on re-runs of the same date. ``path`` overrides the default
     insights file (defaults to reports/agent_insights.json — what the dashboard reads)."""
     from pathlib import Path as _Path
-    target = _Path(path) if path is not None else _INSIGHTS_FILE
+    target = _Path(path) if path is not None else _insights_file()
     try:
         entries = json.loads(target.read_text(encoding="utf-8")) if target.exists() else []
     except (json.JSONDecodeError, OSError):
