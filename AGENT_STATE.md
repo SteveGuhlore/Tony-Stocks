@@ -6,6 +6,22 @@ Use this file so Codex, Claude, Cursor, or any other agent can continue from the
 
 ---
 
+## 2026-06-12 (later) — Staging zero-spend: TONY_LLM_OFFLINE (same branch)
+
+Staging twin must make $0 real LLM/API spend (CC mirror: `CC_LLM_OFFLINE`).
+- **`cli.py`**: `run_learn` use_llm and the off-hours narrative now honor
+  `TONY_LLM_OFFLINE` env (kill switch independent of `--no-llm`/config); test added
+  in `tests/test_learning_cli.py` (fails loudly if `make_llm_client` is ever called).
+- **`scripts/setup_staging.sh`**: staging `.env` gets `TONY_LLM_OFFLINE=1` + blanked
+  ANTHROPIC/GEMINI/GOOGLE/FINNHUB/FMP/TWELVE_DATA/POLYGON keys; generated staging
+  config sets `learning.use_llm: false`, `enrich_per_run/enrich_limit: 0`. Alpaca
+  IEX + paper stay live (free — fidelity contract).
+- **`docs/DEVELOPMENT.md`**: offline-default / full-fidelity opt-in / both flag names.
+- Suite: 1399 passed; same 4 pre-existing fails quarantined. e2e `--quick`: 15/17,
+  the 2 Phase2 fails are pre-existing in this container (identical when stashed).
+
+---
+
 ## 2026-06-12 — Scanner staging twin kit (branch `claude/dazzling-wozniak-hif2h1`)
 
 Built the scanner half of the tandem staging sandbox (CC half already lives at

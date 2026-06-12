@@ -4001,7 +4001,11 @@ def run_learn(args: argparse.Namespace) -> int:
     reports = Path(args.reports_dir)
     vault_dir = args.vault_dir or vault_cfg.get("vault_dir", "vault")
     cc_dir = args.command_center_dir or vault_cfg.get("command_center_dir")
-    use_llm = (not args.no_llm) and bool(lcfg.get("use_llm", True))
+    # TONY_LLM_OFFLINE: env-level kill switch so the staging twin's .env alone
+    # guarantees $0 LLM spend (mirrors CC_LLM_OFFLINE on the Command Center side).
+    # The deterministic-template fallback in narrate() still produces the full report.
+    llm_offline = os.environ.get("TONY_LLM_OFFLINE", "").strip().lower() in ("1", "true", "yes", "on")
+    use_llm = (not args.no_llm) and (not llm_offline) and bool(lcfg.get("use_llm", True))
     min_sample = args.min_sample if getattr(args, "min_sample", None) is not None else int(lcfg.get("min_sample", 5))
     history_cap = int(lcfg.get("knowledge_history_cap", 30))
     provider = resolve_provider(lcfg.get("provider")) if use_llm else "none"
@@ -4339,7 +4343,8 @@ def run_off_hours_prep(args: argparse.Namespace) -> dict[str, Any]:
         )
         from trading_bot.analytics.learning_knowledge import knowledge_from_dict  # noqa: PLC0415
 
-        if os.getenv("ANTHROPIC_API_KEY") or os.getenv("GEMINI_API_KEY"):
+        _offline = os.environ.get("TONY_LLM_OFFLINE", "").strip().lower() in ("1", "true", "yes", "on")
+        if not _offline and (os.getenv("ANTHROPIC_API_KEY") or os.getenv("GEMINI_API_KEY")):
             _lcfg = getattr(settings, "learning", None) or {}
             _provider = resolve_provider(_lcfg.get("provider"))
             _model = model_for(_provider, _lcfg)

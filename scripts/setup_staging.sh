@@ -136,11 +136,23 @@ mkdir -p "$CC_STAGING_DIR/bridge/tony-stocks" \
 # staging-CC. Lives in .venv/ so git status in the staging checkout stays clean.
 # Regenerated on every run so it always tracks the checked-out default config.
 STAGING_CONFIG="$STAGING_DIR/.venv/staging_config.yaml"
-sed "s|^\([[:space:]]*command_center_dir:\).*|\1 $CC_STAGING_DIR  # staging-CC (set by setup_staging.sh)|" \
+# Zero-spend config overrides (belt to the .env's braces):
+#   learning.use_llm: false      — nightly narration uses the deterministic-template
+#                                  fallback (learning_narrator.py) instead of
+#                                  Anthropic/Gemini (cli.py learn).
+#   enrich_per_run/enrich_limit: 0 — no per-cycle Finnhub recommendation calls
+#                                  (research_providers.py); funnel is advisory-only,
+#                                  symbols proceed unblocked without enrichment.
+sed -e "s|^\([[:space:]]*command_center_dir:\).*|\1 $CC_STAGING_DIR  # staging-CC (set by setup_staging.sh)|" \
+    -e "s|^\([[:space:]]*use_llm:\).*|\1 false            # staging: \$0 — deterministic templates|" \
+    -e "s|^\([[:space:]]*enrich_per_run:\).*|\1 0             # staging: no Finnhub quota burn|" \
+    -e "s|^\([[:space:]]*enrich_limit:\).*|\1 0               # staging: no Finnhub quota burn|" \
     "$STAGING_DIR/config/default_config.yaml" > "$STAGING_CONFIG"
 grep -q "command_center_dir: $CC_STAGING_DIR" "$STAGING_CONFIG" || \
     { echo "FATAL: failed to repoint vault.command_center_dir in $STAGING_CONFIG"; exit 1; }
-echo "Wrote $STAGING_CONFIG (bridge briefs -> $CC_STAGING_DIR/bridge/tony-stocks)."
+grep -q "use_llm: false" "$STAGING_CONFIG" || \
+    { echo "FATAL: failed to disable learning.use_llm in $STAGING_CONFIG"; exit 1; }
+echo "Wrote $STAGING_CONFIG (bridge -> $CC_STAGING_DIR, LLM off, enrichment off)."
 
 echo "=== [4/6] .env (production copy + staging overrides appended) ==="
 STAGING_ENV="$STAGING_DIR/.env"
@@ -163,6 +175,8 @@ chmod 600 "$STAGING_ENV"
 OVERRIDE_KEYS="
 TONY_VERDICTS_FILE TONY_RECORD_FILE TONY_OUTCOMES_FILE TONY_INSIGHTS_FILE
 LIVE_TRADING_ENABLED
+TONY_LLM_OFFLINE ANTHROPIC_API_KEY GEMINI_API_KEY GOOGLE_API_KEY
+FINNHUB_API_KEY FMP_API_KEY TWELVE_DATA_API_KEY POLYGON_API_KEY
 "
 for key in $OVERRIDE_KEYS; do
     sed -i "s|^[[:space:]]*${key}=|# [prod, overridden by staging block] ${key}=|" "$STAGING_ENV"
@@ -186,6 +200,25 @@ TONY_OUTCOMES_FILE=$CC_REPORTS/tony_stocks_outcomes.json
 TONY_INSIGHTS_FILE=$CC_REPORTS/agent_insights.json
 # TONY_TEACHING_FILE intentionally unset — bot-owned file, defaults to this
 # checkout's reports/ (already isolated by the worktree).
+
+# --- LLM + paid/rate-limited data: OFFLINE, \$0 -------------------------------
+# Two independent guarantees (mirrors CC_LLM_OFFLINE on the CC twin):
+# 1) TONY_LLM_OFFLINE=1 — cli.py forces use_llm off at runtime; nightly 'learn'
+#    and the off-hours narrative fall back to deterministic templates.
+# 2) Keys blanked — even if the flag is missed, no credential to bill against.
+#    ANTHROPIC/GEMINI/GOOGLE = LLM narration (analytics/llm_clients.py).
+#    FINNHUB/FMP/TWELVE_DATA = freemium enrichment vendors (research_providers.py)
+#    — inert when blank; the funnel is advisory-only, symbols proceed unblocked.
+#    POLYGON is an unused placeholder. Alpaca IEX data + paper trading are FREE
+#    and stay live — that's the fidelity contract (real market data, \$0).
+TONY_LLM_OFFLINE=1
+ANTHROPIC_API_KEY=
+GEMINI_API_KEY=
+GOOGLE_API_KEY=
+FINNHUB_API_KEY=
+FMP_API_KEY=
+TWELVE_DATA_API_KEY=
+POLYGON_API_KEY=
 
 # --- Live trading: impossible in staging (also hardcoded off in code) -------
 LIVE_TRADING_ENABLED=false

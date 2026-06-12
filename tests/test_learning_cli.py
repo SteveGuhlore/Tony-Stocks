@@ -178,3 +178,27 @@ def test_run_learn_survives_broken_funnel_eval(tmp_path, monkeypatch):
         "--vault-dir", str(tmp_path / "v"), "--no-bridge",
     ])
     assert run_learn(args) == 0  # broken funnel report -> treated as absent, still clean
+
+
+def test_tony_llm_offline_env_forces_templates(tmp_path, monkeypatch):
+    """TONY_LLM_OFFLINE=1 (staging twin .env) must kill the live LLM path even when
+    keys are present and --no-llm is NOT passed — narration falls back to templates."""
+    import trading_bot.analytics.llm_clients as llm_clients
+
+    def _boom(*a, **k):
+        raise AssertionError("make_llm_client called despite TONY_LLM_OFFLINE=1")
+
+    monkeypatch.setattr(llm_clients, "make_llm_client", _boom)
+    monkeypatch.setattr(cli, "make_llm_client", _boom, raising=False)
+    monkeypatch.setenv("TONY_LLM_OFFLINE", "1")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-fake-should-never-be-used")
+
+    reports = tmp_path / "reports"
+    _seed(reports)
+    args = build_parser().parse_args([
+        "learn", "--config", "config/default_config.yaml", "--date", "2026-06-04",
+        "--min-sample", "1", "--reports-dir", str(reports),
+        "--vault-dir", str(tmp_path / "vault"), "--command-center-dir", str(tmp_path / "CC"),
+    ])
+    assert run_learn(args) == 0
+    assert (tmp_path / "vault" / "learning" / "2026-06-04.md").exists()

@@ -58,6 +58,34 @@ sudo systemctl stop tradingbot-watch-staging   # twin is on-demand — don't run
 If `requirements.txt` changed on the branch, re-run `setup_staging.sh <branch>`
 (idempotent) before restarting.
 
+## Staging spends $0 — offline by default
+
+Staging is a functional tester only. The bot's only real-money surfaces are LLM
+narration and freemium data enrichment — **Alpaca IEX data and paper trading are
+free and stay live** (real market data at $0; that's the fidelity contract). Two
+independent guarantees, both installed by `setup_staging.sh`:
+
+1. **`TONY_LLM_OFFLINE=1`** in the staging `.env` — kills the live LLM at runtime
+   (nightly `learn` narration and the off-hours narrative); the deterministic
+   template fallback still produces the full report. The generated staging config
+   also sets `learning.use_llm: false` and zeroes the Finnhub enrichment budget.
+2. **Keys blanked**: `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY` (LLM),
+   `FINNHUB_API_KEY`, `FMP_API_KEY`, `TWELVE_DATA_API_KEY`, `POLYGON_API_KEY`
+   (enrichment) — all inert when blank; the research funnel is advisory-only, so
+   symbols proceed unblocked. Degraded funnel *ranking fidelity* in staging is the
+   accepted trade-off.
+
+**Full-fidelity opt-in (rare):** only when the change under test *is* the
+LLM/enrichment path — set `TONY_LLM_OFFLINE=0` and paste real keys for that one
+soak, then revert. Offline staging validates the code, not narration quality.
+
+**The two knobs, side by side** (don't mix them up):
+
+| Twin | Flag | Where it lives |
+|---|---|---|
+| Scanner staging | `TONY_LLM_OFFLINE=1` | `/opt/trading-bot-staging/.env` |
+| CC staging | `CC_LLM_OFFLINE=1` | `/opt/command-center-staging/.env` |
+
 ## ⚠️ Mirror-bridge either/or
 
 CC-staging's optional `--mirror-bridge` cron copies **production** bridge/report files
