@@ -193,29 +193,36 @@ def build_tony_divergence(
         if sym:
             bot_map[sym] = b
 
-    # Latest verdict per symbol = Tony's current stance, so a daily-re-issued verdict isn't
-    # counted many times against the same outcome (one graded record per name).
-    latest_v: dict[str, dict[str, Any]] = {}
+    # One graded record per distinct PICK (symbol, pick_date), NOT per symbol. A verdict
+    # reviews the pick that existed at review time (the symbol's latest outcome with
+    # pick_date <= the verdict's date); we keep the latest verdict per pick (Tony's final
+    # stance on it). This makes the ledger a per-pick history that ACCUMULATES as picks
+    # resolve, instead of a one-row-per-name snapshot that shrinks when verdicts rotate.
+    # Re-issued verdicts on the same pick still collapse to a single record.
+    per_pick: dict[tuple[str, str], dict[str, Any]] = {}
     for v in verdicts or []:
         sym = str(v.get("symbol") or "").upper()
-        d = str(v.get("date") or v.get("pick_date") or "")
-        if not sym or not d:
+        vdate = str(v.get("date") or v.get("pick_date") or "")
+        if not sym or not vdate:
             continue
-        prev = latest_v.get(sym)
-        if prev is None or d >= str(prev.get("date") or prev.get("pick_date") or ""):
-            latest_v[sym] = v
+        outcome = _match(sym, vdate)
+        pick_date = str(outcome.get("pick_date")) if outcome else vdate
+        key = (sym, pick_date)
+        prev = per_pick.get(key)
+        if prev is None or vdate >= str(prev.get("date") or prev.get("pick_date") or ""):
+            per_pick[key] = v
 
     records: list[TeachingRecord] = []
-    for sym, v in latest_v.items():
-        date = str(v.get("date") or v.get("pick_date") or "")
+    for (sym, pick_date), v in per_pick.items():
+        vdate = str(v.get("date") or v.get("pick_date") or "")
         verdict = str(v.get("verdict") or "")
-        outcome = _match(sym, date)
+        outcome = _match(sym, vdate)
         win = _outcome_is_win(outcome)
         bot = bot_map.get(sym, {})
         records.append(TeachingRecord(
-            pick_id=f"{sym}-{date}",
+            pick_id=f"{sym}-{pick_date}",
             symbol=sym,
-            pick_date=str(outcome.get("pick_date")) if outcome else date,
+            pick_date=pick_date,
             verdict=verdict,
             tony_reasoning=str(v.get("thesis") or v.get("reasoning") or ""),
             bot_action=str(bot.get("action") or ""),
@@ -225,3 +232,55 @@ def build_tony_divergence(
             classification=_classify(verdict, win),
         ))
     return DivergenceLedger(records=records)
+
+
+_TERMINAL_CLASSES = {AGREED_RIGHT, AGREED_WRONG, CC_OVERRODE_SAVED, CC_OVERRODE_MISSED}
+
+
+def read_divergence_ledger(path: str | Path | None = None) -> DivergenceLedger:
+    """Load an existing ledger so re-grading can ACCUMULATE (merge) rather than overwrite.
+    Returns an empty ledger when the file is missing or malformed."""
+    src = Path(path) if path is not None else teaching_log_path()
+    try:
+        data = json.loads(src.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return DivergenceLedger(records=[])
+    raw = data.get("records") if isinstance(data, dict) else None
+    records: list[TeachingRecord] = []
+    for r in raw or []:
+        if not isinstance(r, dict):
+            continue
+        records.append(TeachingRecord(
+            pick_id=str(r.get("pick_id") or ""),
+            symbol=str(r.get("symbol") or "").upper(),
+            pick_date=str(r.get("pick_date") or ""),
+            verdict=str(r.get("verdict") or ""),
+            tony_reasoning=str(r.get("tony_reasoning") or ""),
+            bot_action=str(r.get("bot_action") or ""),
+            bot_rationale=str(r.get("bot_rationale") or ""),
+            result=(str(r["result"]) if r.get("result") is not None else None),
+            return_pct=_to_float(r.get("return_pct")),
+            classification=str(r.get("classification") or PENDING),
+        ))
+    return DivergenceLedger(records=records)
+
+
+def merge_ledgers(existing: DivergenceLedger, fresh: DivergenceLedger) -> DivergenceLedger:
+    """Cumulative merge keyed by (symbol, pick_date). A pick that has resolved to a TERMINAL
+    classification is permanent — carried forward and never downgraded/re-flipped — so the
+    4-quadrant "2nd pass" tally is MONOTONIC even when the source verdicts file is a
+    daily-rotated snapshot. Pending picks do NOT accumulate: they come only from ``fresh``,
+    so transient/phantom pending rows don't pile up — pending reflects the current state."""
+    merged: dict[tuple[str, str], TeachingRecord] = {}
+    # 1. Lock in every resolved pick from the existing ledger.
+    for r in existing.records:
+        if r.classification in _TERMINAL_CLASSES:
+            merged[(r.symbol, r.pick_date)] = r
+    # 2. Apply the fresh grading (current pending + any newly-resolved), never overwriting
+    #    a locked terminal record.
+    for r in fresh.records:
+        key = (r.symbol, r.pick_date)
+        if key in merged:
+            continue
+        merged[key] = r
+    return DivergenceLedger(records=list(merged.values()))

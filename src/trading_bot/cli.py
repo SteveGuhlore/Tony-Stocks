@@ -3935,6 +3935,8 @@ def run_tony_divergence(args: argparse.Namespace) -> dict[str, Any]:
     """
     from trading_bot.analytics.tony_divergence import (  # noqa: PLC0415
         build_tony_divergence,
+        merge_ledgers,
+        read_divergence_ledger,
         write_divergence_ledger,
     )
 
@@ -3944,7 +3946,10 @@ def run_tony_divergence(args: argparse.Namespace) -> dict[str, Any]:
     verdicts = _load_json_list(verdicts_path)
     outcomes = _load_json_list(outcomes_path)
 
-    ledger = build_tony_divergence(verdicts, outcomes)
+    # Accumulate: merge the fresh grading into the persisted ledger so resolved picks are
+    # never lost when the source verdicts file rotates (the "2nd pass" tally only grows).
+    fresh = build_tony_divergence(verdicts, outcomes)
+    ledger = merge_ledgers(read_divergence_ledger(), fresh)
     out = write_divergence_ledger(ledger)
     tallies = ledger.tallies
 

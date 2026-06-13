@@ -178,6 +178,13 @@ def build_agreement_from_teaching(teaching: Any) -> CommandCenterAgreement | Non
     )
 
 
+def _agreement_total(a: CommandCenterAgreement | None) -> int:
+    """Graded count across the 4 quadrants — used to pick the source with real data."""
+    if a is None:
+        return 0
+    return (a.agreed_right or 0) + (a.agreed_wrong or 0) + (a.cc_overrode_saved or 0) + (a.cc_overrode_missed or 0)
+
+
 # ── Route ─────────────────────────────────────────────────────────────────────
 
 @router.get("/command-center", response_model=CommandCenterResponse)
@@ -185,12 +192,14 @@ def get_command_center(request: Request) -> CommandCenterResponse:
     reports_dir = Path(getattr(request.app.state, "reports_dir", "reports"))
     verdicts = _load_json(_verdicts_path(reports_dir))
     record_raw = _load_json(_record_path(reports_dir))
-    # Prefer the bot-side Tony divergence ledger (tony_teaching_log.json): it grades every
-    # verdict against the symbol's reviewed pick once resolved, so the "does the 2nd pass
-    # help?" matrix populates from real outcomes. Fall back to the CC's record-file tally.
-    agreement = build_agreement_from_teaching(_load_json(_teaching_path(reports_dir)))
-    if agreement is None:
-        agreement = build_agreement(record_raw)
+    # "Does the 2nd pass help?" agreement. PREFER the CC scorecard's tally (record file): it
+    # reads the persistent verdict archive (archive ∪ live), so it ACCUMULATES monotonically as
+    # picks resolve. The bot-side divergence ledger (tony_teaching_log.json) is the fallback —
+    # historically it was a point-in-time snapshot that could shrink as verdicts rotated. Use
+    # whichever actually has graded data, preferring the accumulating CC record.
+    cc_agreement = build_agreement(record_raw)
+    teaching_agreement = build_agreement_from_teaching(_load_json(_teaching_path(reports_dir)))
+    agreement = cc_agreement if _agreement_total(cc_agreement) > 0 else (teaching_agreement or cc_agreement)
     return CommandCenterResponse(
         picks=build_picks(verdicts),
         record=build_record(record_raw),

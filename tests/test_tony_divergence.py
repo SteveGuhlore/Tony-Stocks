@@ -8,8 +8,11 @@ from __future__ import annotations
 import json
 
 from trading_bot.analytics.tony_divergence import (
+    DivergenceLedger,
     TeachingRecord,
     build_tony_divergence,
+    merge_ledgers,
+    read_divergence_ledger,
     teaching_log_path,
     write_divergence_ledger,
 )
@@ -263,3 +266,71 @@ class TestMalformedInputs:
     def test_empty_and_none_inputs(self):
         assert build_tony_divergence([], []).records == []
         assert build_tony_divergence(None, None).records == []
+
+
+class TestPerPickAccumulation:
+    """Part 2: per-pick grading + cumulative merge → the 2nd-pass tally only grows."""
+
+    def test_distinct_picks_same_symbol_are_separate_records(self):
+        # Two picks on AAPL (different pick_dates), reviewed on/after each. One record per PICK.
+        verdicts = [_verdict("AAPL", "2026-06-01", "back"), _verdict("AAPL", "2026-06-08", "override")]
+        outcomes = [
+            _outcome("AAPL", "2026-06-01", "target_hit", 5.0),
+            _outcome("AAPL", "2026-06-08", "stop_hit", -3.0),
+        ]
+        led = build_tony_divergence(verdicts, outcomes)
+        keys = {(r.symbol, r.pick_date) for r in led.records}
+        assert keys == {("AAPL", "2026-06-01"), ("AAPL", "2026-06-08")}  # not collapsed to one row
+
+    def test_reissued_verdict_same_pick_collapses(self):
+        # Same pick reviewed 3 days running → still ONE record (latest stance), no inflation.
+        verdicts = [_verdict("MSFT", d, "back") for d in ("2026-06-02", "2026-06-03", "2026-06-04")]
+        outcomes = [_outcome("MSFT", "2026-06-01", "target_hit", 2.0)]
+        led = build_tony_divergence(verdicts, outcomes)
+        assert len([r for r in led.records if r.symbol == "MSFT"]) == 1
+
+    def test_merge_locks_terminal_records(self):
+        # A resolved pick stays even when its verdict later disappears (file rotated).
+        first = build_tony_divergence(
+            [_verdict("NVDA", "2026-06-02", "back")],
+            [_outcome("NVDA", "2026-06-01", "target_hit", 4.0)],
+        )
+        assert _by_symbol(first)["NVDA"].classification == "agreed_right"
+        # Next run: NVDA verdict flushed, only a fresh unrelated pending pick present.
+        second = build_tony_divergence([_verdict("TSLA", "2026-06-09", "back")], [])
+        merged = merge_ledgers(first, second)
+        keys = {(r.symbol, r.pick_date) for r in merged.records}
+        assert ("NVDA", "2026-06-01") in keys  # terminal pick retained
+        assert ("TSLA", "2026-06-09") in keys  # new pick added
+        assert len(merged.records) == 2  # grew, didn't shrink
+
+    def test_merge_refreshes_pending_but_never_downgrades(self):
+        pending = DivergenceLedger(records=[TeachingRecord(
+            pick_id="AMD-2026-06-05", symbol="AMD", pick_date="2026-06-05", verdict="back",
+            tony_reasoning="", bot_action="", bot_rationale="", result=None, return_pct=None,
+            classification="pending")])
+        resolved = build_tony_divergence(
+            [_verdict("AMD", "2026-06-06", "back")],
+            [_outcome("AMD", "2026-06-05", "target_hit", 1.0)],
+        )
+        merged = merge_ledgers(pending, resolved)
+        by_key = {(r.symbol, r.pick_date): r for r in merged.records}
+        assert by_key[("AMD", "2026-06-05")].classification == "agreed_right"  # pending → terminal allowed
+        # ...and a later run that lost the outcome can't flip the resolved pick back to pending:
+        relapsed = merge_ledgers(merged, build_tony_divergence([_verdict("AMD", "2026-06-07", "back")], []))
+        by_key2 = {(r.symbol, r.pick_date): r for r in relapsed.records}
+        assert by_key2[("AMD", "2026-06-05")].classification == "agreed_right"
+
+    def test_ledger_roundtrip(self, tmp_path):
+        led = build_tony_divergence(
+            [_verdict("INTC", "2026-06-03", "override")],
+            [_outcome("INTC", "2026-06-02", "stop_hit", -2.0)],
+        )
+        p = tmp_path / "ledger.json"
+        write_divergence_ledger(led, p)
+        back = read_divergence_ledger(p)
+        assert {(r.symbol, r.pick_date, r.classification) for r in back.records} == \
+               {(r.symbol, r.pick_date, r.classification) for r in led.records}
+
+    def test_read_missing_file_is_empty(self, tmp_path):
+        assert read_divergence_ledger(tmp_path / "nope.json").records == []
