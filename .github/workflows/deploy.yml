@@ -1,0 +1,60 @@
+name: Deploy to VM
+
+# On-demand, no-SSH deploy via a self-hosted runner that lives ON the VM. Trigger it from the
+# GitHub Actions UI or programmatically (the GitHub MCP `actions_run_trigger`); the runner pulls
+# the latest code and restarts services using the canonical scripts/deploy/update_vm.sh (which
+# deploys BOTH the bot and the command-center), then verifies. No keys ever leave the VM.
+#
+# One-time VM setup (do once):
+#   1. Register a self-hosted runner at the GitHub ORG level (Settings -> Actions -> Runners ->
+#      New runner) so it is shared by both repos. Install it on the VM as the deploy user that
+#      owns /opt/trading-bot and /opt/command-center (e.g. alynx066), then run it as a service:
+#        ./config.sh --url https://github.com/<org> --token <TOKEN> --labels self-hosted
+#        sudo ./svc.sh install && sudo ./svc.sh start
+#   2. Give that user passwordless sudo for the unit restarts update_vm.sh performs, e.g. in
+#      /etc/sudoers.d/cc-deploy:
+#        alynx066 ALL=(root) NOPASSWD: /bin/systemctl restart tradingbot-api, \
+#          /bin/systemctl restart tradingbot-web, /bin/systemctl restart cc-runner, \
+#          /bin/systemctl restart tradingbot-offhours, /bin/systemctl restart tradingbot-watch
+#   3. Push deploy.yml to the default branch (this file) so workflow_dispatch is available.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "deploy = pull + deps + restart + verify   |   verify-only = no code change"
+        type: choice
+        options: [deploy, verify-only]
+        default: deploy
+
+concurrency:
+  group: tony-vm-deploy        # per-repo; the flock below also serializes across both repos
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+    timeout-minutes: 25
+    steps:
+      - name: Full-stack deploy (bot + command-center)
+        if: ${{ inputs.mode == 'deploy' }}
+        run: flock -w 900 /tmp/tony-vm-deploy.lock bash /opt/trading-bot/scripts/deploy/update_vm.sh
+
+      - name: Verify (services fatal; API + readiness informational)
+        run: |
+          fail=0
+          echo "== service status =="
+          for s in tradingbot-api cc-runner; do
+            st="$(systemctl is-active "$s" 2>/dev/null || echo inactive)"
+            printf '%-22s %s\n' "$s:" "$st"
+            [ "$st" = active ] || fail=1
+          done
+          for s in tradingbot-web tradingbot-offhours tradingbot-watch; do
+            printf '%-22s %s\n' "$s:" "$(systemctl is-active "$s" 2>/dev/null || echo inactive)"
+          done
+          echo "== /api/command-center agreement =="
+          curl -s --max-time 12 http://127.0.0.1:8001/api/command-center \
+            | python3 -m json.tool | grep -A6 '"agreement"' || echo "(API check failed)"
+          echo "== readiness sweep (non-fatal) =="
+          bash /opt/command-center/scripts/readiness_check.sh || true
+          exit "$fail"
