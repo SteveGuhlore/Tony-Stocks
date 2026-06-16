@@ -17,6 +17,7 @@ date the pick first appeared in ``bridge/tony-stocks/YYYY-MM-DD.md``), which is 
 join key the Command Center keys its ``(symbol, date)`` verdicts on. It is NOT the
 entry date (entry can trigger days after the pick first appears).
 """
+
 from __future__ import annotations
 
 import json
@@ -44,7 +45,13 @@ _RESULT_MAP = {
 }
 
 # Raw values that mean "not yet resolved" — these records are skipped.
-_NON_TERMINAL = {"still_open", "insufficient_future_data", "active", "missing_real_data", ""}
+_NON_TERMINAL = {
+    "still_open",
+    "insufficient_future_data",
+    "active",
+    "missing_real_data",
+    "",
+}
 
 _TRAILING_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})$")
 
@@ -88,7 +95,9 @@ def _date_part(val: Any) -> str | None:
 
 def _normalize_result(record: dict[str, Any]) -> str | None:
     """Map a record's raw result to a terminal bucket, or None to skip it."""
-    raw = _first(record, ("result", "outcome_label", "tracking_status", "terminal_exit_reason"))
+    raw = _first(
+        record, ("result", "outcome_label", "tracking_status", "terminal_exit_reason")
+    )
     key = str(raw or "").strip().lower()
     if key in _NON_TERMINAL:
         return None
@@ -112,7 +121,9 @@ def _derive_pick_date(record: dict[str, Any]) -> str | None:
         if match:
             return match.group(1)
 
-    first_seen = _date_part(_first(record, ("first_seen", "first_seen_date", "snapshot_time")))
+    first_seen = _date_part(
+        _first(record, ("first_seen", "first_seen_date", "snapshot_time"))
+    )
     if first_seen:
         return first_seen
 
@@ -128,7 +139,9 @@ def _derive_pick_date(record: dict[str, Any]) -> str | None:
     return entry_date
 
 
-def build_tony_outcomes(records: list[dict[str, Any]], *, eod_date: str) -> list[dict[str, Any]]:
+def build_tony_outcomes(
+    records: list[dict[str, Any]], *, eod_date: str
+) -> list[dict[str, Any]]:
     """Normalize resolved outcome records into the Command Center outcome schema.
 
     Records that are not yet resolved (active / insufficient data / missing real
@@ -145,21 +158,59 @@ def build_tony_outcomes(records: list[dict[str, Any]], *, eod_date: str) -> list
                 "pick_date": _derive_pick_date(record),
                 "result": result,
                 "entry": _to_float(
-                    _first(record, ("entry", "entry_price", "original_entry_price", "actual_entry_price"))
+                    _first(
+                        record,
+                        (
+                            "entry",
+                            "entry_price",
+                            "original_entry_price",
+                            "actual_entry_price",
+                        ),
+                    )
                 ),
-                "exit": _to_float(_first(record, ("exit", "exit_price", "terminal_exit_price"))),
+                "exit": _to_float(
+                    _first(record, ("exit", "exit_price", "terminal_exit_price"))
+                ),
                 "return_pct": _to_float(
                     _first(record, ("return_pct", "pl_pct", "terminal_research_pl_pct"))
                 ),
                 "days_held": _to_int(_first(record, ("days_held",))),
-                "resolved_date": _date_part(_first(record, ("resolved_date",))) or eod_date,
+                "resolved_date": _date_part(_first(record, ("resolved_date",)))
+                or eod_date,
             }
         )
     return outcomes
 
 
-def write_tony_outcomes(records: list[dict[str, Any]], path: str | Path | None = None) -> Path:
+def _outcome_key(o: dict[str, Any]) -> tuple[str, str]:
+    return (str(o.get("symbol") or "").upper(), str(o.get("pick_date") or ""))
+
+
+def _merge_outcomes(existing: list, fresh: list) -> list[dict[str, Any]]:
+    """Union resolved outcomes by (symbol, pick_date); a fresh record (newer resolution data)
+    replaces a prior one for the same pick, and existing-only picks are RETAINED. Records without
+    a symbol are dropped (unkeyable)."""
+    by_key: dict[tuple[str, str], dict[str, Any]] = {}
+    for o in existing or []:
+        if isinstance(o, dict) and o.get("symbol"):
+            by_key[_outcome_key(o)] = o
+    for o in fresh or []:
+        if isinstance(o, dict) and o.get("symbol"):
+            by_key[_outcome_key(o)] = o
+    return list(by_key.values())
+
+
+def write_tony_outcomes(
+    records: list[dict[str, Any]], path: str | Path | None = None, *, merge: bool = True
+) -> Path:
     """Write the (already-built) outcome list to JSON.
+
+    ACCUMULATES by default: ``records`` are UNIONed with whatever is already on disk (keyed
+    ``(symbol, pick_date)``, newer wins), so a single thin/empty emit can never WIPE the
+    accumulated outcome history the Command Center scorecard grades off. The bot's snapshot DB is
+    a 120-day rolling window; a transient short read used to overwrite this file and starve the
+    "2nd pass" panel to near-zero — verdicts and the teaching ledger already accumulate, this is
+    the missing third leg. Pass ``merge=False`` for an exact overwrite (explicit rebuilds/tests).
 
     Path resolution: explicit ``path`` -> ``TONY_OUTCOMES_FILE`` env var ->
     ``reports/tony_stocks_outcomes.json``. Parent directories are created.
@@ -168,5 +219,13 @@ def write_tony_outcomes(records: list[dict[str, Any]], path: str | Path | None =
         path = os.environ.get("TONY_OUTCOMES_FILE") or _DEFAULT_OUTCOMES_PATH
     out_path = Path(path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(records, indent=2), encoding="utf-8")
+    to_write: list = records
+    if merge:
+        try:
+            prior = json.loads(out_path.read_text(encoding="utf-8"))
+            prior = prior if isinstance(prior, list) else []
+        except (json.JSONDecodeError, OSError, FileNotFoundError):
+            prior = []
+        to_write = _merge_outcomes(prior, records or [])
+    out_path.write_text(json.dumps(to_write, indent=2), encoding="utf-8")
     return out_path.resolve()

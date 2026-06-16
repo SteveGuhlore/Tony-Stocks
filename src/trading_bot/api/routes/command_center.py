@@ -13,6 +13,7 @@ Resilient by design: a missing or malformed file degrades to empty/None so the
 dashboard renders "⋯ awaiting" rather than erroring (see
 docs/CONTRACTS/command-center-bridge.md).
 """
+
 from __future__ import annotations
 
 import json
@@ -34,6 +35,7 @@ router = APIRouter(tags=["command-center"])
 
 
 # ── Path resolution ──────────────────────────────────────────────────────────
+
 
 def _verdicts_path(reports_dir: Path) -> Path:
     env = os.environ.get("TONY_VERDICTS_FILE")
@@ -58,6 +60,7 @@ def _load_json(path: Path) -> Any | None:
 
 
 # ── Coercion helpers (NaN/inf → None so the JSON stays valid) ────────────────
+
 
 def _to_float(value: Any) -> float | None:
     try:
@@ -88,6 +91,7 @@ def _float_list(value: Any) -> list[float]:
 
 
 # ── Pure mappers (unit-tested directly) ──────────────────────────────────────
+
 
 def build_picks(verdicts: Any) -> dict[str, CommandCenterPick]:
     """Map the verdicts array to picks keyed by uppercase symbol.
@@ -153,8 +157,12 @@ def build_agreement(record: Any) -> CommandCenterAgreement | None:
     return CommandCenterAgreement(
         agreed_right=_to_int(agr.get("agreed_right")),
         agreed_wrong=_to_int(agr.get("agreed_wrong")),
-        cc_overrode_saved=_to_int(agr.get("override_saved", agr.get("cc_overrode_saved"))),
-        cc_overrode_missed=_to_int(agr.get("override_missed", agr.get("cc_overrode_missed"))),
+        cc_overrode_saved=_to_int(
+            agr.get("override_saved", agr.get("cc_overrode_saved"))
+        ),
+        cc_overrode_missed=_to_int(
+            agr.get("override_missed", agr.get("cc_overrode_missed"))
+        ),
     )
 
 
@@ -182,10 +190,16 @@ def _agreement_total(a: CommandCenterAgreement | None) -> int:
     """Graded count across the 4 quadrants — used to pick the source with real data."""
     if a is None:
         return 0
-    return (a.agreed_right or 0) + (a.agreed_wrong or 0) + (a.cc_overrode_saved or 0) + (a.cc_overrode_missed or 0)
+    return (
+        (a.agreed_right or 0)
+        + (a.agreed_wrong or 0)
+        + (a.cc_overrode_saved or 0)
+        + (a.cc_overrode_missed or 0)
+    )
 
 
 # ── Route ─────────────────────────────────────────────────────────────────────
+
 
 @router.get("/command-center", response_model=CommandCenterResponse)
 def get_command_center(request: Request) -> CommandCenterResponse:
@@ -198,8 +212,18 @@ def get_command_center(request: Request) -> CommandCenterResponse:
     # historically it was a point-in-time snapshot that could shrink as verdicts rotated. Use
     # whichever actually has graded data, preferring the accumulating CC record.
     cc_agreement = build_agreement(record_raw)
-    teaching_agreement = build_agreement_from_teaching(_load_json(_teaching_path(reports_dir)))
-    agreement = cc_agreement if _agreement_total(cc_agreement) > 0 else (teaching_agreement or cc_agreement)
+    teaching_agreement = build_agreement_from_teaching(
+        _load_json(_teaching_path(reports_dir))
+    )
+    # Both sources are monotonic; show whichever graded MORE. The CC scorecard is authoritative
+    # once its outcomes input is healthy, but if that file is transiently starved (a thin emit
+    # overwrote it) it can grade far fewer than the bot's accumulating teaching ledger — so never
+    # regress the panel to the smaller of two valid tallies. Ties favor the CC record (first).
+    agreement = max(
+        (a for a in (cc_agreement, teaching_agreement) if a is not None),
+        key=_agreement_total,
+        default=None,
+    )
     return CommandCenterResponse(
         picks=build_picks(verdicts),
         record=build_record(record_raw),
@@ -213,7 +237,9 @@ def _live_weights(request: Request) -> dict[str, float] | None:
     'Live weights' + 'Score drivers' panels. Degrades to None if unavailable."""
     from dataclasses import asdict  # noqa: PLC0415
 
-    path = getattr(request.app.state, "scoring_config_path", "config/scoring_config.yaml")
+    path = getattr(
+        request.app.state, "scoring_config_path", "config/scoring_config.yaml"
+    )
     try:
         from trading_bot.scoring.score_engine import load_scoring_config  # noqa: PLC0415
 

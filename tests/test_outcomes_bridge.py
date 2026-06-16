@@ -3,6 +3,7 @@
 Emits reports/tony_stocks_outcomes.json so the Command Center can grade Tony's
 verdicts. Research only: reads resolved outcome records, writes JSON. No trading.
 """
+
 from __future__ import annotations
 
 import json
@@ -102,12 +103,16 @@ class TestResultNormalization:
         assert build_tony_outcomes(records, eod_date=EOD) == []
 
     def test_result_read_from_outcome_label_when_result_absent(self):
-        records = [{"symbol": "AAA", "outcome_label": "target_hit", "pick_date": "2026-06-01"}]
+        records = [
+            {"symbol": "AAA", "outcome_label": "target_hit", "pick_date": "2026-06-01"}
+        ]
         out = build_tony_outcomes(records, eod_date=EOD)
         assert out[0]["result"] == "target_hit"
 
     def test_result_read_from_tracking_status_fallback(self):
-        records = [{"symbol": "AAA", "tracking_status": "stop_hit", "pick_date": "2026-06-01"}]
+        records = [
+            {"symbol": "AAA", "tracking_status": "stop_hit", "pick_date": "2026-06-01"}
+        ]
         out = build_tony_outcomes(records, eod_date=EOD)
         assert out[0]["result"] == "stop_hit"
 
@@ -115,7 +120,12 @@ class TestResultNormalization:
 class TestFieldFallbacks:
     def test_return_pct_falls_back_to_pl_pct(self):
         records = [
-            {"symbol": "AAA", "result": "target_hit", "pick_date": "2026-06-01", "pl_pct": 3.3}
+            {
+                "symbol": "AAA",
+                "result": "target_hit",
+                "pick_date": "2026-06-01",
+                "pl_pct": 3.3,
+            }
         ]
         out = build_tony_outcomes(records, eod_date=EOD)
         assert out[0]["return_pct"] == 3.3
@@ -224,7 +234,9 @@ class TestPickDateDerivation:
         assert out[0]["pick_date"] == "2026-05-28"
 
     def test_falls_back_to_entry_date_when_nothing_else_available(self):
-        records = [{"symbol": "AAA", "result": "target_hit", "entry_date": "2026-05-30"}]
+        records = [
+            {"symbol": "AAA", "result": "target_hit", "entry_date": "2026-05-30"}
+        ]
         out = build_tony_outcomes(records, eod_date=EOD)
         assert out[0]["pick_date"] == "2026-05-30"
 
@@ -274,3 +286,60 @@ class TestWriteTonyOutcomes:
         nested = tmp_path / "a" / "b" / "c" / "outcomes.json"
         write_tony_outcomes([], path=nested)
         assert nested.exists()
+
+
+class TestAccumulation:
+    """write_tony_outcomes accumulates by default so a thin/empty emit never wipes history."""
+
+    def _built(self, symbol, pick_date, result, ret):
+        return build_tony_outcomes(
+            [
+                {
+                    "symbol": symbol,
+                    "result": result,
+                    "pick_date": pick_date,
+                    "return_pct": ret,
+                }
+            ],
+            eod_date=EOD,
+        )
+
+    def test_thin_emit_never_wipes_existing(self, tmp_path):
+        p = tmp_path / "outcomes.json"
+        write_tony_outcomes(
+            self._built("AAA", "2026-06-01", "target_hit", 5.0)
+            + self._built("BBB", "2026-06-02", "stop_hit", -3.0),
+            path=p,
+        )
+        write_tony_outcomes(
+            [], path=p
+        )  # a run that resolved nothing must NOT wipe the file
+        kept = {
+            (o["symbol"], o["pick_date"])
+            for o in json.loads(p.read_text(encoding="utf-8"))
+        }
+        assert kept == {("AAA", "2026-06-01"), ("BBB", "2026-06-02")}
+
+    def test_union_adds_new_and_newer_resolution_wins(self, tmp_path):
+        p = tmp_path / "outcomes.json"
+        write_tony_outcomes(self._built("AAA", "2026-06-01", "stop_hit", -2.0), path=p)
+        write_tony_outcomes(
+            self._built(
+                "AAA", "2026-06-01", "target_hit", 6.0
+            )  # same pick, corrected outcome
+            + self._built("CCC", "2026-06-03", "target_hit", 4.0),
+            path=p,
+        )
+        kept = {
+            (o["symbol"], o["pick_date"]): o
+            for o in json.loads(p.read_text(encoding="utf-8"))
+        }
+        assert set(kept) == {("AAA", "2026-06-01"), ("CCC", "2026-06-03")}
+        assert kept[("AAA", "2026-06-01")]["result"] == "target_hit"  # newer wins
+        assert kept[("AAA", "2026-06-01")]["return_pct"] == 6.0
+
+    def test_merge_false_overwrites_exactly(self, tmp_path):
+        p = tmp_path / "outcomes.json"
+        write_tony_outcomes(self._built("AAA", "2026-06-01", "target_hit", 5.0), path=p)
+        write_tony_outcomes([], path=p, merge=False)
+        assert json.loads(p.read_text(encoding="utf-8")) == []

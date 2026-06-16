@@ -3,6 +3,7 @@
 Covers the three contract mismatches the endpoint bridges: win-rate 0–100 → 0–1,
 agreement override_* → cc_overrode_*, and verbatim (non-enum) verdict passthrough.
 """
+
 from __future__ import annotations
 
 import json
@@ -65,6 +66,7 @@ _RECORD = {
 
 # ── Pure mappers ──────────────────────────────────────────────────────────────
 
+
 def test_build_picks_uppercases_keys_and_maps_fields():
     picks = build_picks(_VERDICTS)
     assert set(picks) == {"DAL", "HOOD", "MARA"}
@@ -113,7 +115,9 @@ def test_build_agreement_renames_override_keys():
 
 
 def test_build_agreement_accepts_cc_overrode_spelling():
-    agr = build_agreement({"agreement": {"cc_overrode_saved": 3, "cc_overrode_missed": 1}})
+    agr = build_agreement(
+        {"agreement": {"cc_overrode_saved": 3, "cc_overrode_missed": 1}}
+    )
     assert agr is not None
     assert agr.cc_overrode_saved == 3
     assert agr.cc_overrode_missed == 1
@@ -125,11 +129,22 @@ def test_build_agreement_none_when_no_agreement_block():
 
 
 def test_build_agreement_from_teaching_reads_quadrants():
-    teaching = {"agreement": {"agreed_right": 3, "agreed_wrong": 1,
-                              "cc_overrode_saved": 2, "cc_overrode_missed": 4}}
+    teaching = {
+        "agreement": {
+            "agreed_right": 3,
+            "agreed_wrong": 1,
+            "cc_overrode_saved": 2,
+            "cc_overrode_missed": 4,
+        }
+    }
     agr = build_agreement_from_teaching(teaching)
     assert agr is not None
-    assert (agr.agreed_right, agr.agreed_wrong, agr.cc_overrode_saved, agr.cc_overrode_missed) == (3, 1, 2, 4)
+    assert (
+        agr.agreed_right,
+        agr.agreed_wrong,
+        agr.cc_overrode_saved,
+        agr.cc_overrode_missed,
+    ) == (3, 1, 2, 4)
 
 
 def test_build_agreement_from_teaching_none_when_missing():
@@ -138,6 +153,7 @@ def test_build_agreement_from_teaching_none_when_missing():
 
 
 # ── Endpoint ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
@@ -164,8 +180,12 @@ def test_endpoint_empty_when_files_missing(client):
 
 def test_endpoint_maps_full_payload(client):
     c, reports = client
-    (reports / "tony_stocks_verdicts.json").write_text(json.dumps(_VERDICTS), encoding="utf-8")
-    (reports / "tony_stocks_record.json").write_text(json.dumps(_RECORD), encoding="utf-8")
+    (reports / "tony_stocks_verdicts.json").write_text(
+        json.dumps(_VERDICTS), encoding="utf-8"
+    )
+    (reports / "tony_stocks_record.json").write_text(
+        json.dumps(_RECORD), encoding="utf-8"
+    )
 
     data = c.get("/api/command-center").json()
     assert set(data["picks"]) == {"DAL", "HOOD", "MARA"}
@@ -178,24 +198,84 @@ def test_endpoint_maps_full_payload(client):
 def test_endpoint_falls_back_to_teaching_agreement(client):
     # No CC record file -> agreement comes from the bot-side teaching ledger.
     c, reports = client
-    teaching = {"agreement": {"agreed_right": 1, "agreed_wrong": 0,
-                              "cc_overrode_saved": 2, "cc_overrode_missed": 1}}
-    (reports / "tony_teaching_log.json").write_text(json.dumps(teaching), encoding="utf-8")
+    teaching = {
+        "agreement": {
+            "agreed_right": 1,
+            "agreed_wrong": 0,
+            "cc_overrode_saved": 2,
+            "cc_overrode_missed": 1,
+        }
+    }
+    (reports / "tony_teaching_log.json").write_text(
+        json.dumps(teaching), encoding="utf-8"
+    )
     data = c.get("/api/command-center").json()
     assert data["record"] is None  # no CC record file
     assert data["agreement"]["cc_overrode_saved"] == 2
     assert data["agreement"]["agreed_right"] == 1
 
 
-def test_cc_record_agreement_wins_over_teaching(client):
-    # When the CC record has its own agreement, it takes precedence over the ledger.
+def test_richer_agreement_source_wins_cc_authoritative(client):
+    # Both sources are monotonic; the panel shows whichever graded MORE. Here the CC record
+    # (total 6) outweighs a thinner ledger (total 4), so the authoritative CC record wins.
     c, reports = client
-    (reports / "tony_stocks_record.json").write_text(json.dumps(_RECORD), encoding="utf-8")
-    teaching = {"agreement": {"agreed_right": 9, "agreed_wrong": 9,
-                              "cc_overrode_saved": 9, "cc_overrode_missed": 9}}
-    (reports / "tony_teaching_log.json").write_text(json.dumps(teaching), encoding="utf-8")
+    (reports / "tony_stocks_record.json").write_text(
+        json.dumps(_RECORD), encoding="utf-8"
+    )
+    teaching = {
+        "agreement": {
+            "agreed_right": 1,
+            "agreed_wrong": 1,
+            "cc_overrode_saved": 1,
+            "cc_overrode_missed": 1,
+        }
+    }
+    (reports / "tony_teaching_log.json").write_text(
+        json.dumps(teaching), encoding="utf-8"
+    )
     data = c.get("/api/command-center").json()
-    assert data["agreement"]["cc_overrode_saved"] == 2  # from _RECORD, not the ledger
+    assert (
+        data["agreement"]["cc_overrode_saved"] == 2
+    )  # CC record (richer), not the ledger
+
+
+def test_starved_cc_record_yields_to_richer_teaching(client):
+    # The live bug: the outcomes file got wiped, so the CC record graded far fewer (2) than the
+    # bot's monotonic teaching ledger (64). The panel must show the richer source, never regress.
+    c, reports = client
+    starved = {
+        **_RECORD,
+        "agreement": {
+            "agreed_right": 0,
+            "agreed_wrong": 1,
+            "override_saved": 1,
+            "override_missed": 0,
+        },
+    }  # total 2
+    (reports / "tony_stocks_record.json").write_text(
+        json.dumps(starved), encoding="utf-8"
+    )
+    teaching = {
+        "agreement": {
+            "agreed_right": 24,
+            "agreed_wrong": 13,
+            "cc_overrode_saved": 16,
+            "cc_overrode_missed": 11,
+        }
+    }  # total 64
+    (reports / "tony_teaching_log.json").write_text(
+        json.dumps(teaching), encoding="utf-8"
+    )
+    data = c.get("/api/command-center").json()
+    agr = data["agreement"]
+    assert (
+        agr["agreed_right"]
+        + agr["agreed_wrong"]
+        + agr["cc_overrode_saved"]
+        + agr["cc_overrode_missed"]
+        == 64
+    )
+    assert agr["agreed_right"] == 24  # the richer monotonic ledger, not the starved 2
 
 
 def test_endpoint_survives_malformed_json(client):
