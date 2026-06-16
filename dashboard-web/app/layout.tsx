@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 import { Providers } from "@/lib/providers"
 import { Toaster } from "sonner"
+import { ErrorBoundary } from "@/components/debug/ErrorBoundary"
+import { DebugConsole } from "@/components/debug/DebugConsole"
 
 export const metadata: Metadata = {
   title: "Kinetic Tape — Tony",
@@ -21,7 +23,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Providers>
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
+          {/* Sibling of the boundary so a crashing view can't take the console
+              down with it. Self-gates: renders nothing for public visitors. */}
+          <DebugConsole />
           <Toaster
             theme="dark"
             position="bottom-right"
