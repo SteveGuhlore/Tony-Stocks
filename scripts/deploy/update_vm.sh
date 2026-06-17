@@ -42,6 +42,15 @@ for svc in $BACKEND; do
   fi
 done
 
+# --- Re-assert Tony's dedicated Tailscale address (:8444 -> whole CC app; Tony at /tony).
+#     Idempotent and best-effort — never fails the deploy. The serve config persists across
+#     restarts, so this just keeps it asserted after each pull. ---
+if [ -x "$CC_DIR/scripts/deploy/serve_tony.sh" ]; then
+  echo ">> Re-asserting Tony's Tailscale serve (:8444)..."
+  bash "$CC_DIR/scripts/deploy/serve_tony.sh" >/dev/null 2>&1 \
+    && echo "   tony serve :8444 OK" || echo "   WARN: serve_tony.sh non-zero (non-fatal)"
+fi
+
 # --- Dashboard build LAST: hard timeout + heap cap. tradingbot-web restarts ONLY on success, so a
 #     failed/timed-out build leaves the previous good build serving (never a partial .next). ---
 if [ -d "$BOT_DIR/dashboard-web" ] && [ "${BUILD_TIMEOUT}" -gt 0 ]; then
