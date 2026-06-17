@@ -124,19 +124,40 @@ def _outcome_is_win(record: dict[str, Any]) -> bool | None:
     return None  # closed/expired without a return -> ambiguous, skip
 
 
+def _asof_signal(series: list[Any], pick_date: str) -> dict[str, Any]:
+    """Point-in-time join: the latest snapshot dated on/before ``pick_date``.
+
+    ``series`` is a list of (date_str, signal_dict). Falls back to the earliest
+    snapshot when the pick predates all of them (better than no signal at all).
+    """
+    ordered = sorted(series, key=lambda kv: str(kv[0]))
+    chosen: dict[str, Any] | None = None
+    for d, sig in ordered:
+        if str(d) <= str(pick_date):
+            chosen = sig
+        else:
+            break
+    if chosen is None and ordered:
+        chosen = ordered[0][1]
+    return chosen or {}
+
+
 def build_evaluated_picks(
     outcomes: list[dict[str, Any]],
     signals_by_symbol: dict[str, dict[str, Any]] | None = None,
+    signals_history: dict[str, list[Any]] | None = None,
 ) -> list[EvaluatedPick]:
     """Join resolved outcome records with per-symbol funnel signals into picks.
 
     ``outcomes`` are ``tony_stocks_outcomes.json`` records ({symbol, result,
-    return_pct, ...}). ``signals_by_symbol`` maps SYMBOL -> {price, dollar_volume,
-    relative_strength, recommendation_score, days_to_earnings}; any missing key is
-    None and excludes that pick from the matching stage. Records that are not yet
-    resolved into a win/loss are skipped.
+    return_pct, pick_date, ...}). ``signals_by_symbol`` maps SYMBOL -> a single
+    signal dict (back-compat). ``signals_history`` maps SYMBOL -> [(date, signal), ...]
+    and, when given, is AS-OF joined per pick by ``pick_date`` so the same ticker
+    picked on different dates is matched to ITS pick-time signals rather than one
+    shared snapshot. Records not yet resolved into a win/loss are skipped.
     """
     signals_by_symbol = signals_by_symbol or {}
+    signals_history = signals_history or {}
     picks: list[EvaluatedPick] = []
     for record in outcomes:
         symbol = str(record.get("symbol") or "").upper()
@@ -145,7 +166,10 @@ def build_evaluated_picks(
         win = _outcome_is_win(record)
         if win is None:
             continue
-        sig = signals_by_symbol.get(symbol, {})
+        if symbol in signals_history:
+            sig = _asof_signal(signals_history[symbol], str(record.get("pick_date") or ""))
+        else:
+            sig = signals_by_symbol.get(symbol, {})
         picks.append(EvaluatedPick(
             symbol=symbol,
             win=win,

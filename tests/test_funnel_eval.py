@@ -185,3 +185,35 @@ class TestReportShape:
         stage_names = {s["stage"] for s in d["stages"]}
         assert {"price_screen", "dollar_volume_screen", "earnings_blackout",
                 "recommendation_rank"} <= stage_names
+
+
+class TestAsOfSignalJoin:
+    def test_repeated_picks_use_pick_time_signals(self):
+        # Same ticker picked twice, months apart: each must join to the snapshot
+        # on/before ITS pick_date, not one shared snapshot.
+        outcomes = [
+            {"symbol": "AAA", "result": "target_hit", "return_pct": 5.0, "pick_date": "2026-01-10"},
+            {"symbol": "AAA", "result": "stop_hit", "return_pct": -2.0, "pick_date": "2026-03-20"},
+        ]
+        history = {
+            "AAA": [
+                ("2026-01-09", {"price": 10.0, "dollar_volume": 1_000_000}),
+                ("2026-03-19", {"price": 20.0, "dollar_volume": 9_000_000}),
+            ]
+        }
+        by_date = {p_in["pick_date"]: p_out
+                   for p_in, p_out in zip(outcomes, build_evaluated_picks(outcomes, signals_history=history))}
+        assert by_date["2026-01-10"].dollar_volume == 1_000_000
+        assert by_date["2026-03-20"].dollar_volume == 9_000_000
+
+    def test_pick_before_first_snapshot_falls_back_to_earliest(self):
+        outcomes = [{"symbol": "AAA", "result": "target_hit", "return_pct": 5.0, "pick_date": "2026-01-01"}]
+        history = {"AAA": [("2026-02-01", {"price": 5.0, "dollar_volume": 2_000_000})]}
+        pick = build_evaluated_picks(outcomes, signals_history=history)[0]
+        assert pick.dollar_volume == 2_000_000
+
+    def test_signals_by_symbol_still_works(self):
+        # Back-compat: the single-snapshot path is unchanged when no history is given.
+        outcomes = [{"symbol": "AAA", "result": "target_hit", "return_pct": 5.0}]
+        picks = build_evaluated_picks(outcomes, signals_by_symbol={"AAA": {"price": 7.0}})
+        assert picks[0].price == 7.0
