@@ -91,13 +91,13 @@ export const api = {
 
   /* control endpoints (wired behind confirm dialogs; no-op in dev fence) */
   control: {
-    stopWatch: (body: unknown) => post<{ status: string }>("/api/control/stop-watch", body),
-    pausePaper: (body: unknown) => post<{ status: string }>("/api/control/pause-paper", body),
-    resumePaper: (body: unknown) => post<{ status: string }>("/api/control/resume-paper", body),
-    flattenAll: (body: unknown) => post<{ status: string }>("/api/control/flatten-all", body),
-    flattenOne: (body: unknown) => post<{ status: string }>("/api/control/flatten-one", body),
-    reProtect: (body: unknown) => post<{ status: string }>("/api/control/re-protect", body),
-    triggerScan: (body: unknown) => post<{ status: string }>("/api/control/trigger-scan", body),
-    ackAlert: (body: unknown) => post<{ status: string }>("/api/control/ack-alert", body),
+    stopWatch: (body: unknown) => post<{ status: string }>("/api/controls/stop-watch", body),
+    pausePaper: (body: unknown) => post<{ status: string }>("/api/controls/pause-paper", body),
+    resumePaper: (body: unknown) => post<{ status: string }>("/api/controls/resume-paper", body),
+    flattenAll: (body: unknown) => post<{ status: string }>("/api/controls/flatten-all", body),
+    flattenOne: (body: unknown) => post<{ status: string }>("/api/controls/flatten-one", body),
+    reProtect: (body: unknown) => post<{ status: string }>("/api/controls/re-protect", body),
+    triggerScan: (body: unknown) => post<{ status: string }>("/api/controls/trigger-scan", body),
+    ackAlert: (body: unknown) => post<{ status: string }>("/api/controls/ack-alert", body),
   },
 }

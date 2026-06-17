@@ -10,8 +10,12 @@ export function MiniLine({
   series: { points: EquityPoint[]; color: string; label: string }[]
   height?: number
 }) {
-  const all = series.flatMap((s) => s.points.map((p) => p.equity))
-  if (all.length < 2) {
+  // Only series with >= 2 points can be drawn. Treat the chart as empty unless at
+  // least one such series exists — otherwise two 1-point series slip past a naive
+  // total-count guard and render a blank SVG with only legends.
+  const drawable = series.filter((s) => s.points.length >= 2)
+  const all = drawable.flatMap((s) => s.points.map((p) => p.equity))
+  if (drawable.length === 0 || all.length < 2) {
     return (
       <div className="grid place-items-center text-dim" style={{ height, fontSize: 11 }}>
         Awaiting equity history.
@@ -25,7 +29,7 @@ export function MiniLine({
   return (
     <div>
       <svg width="100%" height={height} viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none">
-        {series.map((s) => {
+        {drawable.map((s) => {
           if (s.points.length < 2) return null
           const pts = s.points
             .map((p, i) => {
