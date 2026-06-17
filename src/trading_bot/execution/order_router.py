@@ -61,6 +61,11 @@ def size_position(*, entry: Any, stop: Any, equity: Any, config: PaperTradingCon
     if config.max_notional_per_position > 0:
         max_shares_by_notional = int(config.max_notional_per_position // e)
         shares = min(shares, max_shares_by_notional)
+    # No-leverage ceiling: never size a long beyond available equity. This also bounds
+    # the qty-explosion case where a vanishingly small (entry-stop) and a disabled
+    # max_notional (==0) would otherwise yield an enormous share count.
+    max_shares_by_equity = int(eq // e)
+    shares = min(shares, max_shares_by_equity)
     return max(shares, 0)
 
 

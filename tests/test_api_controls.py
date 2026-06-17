@@ -118,6 +118,18 @@ def test_flatten_one_409_no_open_position(prod_client):
     assert r.json()["error"] == "no_open_position"
 
 
+@pytest.mark.parametrize("bad", ["../../etc/passwd", "A B", "NVDA/../x", "", "TOOLONGSYMBOL12345"])
+def test_flatten_one_rejects_unsafe_symbol(prod_client, bad):
+    # Regression: symbol is written into a kill-file path (FLATTEN_<symbol>); a
+    # traversal/space/empty/overlong value must be rejected before any file write.
+    c, db = prod_client
+    r = c.post("/api/controls/flatten-one", json={"symbol": bad})
+    assert r.status_code == 400
+    assert r.json()["error"] == "bad_symbol"
+    # nothing escaped the data dir
+    assert not (db.parent.parent / "passwd").exists()
+
+
 def test_flatten_one_version_mismatch_409(prod_client):
     c, db = prod_client
     repo = ScannerRepository(db)

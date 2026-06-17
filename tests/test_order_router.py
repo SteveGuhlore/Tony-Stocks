@@ -61,6 +61,22 @@ class TestSizePosition:
         # 1% of $100 = $1 risk / $5 = 0 shares.
         assert size_position(entry=100.0, stop=95.0, equity=100.0, config=_cfg()) == 0
 
+    def test_never_sizes_beyond_equity_no_leverage(self):
+        # Regression: a vanishingly small (entry-stop) with max_notional disabled (0)
+        # previously produced an enormous share count. Cap at equity/entry.
+        shares = size_position(
+            entry=10.0, stop=9.999, equity=100_000.0,
+            config=_cfg(max_notional_per_position=0.0),
+        )
+        assert shares == int(100_000.0 // 10.0)  # 10_000, not ~1_000_000
+
+    def test_equity_cap_holds_even_with_huge_notional(self):
+        shares = size_position(
+            entry=20.0, stop=19.99, equity=50_000.0,
+            config=_cfg(max_notional_per_position=10_000_000.0),
+        )
+        assert shares <= int(50_000.0 // 20.0)
+
 
 class TestShouldTrade:
     def _ok_args(self, **over):
