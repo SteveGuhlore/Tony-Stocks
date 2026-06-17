@@ -1,10 +1,24 @@
 "use client"
 
+import { toast } from "sonner"
 import { useSystemHealth } from "@/lib/hooks"
+import { api } from "@/lib/api"
 import { ViewHeader, Kpis, Panel, Awaiting } from "./shared"
 import { Button } from "@/components/kinetic/Button"
 import type { ConfirmSpec } from "@/components/kinetic/ConfirmDialog"
 import type { StreamState } from "@/lib/useEventStream"
+
+/** Fire a control action and surface the outcome. The backend stays the real guard
+ * (env fence + PIN); a failure (e.g. 403 in dev, or 409 precondition) is shown, never
+ * silently swallowed, so the operator never thinks a no-op succeeded. */
+async function runControl(label: string, fn: () => Promise<unknown>) {
+  try {
+    await fn()
+    toast.success(`${label} requested`)
+  } catch (e) {
+    toast.error(`${label} failed`, { description: e instanceof Error ? e.message : String(e) })
+  }
+}
 
 const SEV_COLOR: Record<string, string> = {
   info: "var(--pos)",
@@ -49,7 +63,8 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
                 title: "Stop the watch loop?",
                 body: "Writes data/STOP_WATCH_MODE on the VM — the scanner halts until restarted. No-op in dev fence.",
                 confirmLabel: "Stop watch",
-                onConfirm: () => {},
+                requirePin: true,
+                onConfirm: (pin) => runControl("Stop watch", () => api.control.stopWatch({ pin })),
               })
             }
           >
@@ -61,7 +76,8 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
                 title: "Pause paper trading?",
                 body: "Writes data/STOP_PAPER_TRADING — no new entries until resumed. No-op in dev fence.",
                 confirmLabel: "Pause paper",
-                onConfirm: () => {},
+                requirePin: true,
+                onConfirm: (pin) => runControl("Pause paper", () => api.control.pausePaper({ pin })),
               })
             }
           >
@@ -76,7 +92,7 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
                 confirmLabel: "Flatten all",
                 danger: true,
                 requirePin: true,
-                onConfirm: () => {},
+                onConfirm: (pin) => runControl("Flatten all", () => api.control.flattenAll({ pin })),
               })
             }
           >
@@ -88,7 +104,8 @@ export function SystemView({ onConfirm, streamState }: { onConfirm: (s: ConfirmS
                 title: "Trigger a manual scan?",
                 body: "Kicks a manual scan cycle (409s if one is already running). No-op in dev fence.",
                 confirmLabel: "Trigger scan",
-                onConfirm: () => {},
+                requirePin: true,
+                onConfirm: (pin) => runControl("Trigger scan", () => api.control.triggerScan({ pin })),
               })
             }
           >

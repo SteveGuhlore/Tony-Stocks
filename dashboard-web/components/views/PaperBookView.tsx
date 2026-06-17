@@ -1,11 +1,22 @@
 "use client"
 
+import { toast } from "sonner"
 import { usePaper, usePaperEquityCurve } from "@/lib/hooks"
+import { api } from "@/lib/api"
 import { ViewHeader, Kpis, Panel, Awaiting } from "./shared"
 import { MiniLine } from "@/components/kinetic/MiniLine"
 import { Button } from "@/components/kinetic/Button"
 import { fmtMoney, fmtPrice, fmtPct, changeClass } from "@/lib/format"
 import type { ConfirmSpec } from "@/components/kinetic/ConfirmDialog"
+
+async function runControl(label: string, fn: () => Promise<unknown>) {
+  try {
+    await fn()
+    toast.success(`${label} requested`)
+  } catch (e) {
+    toast.error(`${label} failed`, { description: e instanceof Error ? e.message : String(e) })
+  }
+}
 
 export function PaperBookView({
   onConfirm,
@@ -99,7 +110,7 @@ export function PaperBookView({
               confirmLabel: "Flatten all",
               danger: true,
               requirePin: true,
-              onConfirm: () => {},
+              onConfirm: (pin) => runControl("Flatten all", () => api.control.flattenAll({ pin })),
             })
           }
         >
@@ -111,7 +122,8 @@ export function PaperBookView({
               title: "Pause paper trading?",
               body: "No new entries until resumed. Open positions keep their brackets.",
               confirmLabel: "Pause paper",
-              onConfirm: () => {},
+              requirePin: true,
+              onConfirm: (pin) => runControl("Pause paper", () => api.control.pausePaper({ pin })),
             })
           }
         >
