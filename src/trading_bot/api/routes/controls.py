@@ -22,9 +22,21 @@ from __future__ import annotations
 
 import hmac
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
+
+# A tradeable ticker symbol. Used to keep request-supplied symbols out of file
+# paths (the flatten/re-protect kill-files are named FLATTEN_<symbol>): an
+# unsanitized "../.." could traverse out of the data dir.
+_SYMBOL_RE = re.compile(r"^[A-Z0-9.\-]{1,12}$")
+
+
+def _safe_symbol(symbol: str | None) -> str | None:
+    """Uppercased symbol if it is a plausible ticker, else None (reject)."""
+    sym = str(symbol or "").strip().upper()
+    return sym if _SYMBOL_RE.match(sym) else None
 
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse
@@ -301,18 +313,21 @@ def flatten_one(request: Request, body: FlattenOneBody,
         return err
     if replay:
         return replay
-    current = _open_position_version(repo, body.symbol)
+    sym = _safe_symbol(body.symbol)
+    if sym is None:
+        return _err(400, "bad_symbol", "invalid symbol")
+    current = _open_position_version(repo, sym)
     if current is None:
-        return _err(409, "no_open_position", f"no open position for {body.symbol}")
+        return _err(409, "no_open_position", f"no open position for {sym}")
     if body.position_version is not None and str(body.position_version) != current:
         return _err(409, "version_mismatch", "position changed since you last saw it; refresh and retry")
     try:
         with _ControlLock(_data_dir(request) / CONTROL_LOCK_FILE):
-            (_data_dir(request) / f"FLATTEN_{body.symbol.upper()}").write_text("flatten")
+            (_data_dir(request) / f"FLATTEN_{sym}").write_text("flatten")
     except _LockConflict:
         return _err(409, "locked", "another control action is in progress")
-    _finish(repo, "flatten-one", idempotency_key, "ok", f"flatten requested for {body.symbol.upper()}")
-    return {"ok": True, "action": "flatten-one", "symbol": body.symbol.upper()}
+    _finish(repo, "flatten-one", idempotency_key, "ok", f"flatten requested for {sym}")
+    return {"ok": True, "action": "flatten-one", "symbol": sym}
 
 
 @router.post("/controls/re-protect")
@@ -324,18 +339,21 @@ def re_protect(request: Request, body: ReProtectBody,
         return err
     if replay:
         return replay
-    current = _open_position_version(repo, body.symbol)
+    sym = _safe_symbol(body.symbol)
+    if sym is None:
+        return _err(400, "bad_symbol", "invalid symbol")
+    current = _open_position_version(repo, sym)
     if current is None:
-        return _err(409, "no_open_position", f"no open position for {body.symbol}")
+        return _err(409, "no_open_position", f"no open position for {sym}")
     if body.position_version is not None and str(body.position_version) != current:
         return _err(409, "version_mismatch", "position changed since you last saw it; refresh and retry")
     try:
         with _ControlLock(_data_dir(request) / CONTROL_LOCK_FILE):
-            (_data_dir(request) / f"REPROTECT_{body.symbol.upper()}").write_text("reprotect")
+            (_data_dir(request) / f"REPROTECT_{sym}").write_text("reprotect")
     except _LockConflict:
         return _err(409, "locked", "another control action is in progress")
-    _finish(repo, "re-protect", idempotency_key, "ok", f"re-protect requested for {body.symbol.upper()}")
-    return {"ok": True, "action": "re-protect", "symbol": body.symbol.upper()}
+    _finish(repo, "re-protect", idempotency_key, "ok", f"re-protect requested for {sym}")
+    return {"ok": True, "action": "re-protect", "symbol": sym}
 
 
 @router.post("/controls/trigger-scan")

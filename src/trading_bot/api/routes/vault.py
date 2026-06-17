@@ -19,6 +19,9 @@ def get_vault_bridge(request: Request):
 
 @router.get("/insights")
 def get_insights(request: Request, limit: int = 10):
+    # Clamp to a sane window: a negative limit slices unexpectedly and a huge one
+    # reads/serialises every note in the vault (resource exhaustion).
+    limit = max(1, min(int(limit), 100))
     vault_dir = Path(getattr(request.app.state, "vault_dir", "vault"))
     notes_dir = vault_dir / "daily-notes"
     if not notes_dir.exists():
