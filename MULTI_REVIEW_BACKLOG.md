@@ -24,6 +24,13 @@ From the 2026-06-17 multi-model audit (Claude Opus 4.8 + Codex gpt-5.4 high + Ge
       Stop-watch / Pause / Flatten-all / Trigger-scan buttons now fire real `api.control.*` calls
       (previously inert); the live click→API→toast flow was not exercised in the audit.
 
+## Superseded by this morning's main (dropped from this branch)
+- Control API path `/api/control` -> `/api/controls` and button wiring (B1): **already done on
+  `main`** (better — react-query mutations + per-action Idempotency-Key). My versions dropped.
+- `MiniLine` empty-state guard: main's richer MiniLine STILL has the `all.length < 2` bug (two
+  1-point series render a blank SVG). Low priority — re-apply the `drawable = series.filter(p>=2)`
+  guard if it ever matters.
+
 ## Notes (verified already-handled, no change needed)
 - `tony_bridge` corrupt-log self-heals (renames `.corrupt` + atomic write).
 - `market_clock` holiday table already spans 2026-2027.
