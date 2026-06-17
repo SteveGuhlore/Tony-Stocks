@@ -46,16 +46,56 @@ def test_pause_paper_forbidden_in_dev(client):
 
 # ── prod role: money actions allowed (fence satisfied) ───────────────────────
 
+class _PinClient:
+    """Wraps TestClient so prod control POSTs carry the configured PIN by default
+    (prod now fails closed without one). An explicit pin in the body is preserved."""
+
+    def __init__(self, c, pin):
+        self._c = c
+        self._pin = pin
+
+    def post(self, url, **kw):
+        body = kw.get("json")
+        if isinstance(body, dict) and "pin" not in body:
+            kw["json"] = {**body, "pin": self._pin}
+        return self._c.post(url, **kw)
+
+    def __getattr__(self, name):
+        return getattr(self._c, name)
+
+
 @pytest.fixture()
 def prod_client(client, monkeypatch):
     c, db = client
     monkeypatch.setenv("ENV_ROLE", "prod")
     monkeypatch.setenv("TRADINGBOT_PROD_ACCOUNT_ID", "ACCT1")
+    monkeypatch.setenv("DASHBOARD_ACTION_PIN", "testpin")  # prod must have a PIN
     # Inject the runtime account id so the fence resolves without a broker.
     import trading_bot.api.routes.controls as controls_mod
     monkeypatch.setattr(controls_mod, "assert_money_action_allowed",
                         lambda runtime_account_id=None: None)
-    return c, db
+    return _PinClient(c, "testpin"), db
+
+
+def test_prod_without_pin_fails_closed(client, monkeypatch):
+    # Regression (B2): in prod, an unconfigured PIN must reject control actions
+    # rather than fail open. trigger-scan is non-money, so this isolates the PIN gate.
+    c, _ = client
+    monkeypatch.setenv("ENV_ROLE", "prod")
+    monkeypatch.delenv("DASHBOARD_ACTION_PIN", raising=False)
+    r = c.post("/api/controls/trigger-scan", json={})
+    assert r.status_code == 403
+    assert r.json()["error"] == "pin_required"
+
+
+def test_dev_without_pin_still_open(client, monkeypatch):
+    # Dev convenience preserved: no ENV_ROLE, no PIN -> PIN gate passes (money fence
+    # is the guard in dev). trigger-scan is non-money so it should succeed.
+    c, _ = client
+    monkeypatch.delenv("ENV_ROLE", raising=False)
+    monkeypatch.delenv("DASHBOARD_ACTION_PIN", raising=False)
+    r = c.post("/api/controls/trigger-scan", json={})
+    assert r.status_code == 200
 
 
 def test_stop_watch_ok_in_prod_writes_kill_file(prod_client):
@@ -116,6 +156,18 @@ def test_flatten_one_409_no_open_position(prod_client):
     r = c.post("/api/controls/flatten-one", json={"symbol": "NVDA"})
     assert r.status_code == 409
     assert r.json()["error"] == "no_open_position"
+
+
+@pytest.mark.parametrize("bad", ["../../etc/passwd", "A B", "NVDA/../x", "", "TOOLONGSYMBOL12345"])
+def test_flatten_one_rejects_unsafe_symbol(prod_client, bad):
+    # Regression: symbol is written into a kill-file path (FLATTEN_<symbol>); a
+    # traversal/space/empty/overlong value must be rejected before any file write.
+    c, db = prod_client
+    r = c.post("/api/controls/flatten-one", json={"symbol": bad})
+    assert r.status_code == 400
+    assert r.json()["error"] == "bad_symbol"
+    # nothing escaped the data dir
+    assert not (db.parent.parent / "passwd").exists()
 
 
 def test_flatten_one_version_mismatch_409(prod_client):

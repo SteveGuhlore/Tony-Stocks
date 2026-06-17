@@ -1,11 +1,21 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from pathlib import Path
 from typing import Optional
 
 _INSIGHTS_FILE = Path(__file__).parents[2] / "reports" / "agent_insights.json"
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """Write-temp + os.replace so a concurrent reader / crash can't see a torn file.
+    (Prevents corruption; full lost-update protection still needs a lock.)"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def record_agent_insight(
@@ -24,8 +34,7 @@ def record_agent_insight(
         "symbols": symbols or [],
         "status": "new",
     })
-    _INSIGHTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _INSIGHTS_FILE.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    _atomic_write(_INSIGHTS_FILE, json.dumps(entries, indent=2))
 
 
 def load_agent_insights(limit: int = 20) -> list[dict]:
@@ -72,6 +81,5 @@ def record_agent_insights_batch(rows: list[dict], on_date: Optional[str] = None,
         existing.add((d, text))
         added += 1
     if added:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+        _atomic_write(target, json.dumps(entries, indent=2))
     return added
