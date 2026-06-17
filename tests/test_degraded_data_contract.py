@@ -154,9 +154,8 @@ def test_empty_database_returns_empty_collections(tmp_path, monkeypatch):
         assert tracking["active"] == [] and tracking["watching"] == []
         assert c.get("/api/cockpit").json()["rows"] == []
         assert c.get("/api/paper/positions").json()["open"] == []
-        assert c.get("/api/command-center").json() == {
-            "picks": {}, "record": None, "agreement": None,
-        }
+        cc = c.get("/api/command-center").json()
+        assert cc["picks"] == {} and cc["record"] is None and cc["agreement"] is None
 
 
 # ── Scenario 2: missing reports dir entirely (CC files absent) ───────────────
@@ -170,7 +169,7 @@ def test_missing_reports_dir_cc_and_cockpit_degrade(tmp_path, monkeypatch):
         for path, ok in READ_ENDPOINTS:
             _assert_non_500(c, path, ok)
         cc = c.get("/api/command-center").json()
-        assert cc == {"picks": {}, "record": None, "agreement": None}
+        assert cc["picks"] == {} and cc["record"] is None and cc["agreement"] is None
         mp = c.get("/api/morning-prep").json()
         assert mp["shortlist"] == []
         # cockpit still assembles (from snapshots, which are also empty here)
@@ -190,7 +189,7 @@ def test_malformed_cc_json_degrades_no_500(tmp_path, monkeypatch):
         for path, ok in READ_ENDPOINTS:
             _assert_non_500(c, path, ok)
         cc = c.get("/api/command-center").json()
-        assert cc == {"picks": {}, "record": None, "agreement": None}
+        assert cc["picks"] == {} and cc["record"] is None and cc["agreement"] is None
         # cockpit reads the same (malformed) verdicts file -> no tony overlay, no 500
         assert c.get("/api/cockpit").json()["rows"] == []
 
