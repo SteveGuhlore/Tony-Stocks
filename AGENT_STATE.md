@@ -1,8 +1,49 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-10_
+_Last updated: 2026-06-16_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-16 — Standalone Tony dashboard (2nd-pass analyst) + ATR time-to-target horizon
+
+Branch (BOTH repos): `claude/eager-curie-tfw2zc`. Research-sim / paper only; no order/risk/sizing touched.
+
+Tony now has his OWN dashboard (the claude.ai/design artifact, wired to live data), hosted on the CC
+FastAPI app at **/tony** (same host/port as the CC dashboard, 8765); the CC's TONY tab links out to it.
+Moves us toward "3 dashboards" = scanner kinetic-tape · Tony standalone · CC ops.
+
+Bot (Tony-Stocks) @ 51588bc:
+- `src/trading_bot/analytics/horizon.py` — canonical mechanical time-to-target: `bot_horizon_days(last,
+  target,atr,realized_vol)` → [min,max] trading days (center = dist/ATR(14), band widened by realized
+  vol); `horizon_basis`, `realized_vol_from_closes`. 23 tests in `tests/test_horizon.py`.
+- ⚠️ A black-format hook reformats the WHOLE file on any Edit — it exploded a 2.8k-line diff in
+  cli.py/bridge.py once (reverted). Keep edits to already-clean/new files; never let it reformat cli.py.
+
+CC (ai-operations-command-center) @ e4a7677:
+- `runner/ledger/tony_horizon.py` — Tony's 2nd-pass REVISION (keep/tighten/stand-aside), >50% divergence
+  flag, `atr_from_levels` (ATR=(target−stop)/4.5) so CC derives botHorizonDays from the scanner bracket —
+  no cross-repo bridge wiring needed. 17 tests in `tests/runner/test_tony_horizon.py`.
+- `runner/ledger/alpaca_paper.py` — `spy_closes()` / `latest_trade_prices()` (Alpaca→Stooq). KEYS STAY
+  SERVER-SIDE; the browser only sees /api/spx + /api/marks.
+- `dashboard/tony_routes.py` — /tony, /api/tony/{record,agreement,live}, /api/spx, /api/marks.
+  `/api/tony/live` is the single null-safe aggregator the page reads.
+- `dashboard/tony.html` — the design artifact patched by `scripts/build_tony_dashboard.py` (source
+  vendored at `dashboard/design/`). LIVE: SPX benchmark, marks, paper book, calls, equity, projection-
+  horizon, AND the 2nd-pass quadrant + masthead stats (via `_patchStatics` DOM patch, gated on
+  status=='scored'). SIM-badged: avg-R, calibration buckets.
+- `dashboard/server.py` registers the router (`# fmt: off` shield); `index.html` links to /tony;
+  `scripts/selftest.sh` smokes the new routes.
+
+DEPLOY: pushed to the dev branch on both repos; NOT yet on the VM. Staging:
+`bash /opt/command-center/scripts/setup_staging.sh claude/eager-curie-tfw2zc` (:8766). Promote (after close):
+`bash /opt/command-center/scripts/promote_staging.sh` → printed FF-to-master/main → "Deploy to VM" Action
+(update_vm.sh, both repos). /tony needs a cc-runner restart to load the new routes (HTML is read per-request).
+
+OPEN / FOLLOW-UP: wire avg-R + calibration buckets live; add a real SPY series to the equity chart (bot is
+currently passed as the index proxy); DB `list_snapshots_for_analytics` still filters `snapshot_time` not
+`last_checked_at` (separate, pre-existing). Scanner "design refresh" to match Tony is queued for after ship.
 
 ---
 
