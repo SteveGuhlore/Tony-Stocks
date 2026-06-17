@@ -1,0 +1,13 @@
+{
+  "validation": {
+    "default": ["npm test"]
+  },
+  "protectedPaths": [
+    "lib/api.ts",
+    "lib/sse.ts",
+    "lib/providers.tsx",
+    "next.config.ts",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}
