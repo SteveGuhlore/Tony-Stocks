@@ -89,11 +89,17 @@ def _origin_allowed(request: Request) -> bool:
 
 
 def _pin_ok(supplied: str | None) -> bool:
-    """Constant-time PIN check. If no PIN is configured the check passes (single-operator
-    local tool); when configured it must match exactly."""
+    """Constant-time PIN check. A configured PIN must match exactly. When NO PIN is
+    configured we fail OPEN in dev (single-operator local tool) but fail CLOSED in
+    prod (ENV_ROLE=prod): a production control plane must have DASHBOARD_ACTION_PIN set,
+    otherwise any network client could drive the controls.
+
+    OPERATOR NOTE: deploying this to a prod VM REQUIRES setting DASHBOARD_ACTION_PIN,
+    or every control action will return 403 pin_required.
+    """
     expected = os.environ.get("DASHBOARD_ACTION_PIN")
     if not expected:
-        return True
+        return os.environ.get("ENV_ROLE", "").strip().lower() != "prod"
     return bool(supplied) and hmac.compare_digest(str(supplied), str(expected))
 
 
