@@ -1,0 +1,36 @@
+{
+  "extensions": [
+    ".py"
+  ],
+  "protectedPaths": [
+    ".env*",
+    "**/.env*",
+    "**/*secret*",
+    "**/*credential*",
+    "**/*apikey*",
+    "**/*api_key*",
+    "**/*password*",
+    "**/*token*",
+    "**/*key*",
+    "**/*wallet*",
+    "**/*sign*",
+    "**/*private*",
+    "**/auth/**",
+    "**/*auth*",
+    "**/security/**",
+    "**/migrations/**",
+    "**/*payment*",
+    "**/*billing*",
+    "**/*order*",
+    "**/*execut*",
+    "**/*trade*",
+    "**/*risk*",
+    "**/*broker*",
+    "**/*crypto*"
+  ],
+  "validation": {
+    "default": [
+      "pytest -q"
+    ]
+  }
+}

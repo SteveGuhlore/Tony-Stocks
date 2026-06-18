@@ -1,0 +1,112 @@
+[
+  {
+    "severity": "high",
+    "file": "lib/priceStore.ts",
+    "issue": "`seedTicks()` only writes symbols that are missing, so later polling snapshots never refresh `price`/`changePct` once a symbol has been seeded; after first load or an SSE outage, Tape rows can display stale quotes indefinitely.",
+    "fix": "Track freshness/source per symbol and overwrite snapshot values when the poll is newer instead of skipping existing entries.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "high",
+    "file": "app/Cockpit.tsx",
+    "issue": "The command-palette actions `a-flatten` and `a-scan` open confirmation dialogs whose `onConfirm` handlers are empty, so an operator can confirm critical actions and nothing is ever sent to the backend.",
+    "fix": "Wire those confirmations to the same `api.control.flattenAll` and `api.control.triggerScan` flows used elsewhere.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "app/Cockpit.tsx",
+    "issue": "`SymbolDrawer` only renders when `selectedRow` exists in `data.rows`, so clicking a symbol from Morning Prep or Paper Book silently fails whenever that symbol is not in the cockpit snapshot.",
+    "fix": "Load drawer data by symbol independently of `rows`, or provide a symbol-only fallback model instead of requiring a cockpit row.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/plan.ts",
+    "issue": "`computeRail()` treats any numeric `stop`/`entry`/`target` as valid and never enforces `stop < entry < target`, so reversed or otherwise invalid plans render a plausible-looking rail instead of degrading to `no plan`.",
+    "fix": "Reject non-monotonic trade levels (and optionally `trade_plan_valid === false`) by returning `ok: false`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/api.ts",
+    "issue": "The client defaults to `http://localhost:8001` and `get()` builds `new URL(API_BASE + path)` without a same-origin fallback, which breaks HTTPS/production deployments via mixed-content errors or relative `NEXT_PUBLIC_API_URL` values.",
+    "fix": "Default to a relative API base and resolve relative URLs against `window.location.origin` before calling `fetch`/`EventSource`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/api.ts",
+    "issue": "`paper()` normalizes unknown JSON with type assertions like `(p.entry_price as number)` instead of parsing, so stringified numerics from the backend can corrupt `open_pl` math and price formatting while TypeScript hides the mismatch.",
+    "fix": "Convert every numeric field with `Number(...)` plus null/NaN guards before building `PaperPosition`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "lib/phase.ts",
+    "issue": "The fallback phase heuristic uses only the ET hour, so 09:00-09:29 ET is mislabeled as `live` when market metadata is absent even though the regular cash session has not opened.",
+    "fix": "Use minute-level session boundaries (09:30/16:00 ET) or require explicit backend phase metadata.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "components/kinetic/CommandPalette.tsx",
+    "issue": "Only symbol results close the palette; selecting a view or action command leaves the palette open over the new view or confirmation dialog.",
+    "fix": "Wrap every command result so `onClose()` runs before executing `r.run()`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "lib/api.ts",
+    "issue": "`api.paper()` always returns `equity: null`, but `Cockpit` passes `paper.data?.equity` into `TopBar`, so the header's paper-equity display can never show a real value.",
+    "fix": "Populate `PaperResponse.equity` from backend data or derive the latest equity from `/api/paper/equity-curve` before passing it to `TopBar`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "components/drawer/SymbolChart.tsx",
+    "issue": "If `lightweight-charts` fails to import or initialize, the `catch` block swallows the error but the component still renders only an empty host div instead of the documented unavailable-state message.",
+    "fix": "Track chart initialization failure in state and render `EmptyChart` when setup throws.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "components/kinetic/CommandPalette.tsx",
+    "issue": "When there are no results, pressing ArrowDown sets `active` to `-1` via `Math.min(a + 1, results.length - 1)`, leaving the palette in an invalid selection state.",
+    "fix": "Skip arrow-key updates when `results.length === 0` and clamp `active` to the valid range `0..results.length - 1`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  }
+]

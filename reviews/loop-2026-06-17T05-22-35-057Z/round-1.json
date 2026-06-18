@@ -1,0 +1,122 @@
+[
+  {
+    "severity": "high",
+    "file": "scripts/full_e2e_sync_test.py",
+    "issue": "The 'real systems untouched' check only hashes files that existed in `reports/*.json` at startup and only compares top-level bridge names / vault file counts, so a test run can create new real report files or modify existing bridge/vault contents without being detected.",
+    "fix": "Fingerprint real reports, bridge, and vault recursively before/after and diff adds, deletes, and content hashes instead of comparing only baseline keys and counts.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "high",
+    "file": "scripts/tandem_loop_test.py",
+    "issue": "The bot safety check misses new real `reports/*.json` files and any real vault content edits because it only compares hashes for the startup file list plus a vault item count, allowing live artifacts to change while the test still passes.",
+    "fix": "Replace the current bot-side safety check with a recursive before/after fingerprint of real reports and vault contents, including newly created files.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "src/trading_bot/agent_bridge.py",
+    "issue": "`record_agent_insight()` and `record_agent_insights_batch()` do unlocked read-modify-write updates to the same JSON file, so concurrent writers can lose entries or leave a truncated file; the next read silently returns `[]`, discarding history.",
+    "fix": "Use a file lock and atomic temp-file replace for writes, and fail closed or preserve the bad file instead of treating JSON decode errors as an empty dataset.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "src/trading_bot/analytics/backtest_review.py",
+    "issue": "`win_rate()` counts every `target_hit`/`stop_hit`, but P/L and equity silently drop trades whose target/stop brackets are invalid, so the summary can mix metrics computed from different trade populations and overstate results.",
+    "fix": "Apply one shared validity filter for conclusive trades and use that exact set for win rate, average P/L, drawdown, and equity.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "high",
+    "file": "src/trading_bot/analytics/funnel_eval.py",
+    "issue": "`build_evaluated_picks()` joins funnel signals by symbol only, so repeated historical picks in the same ticker reuse one signal snapshot and get contaminated by later/future data, making stage-evaluation results look-ahead biased.",
+    "fix": "Store and join funnel signals by pick timestamp/date (or another per-pick key) instead of a single symbol-level snapshot.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "scripts/verify_research_stack.py",
+    "issue": "The script runs network calls and `sys.exit()` at import time because it has no `main()`/`if __name__ == '__main__'` guard, so importing it from tests or tooling can unexpectedly hit live APIs and terminate the caller.",
+    "fix": "Move the executable logic into `main()` and only call it under an `if __name__ == '__main__'` guard.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "scripts/seed_vault.py",
+    "issue": "`days_active_map` is computed over the full dataset once and reused for every historical date, so older backfilled notes include future activity counts for each symbol.",
+    "fix": "Compute `days_active` cumulatively up to each `date_str` when building that day's snapshots.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "src/trading_bot/cli.py",
+    "issue": "`_funnel_eval_signals_from_snapshots()` collapses all snapshot-derived signals for a ticker to the single earliest snapshot in the window, so repeated picks in that ticker are evaluated against stale non-pick-time signals.",
+    "fix": "Persist signals per pick or join each outcome to the nearest snapshot on/before its `pick_date` instead of one row per symbol.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "scripts/verify_research_stack.py",
+    "issue": "The script is documented to run as `python scripts/verify_research_stack.py`, but unlike other scripts it never adds `src/` to `sys.path`, so direct execution fails unless `trading_bot` is already installed or `PYTHONPATH` is set.",
+    "fix": "Insert the repo `src` directory into `sys.path` before imports, or expose it as a proper `python -m trading_bot...` entry point.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "scripts/index_cc_vault.py",
+    "issue": "The script claims to be non-destructive but unconditionally overwrites root `HOME.md` and each top-level `_index.md`, so any hand-authored file with those names is silently clobbered.",
+    "fix": "Only overwrite files that carry a generator marker, or write to distinct generated filenames / require an explicit `--force` flag before replacing existing content.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "scripts/index_cc_vault.py",
+    "issue": "The script claims to generate `_index.md` for every directory, but it only writes indexes for top-level directories and never creates `_index.md` files for nested folders.",
+    "fix": "Walk directories recursively and emit an `_index.md` inside each directory based on that directory's direct files/subdirectories.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "src/trading_bot/analytics/funnel_eval.py",
+    "issue": "`build_evaluated_picks()` stores `record['return_pct']` in the `r_multiple` field, so `kept_avg_r`/`dropped_avg_r`/`avg_r_delta` are labeled as R-multiples while actually reporting percentage returns.",
+    "fix": "Either rename the fields/output to return-percentage terms or compute true R-multiples from stored entry/stop/exit data before averaging.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  }
+]

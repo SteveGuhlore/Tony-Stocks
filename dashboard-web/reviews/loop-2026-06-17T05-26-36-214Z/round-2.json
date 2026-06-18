@@ -1,0 +1,142 @@
+[
+  {
+    "severity": "high",
+    "file": "lib/useEventStream.ts",
+    "issue": "Every SSE message immediately invalidates the active `cockpit` query, so a high-rate stream turns into one GET per event and can overwhelm the backend/client instead of using the stream efficiently.",
+    "fix": "Debounce/batch invalidations or only refetch on coarse event types/reconnect instead of on every `onmessage`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/priceStore.ts",
+    "issue": "`seedTicks()` only writes the first snapshot for a symbol; after that, `useLiveTick()` keeps returning the seeded non-null price/change and newer polled `row.last_price`/`day_change_pct` updates are ignored whenever no live tick arrives.",
+    "fix": "Refresh seeded values on each snapshot until a real live tick is received, or track freshness/source and fall back to row data when the store is only seeded.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "app/Cockpit.tsx",
+    "issue": "Clicking a position in Paper Book does nothing if that symbol is no longer present in `data.rows`: `selectedPos` is found, but `SymbolDrawer` only renders when `selectedRow` exists.",
+    "fix": "Allow the drawer to render from `PaperPosition` alone or fetch fallback symbol details when no cockpit row exists.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/plan.ts",
+    "issue": "`computeRail()` accepts invalid external data as `ok`: it never rejects `current = NaN` or non-ascending levels, so bad ticks/plans can render `left: NaN%` or inverted rails instead of the safe `no plan` fallback.",
+    "fix": "Validate all values are finite and require `stop < entry < target` before returning a successful geometry.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/api.ts",
+    "issue": "The `/api/paper/positions` normalizer only coerces `qty` with `Number(...)`; other numeric fields are just type-cast, so stringified API numbers will corrupt math (`open_pl` can become string concatenation) and formatting/comparisons.",
+    "fix": "Coerce every numeric field with `Number(...)` plus null/NaN guards before building `PaperPosition`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/phase.ts",
+    "issue": "The fallback session heuristic uses only the ET hour, so 09:00-09:29 ET is classified as `live` even though the market is still pre-open until 09:30.",
+    "fix": "Use ET hours and minutes with explicit 09:30/16:00 boundaries for `prep`/`live`/`review`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "components/drawer/SymbolChart.tsx",
+    "issue": "The async chart setup catches import/render failures but never switches the component into an error state, leaving a blank chart area instead of the intended labeled empty state when `lightweight-charts` fails.",
+    "fix": "Store chart-init failure in local state and render `EmptyChart` when setup throws.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "components/kinetic/CommandPalette.tsx",
+    "issue": "Generic palette commands do not close the palette, so choosing a view/action can leave the overlay open over the new screen and interfere with follow-up input.",
+    "fix": "Wrap command execution so `onClose()` runs before or after every `r.run()`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "lib/api.ts",
+    "issue": "`paper()` hardcodes `equity: null`, but `TopBar` and Paper Book read `paper.data.equity`, so the UI can never show actual paper equity.",
+    "fix": "Populate `PaperResponse.equity` from the latest equity-curve point or fetch an endpoint that returns current equity.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "components/kinetic/CommandPalette.tsx",
+    "issue": "Pressing ArrowDown when there are no results sets `active` to `-1`; when matches later reappear, keyboard selection stays invalid and Enter no longer opens the first result.",
+    "fix": "Clamp the index to `0` when `results.length === 0` and normalize any negative `active` back to `0` when results change.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "components/views/PaperBookView.tsx",
+    "issue": "The P/L cell color treats any non-`neg` result from `changeClass()` as positive, so missing or NaN `unrealized_pl_pct` values render in green instead of a neutral tone.",
+    "fix": "Handle the `mut` case explicitly and use neutral styling when the percentage is null/undefined/NaN.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "components/tape/Tape.tsx",
+    "issue": "The tape's status filter checks only `row.status`, but the row badge logic treats `entry_triggered` as triggered too, so triggered rows can display `TRIGGERED` while disappearing from the `Triggered` filter.",
+    "fix": "Use the same derived status logic for filtering that `StatusCell` uses, or explicitly treat `entry_triggered` rows as triggered in the filter.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/phase.ts",
+    "issue": "The fallback phase heuristic ignores weekdays and holidays, so on weekends or market holidays daytime ET can still be shown as `prep` or `live` instead of a closed/review state.",
+    "fix": "Base fallback phase on an ET market calendar or at least gate `live`/`prep` behind trading weekdays when backend market metadata is missing.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "components/drawer/SymbolDrawer.tsx",
+    "issue": "The drawer's paper-position P/L line uses the same `neg ? red : green` pattern as Paper Book, so null or NaN `unrealized_pl_pct` values render green instead of neutral.",
+    "fix": "Map `changeClass(position.unrealized_pl_pct)` to three colors and use a neutral tone for `mut`.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  }
+]

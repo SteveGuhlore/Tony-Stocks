@@ -1,0 +1,102 @@
+[
+  {
+    "severity": "high",
+    "file": "lib/useEventStream.ts",
+    "issue": "Every SSE message invalidates the \"cockpit\" query immediately, so a busy event stream can trigger a refetch storm against the API and race constantly with the 8s polling loop.",
+    "fix": "Debounce/batch query invalidations or apply tick events to local state and reserve full refetches for reconnects/coarser intervals.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/priceStore.ts",
+    "issue": "seedTicks() only seeds symbols once and never refreshes existing entries, so if live ticks stop or lag behind polling the UI can display stale prices indefinitely.",
+    "fix": "Overwrite seeded ticks when a newer polled snapshot arrives or track freshness and clear/reseed ticks on each snapshot refresh.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "components/tape/Tape.tsx",
+    "issue": "The status filter checks only row.status, but StatusCell treats entry_triggered as triggered too, so some rows render as TRIGGERED yet disappear from the \"Triggered\" filter.",
+    "fix": "Filter on the same derived status used for display, e.g. row.entry_triggered || row.status === selectedStatus.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "app/Cockpit.tsx",
+    "issue": "Selecting a symbol from Prep or Paper Book only stores the ticker, but the drawer renders only when that ticker exists in data.rows; symbols missing from the live cockpit silently fail to open.",
+    "fix": "Make the drawer load by symbol independently of the live tape row or fetch fallback detail when selectedRow is missing.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "components/drawer/SymbolChart.tsx",
+    "issue": "If lightweight-charts fails to import or initialize, the catch block leaves a blank chart area because render state never switches to an error/empty placeholder.",
+    "fix": "Track chart init failure in component state and render EmptyChart when the dynamic import or chart setup throws.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "medium",
+    "file": "lib/phase.ts",
+    "issue": "The fallback autoPhase heuristic uses only the ET hour, so 09:00-09:29 ET and non-trading days can be mislabeled as live market when metadata is absent.",
+    "fix": "Use full ET session boundaries with minutes and at least a weekday check, or rely on a real market-calendar source for fallback phase detection.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "app/Cockpit.tsx",
+    "issue": "The command-palette actions for \"Flatten all positions\" and \"Trigger scan now\" open confirmations whose onConfirm handlers are empty, so the UI claims to perform controls but always no-ops.",
+    "fix": "Wire those commands to the same api.control handlers used elsewhere or remove/disable them until implemented.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "lib/format.ts",
+    "issue": "changeClass(0) returns \"pos\", causing flat moves and zero P/L to render as green gains throughout the UI.",
+    "fix": "Return \"mut\" for zero and reserve \"pos\" for strictly positive values.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "lib/api.ts",
+    "issue": "The top-bar `paper equity` KPI can never show a value because `api.paper()` hardcodes `equity: null`, and `Cockpit` passes that straight through to `TopBar`.",
+    "fix": "Populate `PaperResponse.equity` from a backend field or derive it from the latest `/api/paper/equity-curve` point before rendering the header.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  },
+  {
+    "severity": "low",
+    "file": "lib/priceStore.ts",
+    "issue": "The global `ticks` map is never pruned, so symbols that fall out of the cockpit universe accumulate for the lifetime of the session.",
+    "fix": "Prune `ticks` against the current symbol set during snapshot seeding or add an explicit cleanup path when the universe changes.",
+    "support": [
+      "codex"
+    ],
+    "against": []
+  }
+]
