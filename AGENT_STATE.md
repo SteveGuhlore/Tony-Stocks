@@ -1,8 +1,36 @@
 ﻿# Agent State / Handoff Log
 
-_Last updated: 2026-06-16_
+_Last updated: 2026-06-18_
 
 Use this file so Codex, Claude, Cursor, or any other agent can continue from the same context when the user switches because of usage limits.
+
+---
+
+## 2026-06-18 — GCP free-trial outage recovery + Alpaca data-feed toggle
+
+The Google Cloud **free trial expired**, which stopped the VM (`trading-stack`) and cut the
+Gemini API — so all 3 dashboards, `cc-runner` (Tony agents/models), and the bot went dark, and
+"no buys" happened. NOT a code issue. User reactivated GCP billing → VM + services back.
+
+Verified healthy (deploy verify + watch logs): `tradingbot-api/web/watch/offhours` + `cc-runner`
+all active; market open; scanner rotating 1773 symbols (500/cycle); Tony agents producing tasks
+today; agreement record live + growing (15/26/35/23). Code green: bot horizon 23/23, CC
+tony_horizon 17/17, tandem e2e 15/18 (3 fails are sandbox-only: no seed data + Phase-7 live-Gemini
+fallback). Local-vs-VM both ends tested.
+
+"Few buys" root cause (investigated in code): NOT data starvation —
+`Entry trigger plans: … missing_real_data=0 no_intraday_trigger=299 pending=147`. Entries are
+**gated on intraday breakout triggers** (by design); they fire through the day (e.g. NTAP filled
+15:38). IEX (free) is thin for some names (BK/MASI stale → correctly skipped) but the scored
+universe (236 primary + 203 spec) had full data.
+
+NEW: `scripts/deploy/set_data_feed.sh [iex|sip|show]` — reversible Alpaca feed toggle (writes
+`ALPACA_DATA_FEED` in /opt/trading-bot/.env + restarts consumers). SIP needs the paid Alpaca
+**Algo Trader Plus** sub — account is NOT subscribed (flip → `HTTP 403 "subscription does not
+permit … SIP"`), so we **reverted to `iex`**. Stay on IEX unless/until that sub is purchased.
+Levers for more entries if ever wanted: SIP coverage, raise position cap, or loosen the intraday
+trigger (strategy change — tune carefully). Finnhub research API is rate-limited (429) but
+non-fatal (cache fallback).
 
 ---
 
